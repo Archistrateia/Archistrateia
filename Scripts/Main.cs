@@ -19,6 +19,7 @@ public partial class Main : Control
     private Label _gameStatusLabel;
     private MapRenderer _mapRenderer;
     private Dictionary<TerrainType, Color> _terrainColors;
+    private int _currentPlayerIndex = 0;
     private const int MAP_WIDTH = 14;
     private const int MAP_HEIGHT = 10;
 
@@ -62,7 +63,6 @@ public partial class Main : Control
         GD.Print($"TurnManager reference: {(TurnManager != null ? "VALID" : "NULL")}");
 
         InitializeTerrainColors();
-        UpdateTitleLabel();
 
         GD.Print("=== MAIN: _Ready() completed ===");
     }
@@ -132,10 +132,6 @@ public partial class Main : Control
         // Initialize game logic after visual map is created
         GD.Print("Initializing GameManager");
         InitializeGameManager();
-
-        // Initialize map renderer for visual units
-        GD.Print("Initializing MapRenderer");
-        InitializeMapRenderer();
 
         GD.Print("Creating Next Phase button");
         _nextPhaseButton = new Button();
@@ -219,14 +215,47 @@ public partial class Main : Control
     {
         _gameManager = new GameManager();
         AddChild(_gameManager);
+        
+        // Use CallDeferred to connect TurnManager after GameManager's _Ready is called
+        CallDeferred(MethodName.ConnectTurnManager);
+        
+        GD.Print("GameManager added to scene, connecting TurnManager deferred");
+    }
+
+    private void ConnectTurnManager()
+    {
+        // Use the GameManager's TurnManager instead of the exported one
+        TurnManager = _gameManager.TurnManager;
+        
         GD.Print("GameManager initialized with players and units");
+        GD.Print($"TurnManager connected: {TurnManager != null}");
+        
+        if (TurnManager != null)
+        {
+            GD.Print($"Current phase: {TurnManager.CurrentPhase}");
+        }
+        
+        // Now initialize MapRenderer with proper TurnManager
+        GD.Print("Initializing MapRenderer with connected TurnManager");
+        InitializeMapRenderer();
     }
 
     private void InitializeMapRenderer()
     {
         _mapRenderer = new MapRenderer();
+        _mapRenderer.Name = "MapRenderer";
         AddChild(_mapRenderer);
         _mapRenderer.Initialize(_gameManager);
+        
+        // Set initial player and phase
+        if (_gameManager.Players.Count > 0)
+        {
+            _mapRenderer.SetCurrentPlayer(_gameManager.Players[_currentPlayerIndex]);
+        }
+        
+        // TurnManager is now guaranteed to be available
+        _mapRenderer.SetCurrentPhase(TurnManager.CurrentPhase);
+        GD.Print($"MapRenderer set to phase: {TurnManager.CurrentPhase}");
         
         CreateVisualUnitsForPlayers();
         GD.Print("MapRenderer initialized with visual units");
@@ -299,11 +328,19 @@ public partial class Main : Control
 
     private void HandlePhaseChange(GamePhase phase)
     {
+        // Update MapRenderer with current phase
+        if (_mapRenderer != null)
+        {
+            _mapRenderer.SetCurrentPhase(phase);
+        }
+
         switch (phase)
         {
             case GamePhase.Earn:
                 GD.Print("=== EARN PHASE: Processing city income ===");
                 _gameManager.ProcessEarnPhase();
+                // Switch to next player at start of new turn
+                SwitchToNextPlayer();
                 break;
             case GamePhase.Purchase:
                 GD.Print("=== PURCHASE PHASE: Players can buy units ===");
@@ -314,10 +351,32 @@ public partial class Main : Control
                 {
                     player.ResetUnitMovement();
                 }
+                // Deselect any units when entering move phase
+                if (_mapRenderer != null)
+                {
+                    _mapRenderer.DeselectAll();
+                }
                 break;
             case GamePhase.Combat:
                 GD.Print("=== COMBAT PHASE: Combat resolution ===");
                 break;
+        }
+    }
+
+    private void SwitchToNextPlayer()
+    {
+        if (_gameManager?.Players.Count > 0)
+        {
+            _currentPlayerIndex = (_currentPlayerIndex + 1) % _gameManager.Players.Count;
+            var currentPlayer = _gameManager.Players[_currentPlayerIndex];
+            
+            GD.Print($"Switched to player: {currentPlayer.Name}");
+            
+            // Update MapRenderer with new current player
+            if (_mapRenderer != null)
+            {
+                _mapRenderer.SetCurrentPlayer(currentPlayer);
+            }
         }
     }
 
@@ -328,7 +387,13 @@ public partial class Main : Control
         // During gameplay, update the game status label instead of title label
         if (_gameStatusLabel != null && TurnManager != null)
         {
-            var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
+            var currentPlayerName = "Unknown";
+            if (_gameManager?.Players.Count > 0 && _currentPlayerIndex < _gameManager.Players.Count)
+            {
+                currentPlayerName = _gameManager.Players[_currentPlayerIndex].Name;
+            }
+            
+            var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName}";
             GD.Print($"Updating game status to: {newText}");
             _gameStatusLabel.Text = newText;
         }
@@ -339,12 +404,26 @@ public partial class Main : Control
             GD.Print($"Updating title to: {newText}");
             TitleLabel.Text = newText;
         }
+        // Initial state - game not started yet
+        else if (TitleLabel != null && TurnManager == null)
+        {
+            GD.Print("Initial state - keeping title as is");
+        }
         else
         {
-            GD.PrintErr($"ERROR: GameStatusLabel is {(_gameStatusLabel == null ? "NULL" : "VALID")}, TitleLabel is {(TitleLabel == null ? "NULL" : "VALID")}, TurnManager is {(TurnManager == null ? "NULL" : "VALID")}");
+            GD.Print($"UpdateTitleLabel called but components not ready: GameStatusLabel={(_gameStatusLabel == null ? "NULL" : "VALID")}, TitleLabel={(TitleLabel == null ? "NULL" : "VALID")}, TurnManager={(TurnManager == null ? "NULL" : "VALID")}");
         }
 
         GD.Print("=== MAIN: UpdateTitleLabel() completed ===");
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        // This should capture ALL input events before they're processed
+        if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
+        {
+            GD.Print($"🔴 _Input: Mouse click detected at {mouseEvent.Position}");
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -361,6 +440,12 @@ public partial class Main : Control
             {
                 GD.PrintErr("ERROR: TurnManager is null on space key press!");
             }
+        }
+        
+        // Debug mouse clicks
+        if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
+        {
+            GD.Print($"🖱️ Global mouse click detected: Button={mouseEvent.ButtonIndex}, Position={mouseEvent.Position}");
         }
     }
 }

@@ -1,9 +1,12 @@
 using Godot;
 
-public partial class VisualUnit : Node2D
+public partial class VisualUnit : Area2D
 {
     public Unit LogicalUnit { get; private set; }
     public bool IsSelected { get; private set; }
+    
+    [Signal]
+    public delegate void UnitClickedEventHandler(VisualUnit visualUnit);
 
     public VisualUnit()
     {
@@ -18,7 +21,74 @@ public partial class VisualUnit : Node2D
     {
         LogicalUnit = logicalUnit;
         Position = position;
+        
+        // Ensure units render on top of hex tiles
+        ZIndex = 10;
+        
+        GD.Print($"🔧 Initializing VisualUnit for {LogicalUnit.Name} at {Position}");
         CreateVisualComponents(color);
+        SetupClickDetection();
+        GD.Print($"✅ VisualUnit {LogicalUnit.Name} fully initialized with ZIndex={ZIndex}");
+    }
+
+    private void SetupClickDetection()
+    {
+        GD.Print($"🎯 Setting up click detection for {LogicalUnit.Name}");
+        
+        // Create collision shape for click detection
+        var collisionShape = new CollisionShape2D();
+        var shape = new CircleShape2D();
+        shape.Radius = 20.0f; // Slightly larger than visual for easier clicking
+        collisionShape.Shape = shape;
+        collisionShape.Name = "ClickCollision";
+        AddChild(collisionShape);
+        GD.Print($"   Added collision shape with radius {shape.Radius}");
+        
+        // Configure Area2D for input
+        InputPickable = true;
+        Monitoring = false;  // We don't need area monitoring
+        Monitorable = false; // We don't need to be monitored
+        GD.Print($"   InputPickable set to {InputPickable}");
+        
+        // Try signal connection
+        Connect("input_event", new Callable(this, MethodName.OnInputEvent));
+        GD.Print($"   input_event signal connected");
+        
+        GD.Print($"🎯 Click detection setup complete for {LogicalUnit.Name}");
+    }
+
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventMouseButton mouseEvent && 
+            mouseEvent.Pressed && 
+            mouseEvent.ButtonIndex == MouseButton.Left)
+        {
+            // Check if the click is within our bounds
+            var localPos = ToLocal(mouseEvent.Position);
+            if (localPos.Length() <= 20.0f) // Within our collision radius
+            {
+                GD.Print($"🟢 _Input: Unit {LogicalUnit.Name} LEFT CLICKED at local {localPos}!");
+                EmitSignal(SignalName.UnitClicked, this);
+                GetViewport().SetInputAsHandled(); // Mark event as handled
+            }
+        }
+    }
+
+    private void OnInputEvent(Node viewport, InputEvent @event, long shapeIdx)
+    {
+        GD.Print($"🔍 Input event received on {LogicalUnit.Name}: {@event.GetType().Name}");
+        
+        if (@event is InputEventMouseButton mouseEvent && 
+            mouseEvent.Pressed && 
+            mouseEvent.ButtonIndex == MouseButton.Left)
+        {
+            GD.Print($"🖱️ Unit {LogicalUnit.Name} LEFT CLICKED! Position: {Position}");
+            EmitSignal(SignalName.UnitClicked, this);
+        }
+        else if (@event is InputEventMouseButton mouseEvent2)
+        {
+            GD.Print($"🖱️ Mouse event on {LogicalUnit.Name}: Pressed={mouseEvent2.Pressed}, Button={mouseEvent2.ButtonIndex}");
+        }
     }
 
     private void CreateVisualComponents(Color color)
