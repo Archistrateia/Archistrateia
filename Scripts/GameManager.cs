@@ -6,14 +6,23 @@ public partial class GameManager : Node
     public TurnManager TurnManager { get; private set; }
     public List<Player> Players { get; private set; } = new List<Player>();
     public Dictionary<Vector2I, HexTile> GameMap { get; private set; } = new Dictionary<Vector2I, HexTile>();
+    private bool _initialized = false;
 
     public override void _Ready()
     {
         InitializeGame();
     }
 
-    private void InitializeGame()
+    public void InitializeGame()
     {
+        if (_initialized)
+        {
+            GD.Print("GameManager already initialized, skipping");
+            return;
+        }
+        
+        _initialized = true;
+        
         TurnManager = new TurnManager();
         AddChild(TurnManager);
 

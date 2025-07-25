@@ -166,18 +166,23 @@ public partial class Main : Control
             for (int y = 0; y < MAP_HEIGHT; y++)
             {
                 var terrainType = GetRandomTerrainType();
-                var tile = CreateHexTile(x, y, terrainType);
-                _mapContainer.AddChild(tile);
+                var worldPosition = HexGridCalculator.CalculateHexPositionCentered(x, y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                var gridPosition = new Vector2I(x, y);
+                
+                var visualTile = new VisualHexTile();
+                visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
+                _mapContainer.AddChild(visualTile);
+                
                 tilesCreated++;
 
                 if (tilesCreated % 25 == 0)
                 {
-                    GD.Print($"Created {tilesCreated} tiles...");
+                    GD.Print($"Created {tilesCreated} visual tiles...");
                 }
             }
         }
 
-        GD.Print($"Generated hex map with {tilesCreated} tiles");
+        GD.Print($"Generated hex map with {tilesCreated} visual tiles");
         GD.Print($"MapContainer now has {_mapContainer.GetChildCount()} children");
         GD.Print("=== MAIN: GenerateMap() completed ===");
     }
@@ -187,28 +192,6 @@ public partial class Main : Control
         var terrainTypes = System.Enum.GetValues<TerrainType>();
         var randomType = terrainTypes[GD.RandRange(0, terrainTypes.Length - 1)];
         return randomType;
-    }
-
-    private Node2D CreateHexTile(int x, int y, TerrainType terrainType)
-    {
-        var tile = new Node2D();
-        tile.Name = $"HexTile_{x}_{y}";
-
-        var hexShape = new Polygon2D();
-        hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
-        hexShape.Color = _terrainColors[terrainType];
-        hexShape.Position = HexGridCalculator.CalculateHexPositionCentered(x, y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-
-        var outline = new Line2D();
-        outline.Points = HexGridCalculator.CreateHexagonVertices();
-        outline.DefaultColor = new Color(0.2f, 0.2f, 0.2f);
-        outline.Width = 2.0f;
-        outline.Position = HexGridCalculator.CalculateHexPositionCentered(x, y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-
-        tile.AddChild(hexShape);
-        tile.AddChild(outline);
-
-        return tile;
     }
 
     private void InitializeGameManager()
@@ -257,8 +240,28 @@ public partial class Main : Control
         _mapRenderer.SetCurrentPhase(TurnManager.CurrentPhase);
         GD.Print($"MapRenderer set to phase: {TurnManager.CurrentPhase}");
         
+        // Register all visual tiles with the MapRenderer
+        RegisterVisualTilesWithMapRenderer();
+        
         CreateVisualUnitsForPlayers();
-        GD.Print("MapRenderer initialized with visual units");
+        GD.Print("MapRenderer initialized with visual units and tiles");
+    }
+
+    private void RegisterVisualTilesWithMapRenderer()
+    {
+        if (_mapContainer == null || _mapRenderer == null) return;
+        
+        int tilesRegistered = 0;
+        foreach (Node child in _mapContainer.GetChildren())
+        {
+            if (child is VisualHexTile visualTile)
+            {
+                _mapRenderer.AddVisualTile(visualTile);
+                tilesRegistered++;
+            }
+        }
+        
+        GD.Print($"🗺️ Registered {tilesRegistered} visual tiles with MapRenderer");
     }
 
     private void CreateVisualUnitsForPlayers()

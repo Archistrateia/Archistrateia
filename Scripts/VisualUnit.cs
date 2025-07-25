@@ -136,52 +136,45 @@ public partial class VisualUnit : Area2D
     public void UpdatePosition(Vector2 newPosition)
     {
         Position = newPosition;
+        GD.Print($"🔄 {LogicalUnit.Name} moved to {newPosition}");
     }
 
     public void SetSelected(bool selected)
     {
-        IsSelected = selected;
-        
         if (selected)
         {
-            CreateSelectionIndicator();
+            // Add thin yellow selection ring outline
+            if (GetNodeOrNull("SelectionRing") == null)
+            {
+                var ring = new Line2D();
+                ring.Points = CreateRingVertices(25.0f); // Slightly larger than unit for visibility
+                ring.DefaultColor = new Color(1.0f, 1.0f, 0.0f, 0.9f); // Yellow outline
+                ring.Width = 3.0f; // Thin line width
+                ring.Name = "SelectionRing";
+                ring.ZIndex = -1; // Behind unit
+                AddChild(ring);
+            }
         }
         else
         {
-            RemoveSelectionIndicator();
+            // Remove selection ring
+            var ring = GetNodeOrNull("SelectionRing");
+            ring?.QueueFree();
         }
     }
 
-    private void CreateSelectionIndicator()
+    private Vector2[] CreateRingVertices(float radius)
     {
-        var existing = GetNodeOrNull<Node2D>("SelectionIndicator");
-        if (existing != null) return;
-
-        var selectionIndicator = new Node2D();
-        selectionIndicator.Name = "SelectionIndicator";
-        
-        var selectionRing = new Line2D();
-        var ringPoints = new Vector2[9];
+        var vertices = new Vector2[9];
         for (int i = 0; i < 8; i++)
         {
             var angle = i * Mathf.Pi / 4.0f;
-            ringPoints[i] = new Vector2(
-                25.0f * Mathf.Cos(angle),
-                25.0f * Mathf.Sin(angle)
+            vertices[i] = new Vector2(
+                radius * Mathf.Cos(angle),
+                radius * Mathf.Sin(angle)
             );
         }
-        ringPoints[8] = ringPoints[0];
-        selectionRing.Points = ringPoints;
-        selectionRing.DefaultColor = new Color(1.0f, 1.0f, 0.0f);
-        selectionRing.Width = 3.0f;
-        
-        selectionIndicator.AddChild(selectionRing);
-        AddChild(selectionIndicator);
-    }
-
-    private void RemoveSelectionIndicator()
-    {
-        var existing = GetNodeOrNull<Node2D>("SelectionIndicator");
-        existing?.QueueFree();
+        vertices[8] = vertices[0];
+        return vertices;
     }
 } 

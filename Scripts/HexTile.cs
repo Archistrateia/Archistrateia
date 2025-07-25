@@ -89,6 +89,12 @@ public partial class HexTile : Node
         return true;
     }
 
+    public void PlaceUnit(Unit unit)
+    {
+        // Place unit without consuming movement points (for setup/testing)
+        OccupyingUnit = unit;
+    }
+
     public void RemoveUnit()
     {
         OccupyingUnit = null;
