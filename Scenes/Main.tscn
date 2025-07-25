@@ -1,0 +1,54 @@
+[gd_scene load_steps=2 format=3 uid="uid://c0yxqx8wt8qju"]
+
+[ext_resource type="Script" uid="uid://baf8by82ndbeh" path="res://Scripts/Main.cs" id="1_elqb8"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_elqb8")
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="UI"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -50.0
+offset_right = 100.0
+offset_bottom = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Archistrateia
+Strategic War Simulation"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StartButton" type="Button" parent="UI"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.503
+anchor_top = 0.576
+anchor_right = 0.503
+anchor_bottom = 0.576
+offset_left = -48.4561
+offset_top = -15.248
+offset_right = 47.5439
+offset_bottom = 15.752
+text = "Start Game
+"
+
+[connection signal="pressed" from="UI/StartButton" to="." method="OnStartButtonPressed"]

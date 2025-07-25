@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqxvn8yqxqxqx"]
+
+[ext_resource type="Script" path="res://Tests/HexGridIntegrationTest.cs" id="1_0x0x0"]
+
+[node name="HexGridIntegrationTestScene" type="Node"]
+
+[node name="HexGridIntegrationTest" type="Node" parent="."]
+script = ExtResource("1_0x0x0") 

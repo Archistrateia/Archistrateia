@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://dmysyh6p8a6o0"]
+
+[ext_resource type="Script" path="res://Tests/TestRunner.cs" id="1_0x0x0"]
+
+[node name="NUnitTestScene" type="Node"]
+
+[node name="TestRunner" type="Node" parent="."]
+script = ExtResource("1_0x0x0") 
