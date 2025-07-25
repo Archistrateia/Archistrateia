@@ -13,10 +13,13 @@ public partial class Main : Control
     [Export]
     public Button StartButton { get; set; }
 
+    private GameManager _gameManager;
     private Button _nextPhaseButton;
     private Node2D _mapContainer;
+    private Label _gameStatusLabel;
+    private MapRenderer _mapRenderer;
     private Dictionary<TerrainType, Color> _terrainColors;
-    private const int MAP_WIDTH = 10;
+    private const int MAP_WIDTH = 14;
     private const int MAP_HEIGHT = 10;
 
     public override void _Ready()
@@ -109,12 +112,35 @@ public partial class Main : Control
             GD.PrintErr("ERROR: StartButton is still null!");
         }
 
+        // Hide title label when game starts (standard approach)
+        if (TitleLabel != null)
+        {
+            GD.Print("Hiding TitleLabel");
+            TitleLabel.Visible = false;
+        }
+
+        // Create dedicated game status label
+        _gameStatusLabel = new Label();
+        _gameStatusLabel.Text = "Turn 1 - Movement";
+        _gameStatusLabel.Position = new Vector2(10, 10);
+        AddChild(_gameStatusLabel);
+        GD.Print("Game status label created");
+
         GD.Print("Calling GenerateMap()");
         GenerateMap();
+
+        // Initialize game logic after visual map is created
+        GD.Print("Initializing GameManager");
+        InitializeGameManager();
+
+        // Initialize map renderer for visual units
+        GD.Print("Initializing MapRenderer");
+        InitializeMapRenderer();
 
         GD.Print("Creating Next Phase button");
         _nextPhaseButton = new Button();
         _nextPhaseButton.Text = "Next Phase";
+        _nextPhaseButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
         _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
         AddChild(_nextPhaseButton);
         GD.Print("Next Phase button added to scene");
@@ -189,7 +215,62 @@ public partial class Main : Control
         return tile;
     }
 
+    private void InitializeGameManager()
+    {
+        _gameManager = new GameManager();
+        AddChild(_gameManager);
+        GD.Print("GameManager initialized with players and units");
+    }
 
+    private void InitializeMapRenderer()
+    {
+        _mapRenderer = new MapRenderer();
+        AddChild(_mapRenderer);
+        _mapRenderer.Initialize(_gameManager);
+        
+        CreateVisualUnitsForPlayers();
+        GD.Print("MapRenderer initialized with visual units");
+    }
+
+    private void CreateVisualUnitsForPlayers()
+    {
+        if (_gameManager == null || _mapRenderer == null) return;
+
+        foreach (var player in _gameManager.Players)
+        {
+            var playerColor = player.Name == "Pharaoh" ? new Color(0.8f, 0.2f, 0.2f) : new Color(0.2f, 0.2f, 0.8f);
+            
+            foreach (var unit in player.Units)
+            {
+                var logicalTile = FindLogicalTileWithUnit(unit);
+                if (logicalTile != null)
+                {
+                    var worldPosition = HexGridCalculator.CalculateHexPositionCentered(
+                        logicalTile.Position.X, 
+                        logicalTile.Position.Y, 
+                        GetViewport().GetVisibleRect().Size, 
+                        MAP_WIDTH, 
+                        MAP_HEIGHT
+                    );
+                    
+                    _mapRenderer.CreateVisualUnit(unit, worldPosition, playerColor);
+                    GD.Print($"Created visual unit for {unit.Name} at ({logicalTile.Position.X}, {logicalTile.Position.Y})");
+                }
+            }
+        }
+    }
+
+    private HexTile FindLogicalTileWithUnit(Unit unit)
+    {
+        foreach (var kvp in _gameManager.GameMap)
+        {
+            if (kvp.Value.OccupyingUnit == unit)
+            {
+                return kvp.Value;
+            }
+        }
+        return null;
+    }
 
     private void OnNextPhaseButtonPressed()
     {
@@ -200,6 +281,12 @@ public partial class Main : Control
         {
             GD.Print("Advancing phase via TurnManager");
             TurnManager.AdvancePhase();
+            
+            // Handle phase-specific actions with GameManager
+            if (_gameManager != null)
+            {
+                HandlePhaseChange(TurnManager.CurrentPhase);
+            }
         }
         else
         {
@@ -210,11 +297,43 @@ public partial class Main : Control
         GD.Print("=== MAIN: OnNextPhaseButtonPressed() completed ===");
     }
 
+    private void HandlePhaseChange(GamePhase phase)
+    {
+        switch (phase)
+        {
+            case GamePhase.Earn:
+                GD.Print("=== EARN PHASE: Processing city income ===");
+                _gameManager.ProcessEarnPhase();
+                break;
+            case GamePhase.Purchase:
+                GD.Print("=== PURCHASE PHASE: Players can buy units ===");
+                break;
+            case GamePhase.Move:
+                GD.Print("=== MOVE PHASE: Units can move ===");
+                foreach (var player in _gameManager.Players)
+                {
+                    player.ResetUnitMovement();
+                }
+                break;
+            case GamePhase.Combat:
+                GD.Print("=== COMBAT PHASE: Combat resolution ===");
+                break;
+        }
+    }
+
     private void UpdateTitleLabel()
     {
         GD.Print("=== MAIN: UpdateTitleLabel() called ===");
 
-        if (TitleLabel != null && TurnManager != null)
+        // During gameplay, update the game status label instead of title label
+        if (_gameStatusLabel != null && TurnManager != null)
+        {
+            var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
+            GD.Print($"Updating game status to: {newText}");
+            _gameStatusLabel.Text = newText;
+        }
+        // On title screen, update the title label
+        else if (TitleLabel != null && TurnManager != null)
         {
             var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
             GD.Print($"Updating title to: {newText}");
@@ -222,7 +341,7 @@ public partial class Main : Control
         }
         else
         {
-            GD.PrintErr($"ERROR: TitleLabel is {(TitleLabel == null ? "NULL" : "VALID")}, TurnManager is {(TurnManager == null ? "NULL" : "VALID")}");
+            GD.PrintErr($"ERROR: GameStatusLabel is {(_gameStatusLabel == null ? "NULL" : "VALID")}, TitleLabel is {(TitleLabel == null ? "NULL" : "VALID")}, TurnManager is {(TurnManager == null ? "NULL" : "VALID")}");
         }
 
         GD.Print("=== MAIN: UpdateTitleLabel() completed ===");
