@@ -13,6 +13,10 @@ namespace Archistrateia.Tests
         [Test]
         public void TestFlatTopConstants()
         {
+            // Reset zoom factor to 1.0 for consistent test behavior
+            HexGridCalculator.SetZoom(1.0f);
+            GD.Print($"TestFlatTopConstants: Current zoom factor is {HexGridCalculator.ZoomFactor}");
+            
             // Flat-top spacing constants
             float horizontalSpacing = HEX_WIDTH * 0.75f;
             float verticalSpacing = HEX_HEIGHT;
@@ -26,16 +30,20 @@ namespace Archistrateia.Tests
         [Test]
         public void TestFlatTopPositioning_EvenColumns()
         {
+            // Reset zoom factor to 1.0 for consistent test behavior
+            HexGridCalculator.SetZoom(1.0f);
+            GD.Print($"TestFlatTopPositioning_EvenColumns: Current zoom factor is {HexGridCalculator.ZoomFactor}");
+            
             // Even columns should align normally
-            var position = CalculateFlatTopPosition(0, 0);
+            var position = HexGridCalculator.CalculateHexPosition(0, 0);
             Assert.AreEqual(0, position.X, 0.001f, "X position for (0,0) should be 0");
             Assert.AreEqual(0, position.Y, 0.001f, "Y position for (0,0) should be 0");
 
-            position = CalculateFlatTopPosition(0, 1);
+            position = HexGridCalculator.CalculateHexPosition(0, 1);
             Assert.AreEqual(0, position.X, 0.001f, "X position for (0,1) should be 0");
             Assert.AreEqual(HEX_HEIGHT, position.Y, 0.001f, "Y position for (0,1) should be HEX_HEIGHT");
 
-            position = CalculateFlatTopPosition(0, 2);
+            position = HexGridCalculator.CalculateHexPosition(0, 2);
             Assert.AreEqual(0, position.X, 0.001f, "X position for (0,2) should be 0");
             Assert.AreEqual(HEX_HEIGHT * 2, position.Y, 0.001f, "Y position for (0,2) should be 2 * HEX_HEIGHT");
         }
@@ -43,16 +51,20 @@ namespace Archistrateia.Tests
         [Test]
         public void TestFlatTopPositioning_OddColumns()
         {
+            // Reset zoom factor to 1.0 for consistent test behavior
+            HexGridCalculator.SetZoom(1.0f);
+            GD.Print($"TestFlatTopPositioning_OddColumns: Current zoom factor is {HexGridCalculator.ZoomFactor}");
+            
             // Odd columns should be offset down by HEX_HEIGHT * 0.5
-            var position = CalculateFlatTopPosition(1, 0);
+            var position = HexGridCalculator.CalculateHexPosition(1, 0);
             Assert.AreEqual(HEX_WIDTH * 0.75f, position.X, 0.001f, "X position for (1,0) should be HEX_WIDTH * 0.75");
             Assert.AreEqual(HEX_HEIGHT * 0.5f, position.Y, 0.001f, "Y position for (1,0) should be HEX_HEIGHT * 0.5");
 
-            position = CalculateFlatTopPosition(1, 1);
+            position = HexGridCalculator.CalculateHexPosition(1, 1);
             Assert.AreEqual(HEX_WIDTH * 0.75f, position.X, 0.001f, "X position for (1,1) should be HEX_WIDTH * 0.75");
             Assert.AreEqual(HEX_HEIGHT * 1.5f, position.Y, 0.001f, "Y position for (1,1) should be HEX_HEIGHT * 1.5");
 
-            position = CalculateFlatTopPosition(1, 2);
+            position = HexGridCalculator.CalculateHexPosition(1, 2);
             Assert.AreEqual(HEX_WIDTH * 0.75f, position.X, 0.001f, "X position for (1,2) should be HEX_WIDTH * 0.75");
             Assert.AreEqual(HEX_HEIGHT * 2.5f, position.Y, 0.001f, "Y position for (1,2) should be HEX_HEIGHT * 2.5");
         }
@@ -60,16 +72,20 @@ namespace Archistrateia.Tests
         [Test]
         public void TestFlatTopPositioning_MixedColumns()
         {
+            // Reset zoom factor to 1.0 for consistent test behavior
+            HexGridCalculator.SetZoom(1.0f);
+            GD.Print($"TestFlatTopPositioning_MixedColumns: Current zoom factor is {HexGridCalculator.ZoomFactor}");
+            
             // Test the flat-top pattern across multiple columns
-            var position = CalculateFlatTopPosition(2, 0);
+            var position = HexGridCalculator.CalculateHexPosition(2, 0);
             Assert.AreEqual(HEX_WIDTH * 1.5f, position.X, 0.001f, "X position for (2,0) should be HEX_WIDTH * 1.5 (even column)");
             Assert.AreEqual(0, position.Y, 0.001f, "Y position for (2,0) should be 0");
 
-            position = CalculateFlatTopPosition(2, 1);
+            position = HexGridCalculator.CalculateHexPosition(2, 1);
             Assert.AreEqual(HEX_WIDTH * 1.5f, position.X, 0.001f, "X position for (2,1) should be HEX_WIDTH * 1.5 (even column)");
             Assert.AreEqual(HEX_HEIGHT, position.Y, 0.001f, "Y position for (2,1) should be HEX_HEIGHT");
 
-            position = CalculateFlatTopPosition(3, 0);
+            position = HexGridCalculator.CalculateHexPosition(3, 0);
             Assert.AreEqual(HEX_WIDTH * 2.25f, position.X, 0.001f, "X position for (3,0) should be HEX_WIDTH * 2.25 (odd column)");
             Assert.AreEqual(HEX_HEIGHT * 0.5f, position.Y, 0.001f, "Y position for (3,0) should be HEX_HEIGHT * 0.5");
         }
@@ -77,10 +93,14 @@ namespace Archistrateia.Tests
         [Test]
         public void TestFlatTopTessellation()
         {
+            // Reset zoom factor to 1.0 for consistent test behavior
+            HexGridCalculator.SetZoom(1.0f);
+            GD.Print($"TestFlatTopTessellation: Current zoom factor is {HexGridCalculator.ZoomFactor}");
+            
             // Test that adjacent hexagons are properly spaced in flat-top layout
-            var center = CalculateFlatTopPosition(0, 0);
-            var right = CalculateFlatTopPosition(1, 0);
-            var down = CalculateFlatTopPosition(0, 1);
+            var center = HexGridCalculator.CalculateHexPosition(0, 0);
+            var right = HexGridCalculator.CalculateHexPosition(1, 0);
+            var down = HexGridCalculator.CalculateHexPosition(0, 1);
             
             // Distance between horizontally adjacent hexes (accounting for vertical offset)
             // Right hex is at (52.5, 30.31), center is at (0, 0)
@@ -93,12 +113,6 @@ namespace Archistrateia.Tests
             float expectedVerticalDistance = HEX_HEIGHT;
             float actualVerticalDistance = center.DistanceTo(down);
             Assert.AreEqual(expectedVerticalDistance, actualVerticalDistance, 0.1f, "Distance to down neighbor should be HEX_HEIGHT");
-        }
-
-        private Vector2 CalculateFlatTopPosition(int x, int y)
-        {
-            // Use the actual HexGridCalculator implementation (now with flat-top formula)
-            return HexGridCalculator.CalculateHexPosition(x, y);
         }
     }
 }

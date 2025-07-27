@@ -33,22 +33,13 @@ public partial class MapRenderer : Node2D
 
     public VisualUnit CreateVisualUnit(Unit logicalUnit, Vector2 position, Color color)
     {
-        GD.Print($"🏗️ Creating visual unit for {logicalUnit.Name} at {position}");
-        
         var visualUnit = new VisualUnit();
         AddChild(visualUnit);
-        GD.Print($"   Added VisualUnit as child to MapRenderer");
         
         visualUnit.Initialize(logicalUnit, position, color);
         visualUnit.UnitClicked += OnUnitClicked;
-        GD.Print($"   Connected UnitClicked signal");
         
         _visualUnits.Add(visualUnit);
-        GD.Print($"   Added to _visualUnits list. Total units: {_visualUnits.Count}");
-        
-        // Debug the scene tree structure
-        GD.Print($"   VisualUnit scene path: {visualUnit.GetPath()}");
-        GD.Print($"   VisualUnit children count: {visualUnit.GetChildCount()}");
         
         return visualUnit;
     }
@@ -99,22 +90,12 @@ public partial class MapRenderer : Node2D
     private void UpdateVisualSelection()
     {
         var selectedUnit = _interactionLogic.GetSelectedUnit();
-        GD.Print($"🔄 Updating visual selection. Selected unit: {selectedUnit?.Name ?? "NONE"}");
         
         // Update visual state for all units
         foreach (var visualUnit in _visualUnits)
         {
             var isSelected = visualUnit.LogicalUnit == selectedUnit;
             visualUnit.SetSelected(isSelected);
-            
-            if (isSelected)
-            {
-                GD.Print($"   🔵 {visualUnit.LogicalUnit.Name} - SELECTED (showing ring)");
-            }
-            else
-            {
-                GD.Print($"   ⚪ {visualUnit.LogicalUnit.Name} - deselected");
-            }
         }
     }
 
@@ -142,71 +123,64 @@ public partial class MapRenderer : Node2D
         _movementCoordinator.ClearSelection();
         UpdateVisualSelection();
         ClearAllHighlights();
-        GD.Print("🔄 Deselected all units and cleared highlights");
     }
 
     public void AddVisualTile(VisualHexTile visualTile)
     {
         _visualTiles[visualTile.GridPosition] = visualTile;
         visualTile.TileClicked += OnTileClicked;
-        GD.Print($"🗺️ Added visual tile at {visualTile.GridPosition}");
     }
 
     private void OnTileClicked(VisualHexTile clickedTile)
     {
-        GD.Print($"🎯 MapRenderer: OnTileClicked called for tile at {clickedTile.GridPosition}");
-        
         if (_currentPhase != GamePhase.Move)
         {
-            GD.Print($"❌ Not in Move phase (current: {_currentPhase}) - ignoring tile click");
             return;
         }
 
         var selectedUnit = _interactionLogic.GetSelectedUnit();
         if (selectedUnit == null)
         {
-            GD.Print("❌ No unit selected - ignoring tile click");
             return;
         }
 
-        GD.Print($"🎯 Unit {selectedUnit.Name} is selected, attempting movement...");
+        // Check if unit has any movement points left
+        if (selectedUnit.CurrentMovementPoints <= 0)
+        {
+            DeselectAll();
+            return;
+        }
 
         // Find the unit's current position
         var unitPosition = FindUnitPosition(selectedUnit);
         if (unitPosition == null)
         {
-            GD.Print("❌ Could not find unit position in game map");
             return;
         }
-
-        GD.Print($"🎯 Attempting to move {selectedUnit.Name} from {unitPosition} to {clickedTile.GridPosition}");
 
         // Try to move the unit
         var moveResult = _movementCoordinator.TryMoveToDestination(unitPosition.Value, clickedTile.GridPosition, GameManager.GameMap);
         
         if (moveResult.Success)
         {
-            GD.Print($"✅ Movement successful! Unit moved to {moveResult.NewPosition}");
-            
             // Update visual unit position
             var visualUnit = FindVisualUnit(selectedUnit);
             if (visualUnit != null)
             {
                 var newWorldPosition = _visualTiles[clickedTile.GridPosition].Position;
                 visualUnit.UpdatePosition(newWorldPosition);
-                GD.Print($"🔄 Updated visual unit position to {newWorldPosition}");
+            }
+            
+            // Check movement points AFTER the move
+            if (selectedUnit.CurrentMovementPoints > 0)
+            {
+                // Force recalculation from the new position with remaining movement points
+                ShowValidMovementDestinations(selectedUnit);
             }
             else
             {
-                GD.PrintErr("❌ Could not find visual unit for movement update");
+                DeselectAll();
             }
-            
-            // Clear selection and highlights after successful move
-            DeselectAll();
-        }
-        else
-        {
-            GD.Print($"❌ Movement failed: {moveResult.ErrorMessage}");
         }
     }
 
@@ -252,27 +226,46 @@ public partial class MapRenderer : Node2D
         ClearAllHighlights();
         
         var unitPosition = FindUnitPosition(selectedUnit);
-        if (unitPosition == null) return;
+        if (unitPosition == null) 
+        {
+            return;
+        }
 
         _movementCoordinator.SelectUnitForMovement(selectedUnit);
         var validDestinations = _movementCoordinator.GetValidDestinations(unitPosition.Value, GameManager.GameMap);
         
-        GD.Print($"🎯 Creating high contrast for {validDestinations.Count} valid destinations");
-        
-        // Gray out all tiles first for dark background
-        foreach (var tile in _visualTiles.Values)
+        // Only apply highlighting if there are valid destinations
+        if (validDestinations.Count > 0)
         {
-            tile.SetGrayed(true);
-        }
-        
-        // Brighten valid destination tiles for maximum contrast
-        foreach (var destination in validDestinations)
-        {
-            if (_visualTiles.ContainsKey(destination))
+            // Gray out all tiles first for dark background
+            foreach (var tile in _visualTiles.Values)
             {
-                _visualTiles[destination].SetGrayed(false);      // Remove dark overlay
-                _visualTiles[destination].SetBrightened(true);   // Add bright overlay
+                tile.SetGrayed(true);
+            }
+            
+            // Brighten valid destination tiles for maximum contrast
+            foreach (var destination in validDestinations)
+            {
+                if (_visualTiles.ContainsKey(destination))
+                {
+                    _visualTiles[destination].SetGrayed(false);      // Remove dark overlay
+                    _visualTiles[destination].SetBrightened(true);   // Add bright overlay
+                }
             }
         }
+    }
+    
+    private List<Vector2I> GetAdjacentPositions(Vector2I position)
+    {
+        // Hex grid adjacency calculation
+        return new List<Vector2I>
+        {
+            new Vector2I(position.X + 1, position.Y),     // East
+            new Vector2I(position.X - 1, position.Y),     // West
+            new Vector2I(position.X, position.Y + 1),     // South
+            new Vector2I(position.X, position.Y - 1),     // North
+            new Vector2I(position.X + 1, position.Y - 1), // NorthEast
+            new Vector2I(position.X - 1, position.Y + 1)  // SouthWest
+        };
     }
 } 

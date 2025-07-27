@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using Archistrateia;
 
 public partial class GameManager : Node
 {
@@ -46,9 +47,9 @@ public partial class GameManager : Node
 
     private void CreateGameMap()
     {
-        for (int x = 0; x < 8; x++)
+        for (int x = 0; x < MapConfiguration.MAP_WIDTH; x++)
         {
-            for (int y = 0; y < 6; y++)
+            for (int y = 0; y < MapConfiguration.MAP_HEIGHT; y++)
             {
                 var position = new Vector2I(x, y);
                 var terrainType = GetRandomTerrainType();

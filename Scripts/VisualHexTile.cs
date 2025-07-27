@@ -18,8 +18,6 @@ public partial class VisualHexTile : Area2D
         
         CreateVisualComponents(color);
         SetupClickDetection();
-        
-        GD.Print($"🔷 VisualHexTile created at grid {gridPosition} world {worldPosition}");
     }
 
     private void CreateVisualComponents(Color color)
@@ -60,13 +58,55 @@ public partial class VisualHexTile : Area2D
         Connect("input_event", new Callable(this, MethodName.OnInputEvent));
     }
 
+    public void UpdateVisualComponents()
+    {
+        // Update hex shape vertices
+        var hexShape = GetNode<Polygon2D>("HexShape");
+        if (hexShape != null)
+        {
+            hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
+        }
+
+        // Update outline vertices
+        var outline = GetNode<Line2D>("HexOutline");
+        if (outline != null)
+        {
+            outline.Points = HexGridCalculator.CreateHexagonVertices();
+        }
+
+        // Update collision shape
+        var collisionShape = GetNode<CollisionShape2D>("TileClickArea");
+        if (collisionShape != null && collisionShape.Shape is ConvexPolygonShape2D polygonShape)
+        {
+            polygonShape.Points = HexGridCalculator.CreateHexagonVertices();
+        }
+
+        // Update any overlay vertices
+        var highlightOverlay = GetNodeOrNull<Polygon2D>("HighlightOverlay");
+        if (highlightOverlay != null)
+        {
+            highlightOverlay.Polygon = HexGridCalculator.CreateHexagonVertices();
+        }
+
+        var grayOverlay = GetNodeOrNull<Polygon2D>("GrayOverlay");
+        if (grayOverlay != null)
+        {
+            grayOverlay.Polygon = HexGridCalculator.CreateHexagonVertices();
+        }
+
+        var brightOverlay = GetNodeOrNull<Polygon2D>("BrightOverlay");
+        if (brightOverlay != null)
+        {
+            brightOverlay.Polygon = HexGridCalculator.CreateHexagonVertices();
+        }
+    }
+
     private void OnInputEvent(Node viewport, InputEvent @event, long shapeIdx)
     {
         if (@event is InputEventMouseButton mouseEvent && 
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
-            GD.Print($"🔷 Tile {GridPosition} clicked via Area2D collision");
             EmitSignal(SignalName.TileClicked, this);
         }
     }
@@ -83,7 +123,6 @@ public partial class VisualHexTile : Area2D
             // Check if the click is within this tile's hexagon
             if (IsPointInHexagon(localPos))
             {
-                GD.Print($"🔷 Tile {GridPosition} clicked at local {localPos}");
                 EmitSignal(SignalName.TileClicked, this);
                 GetViewport().SetInputAsHandled();
             }
@@ -133,9 +172,13 @@ public partial class VisualHexTile : Area2D
         }
         else
         {
-            // Remove highlight overlay
+            // Remove highlight overlay IMMEDIATELY
             var overlay = GetNodeOrNull("HighlightOverlay");
-            overlay?.QueueFree();
+            if (overlay != null)
+            {
+                RemoveChild(overlay);
+                overlay.QueueFree();
+            }
         }
     }
 
@@ -149,7 +192,7 @@ public partial class VisualHexTile : Area2D
             {
                 var overlay = new Polygon2D();
                 overlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-                overlay.Color = new Color(0.1f, 0.1f, 0.1f, 0.75f); // Much darker gray overlay with higher opacity
+                overlay.Color = new Color(0.0f, 0.0f, 0.0f, 0.85f); // Almost black overlay for maximum contrast
                 overlay.Name = "GrayOverlay";
                 overlay.ZIndex = 2; // Above highlight but below units
                 AddChild(overlay);
@@ -157,9 +200,13 @@ public partial class VisualHexTile : Area2D
         }
         else
         {
-            // Remove gray overlay
+            // Remove gray overlay IMMEDIATELY to fix timing issues
             var overlay = GetNodeOrNull("GrayOverlay");
-            overlay?.QueueFree();
+            if (overlay != null)
+            {
+                RemoveChild(overlay);
+                overlay.QueueFree(); // Still queue for cleanup, but remove from tree immediately
+            }
         }
     }
 
@@ -167,12 +214,12 @@ public partial class VisualHexTile : Area2D
     {
         if (brightened)
         {
-            // Add a subtle bright overlay to make valid tiles more prominent
+            // Add a much more prominent bright overlay for maximum visibility
             if (GetNodeOrNull("BrightOverlay") == null)
             {
                 var overlay = new Polygon2D();
                 overlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-                overlay.Color = new Color(1.0f, 1.0f, 1.0f, 0.2f); // Bright white overlay for contrast
+                overlay.Color = new Color(1.0f, 1.0f, 0.8f, 0.6f); // Bright yellow-white overlay with higher opacity
                 overlay.Name = "BrightOverlay";
                 overlay.ZIndex = 1; // Below gray overlay
                 AddChild(overlay);
@@ -180,9 +227,13 @@ public partial class VisualHexTile : Area2D
         }
         else
         {
-            // Remove bright overlay
+            // Remove bright overlay IMMEDIATELY to fix timing issues
             var overlay = GetNodeOrNull("BrightOverlay");
-            overlay?.QueueFree();
+            if (overlay != null)
+            {
+                RemoveChild(overlay);
+                overlay.QueueFree(); // Still queue for cleanup, but remove from tree immediately
+            }
         }
     }
 } 

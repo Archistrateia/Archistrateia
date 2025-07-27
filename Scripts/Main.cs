@@ -20,56 +20,37 @@ public partial class Main : Control
     private MapRenderer _mapRenderer;
     private Dictionary<TerrainType, Color> _terrainColors;
     private int _currentPlayerIndex = 0;
-    private const int MAP_WIDTH = 14;
-    private const int MAP_HEIGHT = 10;
+    
+    // Zoom control UI elements
+    private HSlider _zoomSlider;
+    private Button _zoomInButton;
+    private Button _zoomOutButton;
+    private Button _resetZoomButton;
+    private Label _zoomLabel;
+    
+    // Map dimensions come from centralized configuration
+    private int MAP_WIDTH => MapConfiguration.MAP_WIDTH;
+    private int MAP_HEIGHT => MapConfiguration.MAP_HEIGHT;
 
     public override void _Ready()
     {
-        GD.Print("=== MAIN: _Ready() called ===");
-        GD.Print("🚀 NEW VERSION OF MAIN.CS IS LOADED! 🚀");
-        GD.Print($"Main loaded. Node path: {GetPath()}");
-
         // Try to find UI elements if references are null
         if (StartButton == null)
         {
-            GD.Print("StartButton reference is null, trying to find it...");
             StartButton = GetNodeOrNull<Button>("UI/StartButton");
-            if (StartButton != null)
-            {
-                GD.Print("Found StartButton in scene!");
-            }
-            else
-            {
-                GD.PrintErr("ERROR: Could not find StartButton in scene!");
-            }
         }
 
         if (TitleLabel == null)
         {
-            GD.Print("TitleLabel reference is null, trying to find it...");
             TitleLabel = GetNodeOrNull<Label>("UI/TitleLabel");
-            if (TitleLabel != null)
-            {
-                GD.Print("Found TitleLabel in scene!");
-            }
-            else
-            {
-                GD.PrintErr("ERROR: Could not find TitleLabel in scene!");
-            }
         }
 
-        GD.Print($"StartButton reference: {(StartButton != null ? "VALID" : "NULL")}");
-        GD.Print($"TitleLabel reference: {(TitleLabel != null ? "VALID" : "NULL")}");
-        GD.Print($"TurnManager reference: {(TurnManager != null ? "VALID" : "NULL")}");
-
         InitializeTerrainColors();
-
-        GD.Print("=== MAIN: _Ready() completed ===");
+        CreateZoomControls();
     }
 
     private void InitializeTerrainColors()
     {
-        GD.Print("=== MAIN: InitializeTerrainColors() called ===");
         _terrainColors = new Dictionary<TerrainType, Color>
         {
             { TerrainType.Desert, new Color(0.9f, 0.8f, 0.6f) },
@@ -78,87 +59,145 @@ public partial class Main : Control
             { TerrainType.Shoreline, new Color(0.8f, 0.7f, 0.5f) },
             { TerrainType.Lagoon, new Color(0.2f, 0.5f, 0.7f) }
         };
-        GD.Print($"Initialized {_terrainColors.Count} terrain colors");
-        GD.Print("=== MAIN: InitializeTerrainColors() completed ===");
+    }
+
+    private void CreateZoomControls()
+    {
+        // Create a container for zoom controls
+        var zoomContainer = new VBoxContainer();
+        zoomContainer.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 200, 10);
+        zoomContainer.Size = new Vector2(180, 120);
+        AddChild(zoomContainer);
+
+        // Zoom label
+        _zoomLabel = new Label();
+        _zoomLabel.Text = "Zoom: 1.0x";
+        _zoomLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        zoomContainer.AddChild(_zoomLabel);
+
+        // Zoom slider
+        _zoomSlider = new HSlider();
+        _zoomSlider.MinValue = 0.1f;
+        _zoomSlider.MaxValue = 3.0f;
+        _zoomSlider.Value = 1.0f;
+        _zoomSlider.Step = 0.1f;
+        _zoomSlider.ValueChanged += OnZoomSliderChanged;
+        zoomContainer.AddChild(_zoomSlider);
+
+        // Zoom buttons container
+        var buttonContainer = new HBoxContainer();
+        zoomContainer.AddChild(buttonContainer);
+
+        // Zoom out button
+        _zoomOutButton = new Button();
+        _zoomOutButton.Text = "-";
+        _zoomOutButton.Size = new Vector2(40, 30);
+        _zoomOutButton.Pressed += OnZoomOutPressed;
+        buttonContainer.AddChild(_zoomOutButton);
+
+        // Reset zoom button
+        _resetZoomButton = new Button();
+        _resetZoomButton.Text = "Reset";
+        _resetZoomButton.Size = new Vector2(60, 30);
+        _resetZoomButton.Pressed += OnResetZoomPressed;
+        buttonContainer.AddChild(_resetZoomButton);
+
+        // Zoom in button
+        _zoomInButton = new Button();
+        _zoomInButton.Text = "+";
+        _zoomInButton.Size = new Vector2(40, 30);
+        _zoomInButton.Pressed += OnZoomInPressed;
+        buttonContainer.AddChild(_zoomInButton);
+    }
+
+    private void OnZoomSliderChanged(double value)
+    {
+        HexGridCalculator.SetZoom((float)value);
+        RegenerateMapWithCurrentZoom();
+        UpdateTitleLabel();
+        UpdateZoomLabel();
+    }
+
+    private void OnZoomInPressed()
+    {
+        HexGridCalculator.ZoomIn();
+        _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+        RegenerateMapWithCurrentZoom();
+        UpdateTitleLabel();
+        UpdateZoomLabel();
+    }
+
+    private void OnZoomOutPressed()
+    {
+        HexGridCalculator.ZoomOut();
+        _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+        RegenerateMapWithCurrentZoom();
+        UpdateTitleLabel();
+        UpdateZoomLabel();
+    }
+
+    private void OnResetZoomPressed()
+    {
+        HexGridCalculator.SetZoom(1.0f);
+        _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+        RegenerateMapWithCurrentZoom();
+        UpdateTitleLabel();
+        UpdateZoomLabel();
+    }
+
+    private void UpdateZoomLabel()
+    {
+        if (_zoomLabel != null)
+        {
+            _zoomLabel.Text = $"Zoom: {HexGridCalculator.ZoomFactor:F1}x";
+        }
     }
 
     public void OnStartButtonPressed()
     {
-        GD.Print("=== MAIN: OnStartButtonPressed() called ===");
-        GD.Print("Start Button Pressed. Game Starting...");
-
         // Try to find StartButton if reference is null
         if (StartButton == null)
         {
-            GD.Print("StartButton reference is null, trying to find it...");
             StartButton = GetNodeOrNull<Button>("UI/StartButton");
-            if (StartButton != null)
-            {
-                GD.Print("Found StartButton in scene!");
-            }
-            else
-            {
-                GD.PrintErr("ERROR: Could not find StartButton in scene!");
-            }
         }
 
         if (StartButton != null)
         {
-            GD.Print("Hiding StartButton");
             StartButton.Visible = false;
         }
-        else
-        {
-            GD.PrintErr("ERROR: StartButton is still null!");
-        }
 
-        // Hide title label when game starts (standard approach)
+        // Hide title label when game starts
         if (TitleLabel != null)
         {
-            GD.Print("Hiding TitleLabel");
             TitleLabel.Visible = false;
         }
 
         // Create dedicated game status label
         _gameStatusLabel = new Label();
-        _gameStatusLabel.Text = "Turn 1 - Movement";
         _gameStatusLabel.Position = new Vector2(10, 10);
         AddChild(_gameStatusLabel);
-        GD.Print("Game status label created");
 
-        GD.Print("Calling GenerateMap()");
         GenerateMap();
-
-        // Initialize game logic after visual map is created
-        GD.Print("Initializing GameManager");
         InitializeGameManager();
 
-        GD.Print("Creating Next Phase button");
+        // Create Next Phase button
         _nextPhaseButton = new Button();
         _nextPhaseButton.Text = "Next Phase";
         _nextPhaseButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
         _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
         AddChild(_nextPhaseButton);
-        GD.Print("Next Phase button added to scene");
-
-        GD.Print("=== MAIN: OnStartButtonPressed() completed ===");
     }
 
     private void GenerateMap()
     {
-        GD.Print("=== MAIN: GenerateMap() called ===");
-
         if (_mapContainer != null)
         {
-            GD.Print("Clearing existing map container");
             _mapContainer.QueueFree();
         }
 
-        GD.Print("Creating new map container");
         _mapContainer = new Node2D();
         _mapContainer.Name = "MapContainer";
         AddChild(_mapContainer);
-        GD.Print($"MapContainer added to scene at path: {_mapContainer.GetPath()}");
 
         int tilesCreated = 0;
         for (int x = 0; x < MAP_WIDTH; x++)
@@ -174,17 +213,61 @@ public partial class Main : Control
                 _mapContainer.AddChild(visualTile);
                 
                 tilesCreated++;
-
-                if (tilesCreated % 25 == 0)
-                {
-                    GD.Print($"Created {tilesCreated} visual tiles...");
-                }
             }
         }
 
-        GD.Print($"Generated hex map with {tilesCreated} visual tiles");
-        GD.Print($"MapContainer now has {_mapContainer.GetChildCount()} children");
-        GD.Print("=== MAIN: GenerateMap() completed ===");
+        GD.Print($"Generated hex map with {tilesCreated} tiles");
+    }
+
+    private void RegenerateMapWithCurrentZoom()
+    {
+        if (_mapContainer != null)
+        {
+            // Update all existing tiles' visual components
+            foreach (Node child in _mapContainer.GetChildren())
+            {
+                if (child is VisualHexTile visualTile)
+                {
+                    // Update the tile's position with new zoom
+                    var worldPosition = HexGridCalculator.CalculateHexPositionCentered(
+                        visualTile.GridPosition.X, 
+                        visualTile.GridPosition.Y, 
+                        GetViewport().GetVisibleRect().Size, 
+                        MAP_WIDTH, 
+                        MAP_HEIGHT
+                    );
+                    visualTile.Position = worldPosition;
+                    
+                    // Update the visual components (hex shape, outline, collision)
+                    visualTile.UpdateVisualComponents();
+                }
+            }
+            
+            // Update visual units' positions and visual components
+            if (_mapRenderer != null)
+            {
+                foreach (var visualUnit in _mapRenderer.GetVisualUnits())
+                {
+                    // Find the logical tile this unit occupies
+                    var logicalTile = FindLogicalTileWithUnit(visualUnit.LogicalUnit);
+                    if (logicalTile != null)
+                    {
+                        // Calculate new position with current zoom
+                        var newWorldPosition = HexGridCalculator.CalculateHexPositionCentered(
+                            logicalTile.Position.X, 
+                            logicalTile.Position.Y, 
+                            GetViewport().GetVisibleRect().Size, 
+                            MAP_WIDTH, 
+                            MAP_HEIGHT
+                        );
+                        
+                        // Update unit position and visual components
+                        visualUnit.UpdatePosition(newWorldPosition);
+                        visualUnit.UpdateVisualComponents();
+                    }
+                }
+            }
+        }
     }
 
     private TerrainType GetRandomTerrainType()
@@ -201,8 +284,6 @@ public partial class Main : Control
         
         // Use CallDeferred to connect TurnManager after GameManager's _Ready is called
         CallDeferred(MethodName.ConnectTurnManager);
-        
-        GD.Print("GameManager added to scene, connecting TurnManager deferred");
     }
 
     private void ConnectTurnManager()
@@ -210,16 +291,7 @@ public partial class Main : Control
         // Use the GameManager's TurnManager instead of the exported one
         TurnManager = _gameManager.TurnManager;
         
-        GD.Print("GameManager initialized with players and units");
-        GD.Print($"TurnManager connected: {TurnManager != null}");
-        
-        if (TurnManager != null)
-        {
-            GD.Print($"Current phase: {TurnManager.CurrentPhase}");
-        }
-        
         // Now initialize MapRenderer with proper TurnManager
-        GD.Print("Initializing MapRenderer with connected TurnManager");
         InitializeMapRenderer();
     }
 
@@ -238,30 +310,27 @@ public partial class Main : Control
         
         // TurnManager is now guaranteed to be available
         _mapRenderer.SetCurrentPhase(TurnManager.CurrentPhase);
-        GD.Print($"MapRenderer set to phase: {TurnManager.CurrentPhase}");
+        
+        // Update the title label with the correct initial phase
+        UpdateTitleLabel();
         
         // Register all visual tiles with the MapRenderer
         RegisterVisualTilesWithMapRenderer();
         
         CreateVisualUnitsForPlayers();
-        GD.Print("MapRenderer initialized with visual units and tiles");
     }
 
     private void RegisterVisualTilesWithMapRenderer()
     {
         if (_mapContainer == null || _mapRenderer == null) return;
         
-        int tilesRegistered = 0;
         foreach (Node child in _mapContainer.GetChildren())
         {
             if (child is VisualHexTile visualTile)
             {
                 _mapRenderer.AddVisualTile(visualTile);
-                tilesRegistered++;
             }
         }
-        
-        GD.Print($"🗺️ Registered {tilesRegistered} visual tiles with MapRenderer");
     }
 
     private void CreateVisualUnitsForPlayers()
@@ -286,7 +355,6 @@ public partial class Main : Control
                     );
                     
                     _mapRenderer.CreateVisualUnit(unit, worldPosition, playerColor);
-                    GD.Print($"Created visual unit for {unit.Name} at ({logicalTile.Position.X}, {logicalTile.Position.Y})");
                 }
             }
         }
@@ -306,12 +374,8 @@ public partial class Main : Control
 
     private void OnNextPhaseButtonPressed()
     {
-        GD.Print("=== MAIN: OnNextPhaseButtonPressed() called ===");
-        GD.Print("Next Phase button pressed.");
-
         if (TurnManager != null)
         {
-            GD.Print("Advancing phase via TurnManager");
             TurnManager.AdvancePhase();
             
             // Handle phase-specific actions with GameManager
@@ -320,13 +384,8 @@ public partial class Main : Control
                 HandlePhaseChange(TurnManager.CurrentPhase);
             }
         }
-        else
-        {
-            GD.PrintErr("ERROR: TurnManager is null!");
-        }
 
         UpdateTitleLabel();
-        GD.Print("=== MAIN: OnNextPhaseButtonPressed() completed ===");
     }
 
     private void HandlePhaseChange(GamePhase phase)
@@ -385,8 +444,6 @@ public partial class Main : Control
 
     private void UpdateTitleLabel()
     {
-        GD.Print("=== MAIN: UpdateTitleLabel() called ===");
-
         // During gameplay, update the game status label instead of title label
         if (_gameStatusLabel != null && TurnManager != null)
         {
@@ -396,59 +453,85 @@ public partial class Main : Control
                 currentPlayerName = _gameManager.Players[_currentPlayerIndex].Name;
             }
             
-            var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName}";
-            GD.Print($"Updating game status to: {newText}");
+            var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName} - Zoom: {HexGridCalculator.ZoomFactor:F1}x";
             _gameStatusLabel.Text = newText;
         }
         // On title screen, update the title label
         else if (TitleLabel != null && TurnManager != null)
         {
             var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
-            GD.Print($"Updating title to: {newText}");
             TitleLabel.Text = newText;
         }
-        // Initial state - game not started yet
-        else if (TitleLabel != null && TurnManager == null)
-        {
-            GD.Print("Initial state - keeping title as is");
-        }
-        else
-        {
-            GD.Print($"UpdateTitleLabel called but components not ready: GameStatusLabel={(_gameStatusLabel == null ? "NULL" : "VALID")}, TitleLabel={(TitleLabel == null ? "NULL" : "VALID")}, TurnManager={(TurnManager == null ? "NULL" : "VALID")}");
-        }
-
-        GD.Print("=== MAIN: UpdateTitleLabel() completed ===");
     }
 
     public override void _Input(InputEvent @event)
     {
-        // This should capture ALL input events before they're processed
+        // Handle zoom controls
         if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
         {
-            GD.Print($"🔴 _Input: Mouse click detected at {mouseEvent.Position}");
+            if (mouseEvent.ButtonIndex == MouseButton.WheelUp)
+            {
+                HexGridCalculator.ZoomIn();
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                RegenerateMapWithCurrentZoom();
+                UpdateTitleLabel();
+                UpdateZoomLabel();
+                GetViewport().SetInputAsHandled();
+            }
+            else if (mouseEvent.ButtonIndex == MouseButton.WheelDown)
+            {
+                HexGridCalculator.ZoomOut();
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                RegenerateMapWithCurrentZoom();
+                UpdateTitleLabel();
+                UpdateZoomLabel();
+                GetViewport().SetInputAsHandled();
+            }
         }
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Space)
+        if (@event is InputEventKey keyEvent && keyEvent.Pressed)
         {
-            GD.Print("=== MAIN: Space key pressed ===");
-            if (TurnManager != null)
+            if (keyEvent.Keycode == Key.Space)
             {
-                TurnManager.AdvancePhase();
+                if (TurnManager != null)
+                {
+                    TurnManager.AdvancePhase();
+                    UpdateTitleLabel();
+                }
+            }
+            else if (keyEvent.Keycode == Key.Equal || keyEvent.Keycode == Key.KpAdd)
+            {
+                // Plus key for zoom in
+                HexGridCalculator.ZoomIn();
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                RegenerateMapWithCurrentZoom();
                 UpdateTitleLabel();
+                UpdateZoomLabel();
+                GetViewport().SetInputAsHandled();
             }
-            else
+            else if (keyEvent.Keycode == Key.Minus || keyEvent.Keycode == Key.KpSubtract)
             {
-                GD.PrintErr("ERROR: TurnManager is null on space key press!");
+                // Minus key for zoom out
+                HexGridCalculator.ZoomOut();
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                RegenerateMapWithCurrentZoom();
+                UpdateTitleLabel();
+                UpdateZoomLabel();
+                GetViewport().SetInputAsHandled();
             }
-        }
-        
-        // Debug mouse clicks
-        if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
-        {
-            GD.Print($"🖱️ Global mouse click detected: Button={mouseEvent.ButtonIndex}, Position={mouseEvent.Position}");
+            else if (keyEvent.Keycode == Key.Key0)
+            {
+                // Reset zoom to 1.0
+                HexGridCalculator.SetZoom(1.0f);
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                RegenerateMapWithCurrentZoom();
+                UpdateTitleLabel();
+                UpdateZoomLabel();
+                GetViewport().SetInputAsHandled();
+            }
         }
     }
 }

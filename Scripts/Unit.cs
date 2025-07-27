@@ -58,28 +58,28 @@ public partial class Unit : Node
 
 public partial class Nakhtu : Unit
 {
-    public Nakhtu() : base("Nakhtu", 3, 2, 2, 10, UnitType.Nakhtu)
+    public Nakhtu() : base("Nakhtu", 3, 2, 4, 10, UnitType.Nakhtu)
     {
     }
 }
 
 public partial class Medjay : Unit
 {
-    public Medjay() : base("Medjay", 4, 3, 3, 15, UnitType.Medjay)
+    public Medjay() : base("Medjay", 4, 3, 6, 15, UnitType.Medjay)
     {
     }
 }
 
 public partial class Archer : Unit
 {
-    public Archer() : base("Archer", 5, 1, 2, 12, UnitType.Archer)
+    public Archer() : base("Archer", 5, 1, 4, 12, UnitType.Archer)
     {
     }
 }
 
 public partial class Charioteer : Unit
 {
-    public Charioteer() : base("Charioteer", 6, 2, 4, 20, UnitType.Charioteer)
+    public Charioteer() : base("Charioteer", 6, 2, 8, 20, UnitType.Charioteer)
     {
     }
 }

@@ -36,7 +36,10 @@ public class MovementCoordinator
             return new List<Vector2I>();
         }
 
+        // Always recalculate destinations based on current position and remaining movement points
+        _validDestinations.Clear();
         _validDestinations = _movementLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap);
+        
         return _validDestinations;
     }
 
@@ -72,14 +75,39 @@ public class MovementCoordinator
             return MoveResult.CreateFailure("Cannot move to destination - insufficient movement or tile occupied");
         }
 
-        // Execute the movement
-        fromTile.RemoveUnit();
-        toTile.MoveUnitTo(_selectedUnit);
+        // Execute the movement by consuming movement points directly (movement budget system)
+        // CRITICAL FIX: Use the actual path cost calculated by Dijkstra's, not just destination tile cost
+        var pathCost = GetPathCostToDestination(fromPosition, toPosition, gameMap);
         
-        // Clear selection after successful move
-        ClearSelection();
+        fromTile.RemoveUnit();
+        toTile.PlaceUnit(_selectedUnit); // Use PlaceUnit to avoid HasMoved flag
+        _selectedUnit.CurrentMovementPoints -= pathCost;
+        
+        // Clear valid destinations so they'll be recalculated for remaining movement
+        _validDestinations.Clear();
+        
+        // Only clear selection if unit has no movement points left
+        if (_selectedUnit.CurrentMovementPoints <= 0)
+        {
+            ClearSelection();
+        }
 
         return MoveResult.CreateSuccess(toPosition);
+    }
+
+    private int GetPathCostToDestination(Vector2I fromPosition, Vector2I toPosition, Dictionary<Vector2I, HexTile> gameMap)
+    {
+        // Use Dijkstra's algorithm to get the actual path cost to the destination
+        // This ensures we deduct the correct total path cost, not just the destination tile cost
+        var pathCosts = _movementLogic.GetPathCostsFromPosition(_selectedUnit, fromPosition, gameMap);
+        
+        if (pathCosts.ContainsKey(toPosition))
+        {
+            return pathCosts[toPosition];
+        }
+        
+        // Fallback: if pathfinding fails, use destination tile cost (should not happen in normal gameplay)
+        return gameMap[toPosition].MovementCost;
     }
 
     public TileClickResult HandleTileClick(Vector2I clickPosition, Dictionary<Vector2I, HexTile> gameMap)

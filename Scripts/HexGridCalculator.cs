@@ -7,17 +7,24 @@ namespace Archistrateia
         public const float HEX_SIZE = 35.0f;
         public const float HEX_WIDTH = HEX_SIZE * 2.0f;
         public const float HEX_HEIGHT = HEX_SIZE * 1.732f;
+        
+        private static float _zoomFactor = 1.0f;
+        public static float ZoomFactor 
+        { 
+            get => _zoomFactor; 
+            set => _zoomFactor = Mathf.Clamp(value, 0.1f, 3.0f); 
+        }
 
         public static Vector2 CalculateHexPosition(int x, int y)
         {
-            // Flat-top hex grid positioning formula
-            float xPos = x * HEX_WIDTH * 0.75f;
-            float yPos = y * HEX_HEIGHT;
+            // Flat-top hex grid positioning formula with zoom scaling
+            float xPos = x * HEX_WIDTH * 0.75f * _zoomFactor;
+            float yPos = y * HEX_HEIGHT * _zoomFactor;
             
             // Offset odd columns up by half the hex height
             if (x % 2 == 1)
             {
-                yPos += HEX_HEIGHT * 0.5f;
+                yPos += HEX_HEIGHT * 0.5f * _zoomFactor;
             }
             
             return new Vector2(xPos, yPos);
@@ -27,11 +34,11 @@ namespace Archistrateia
         {
             var basePosition = CalculateHexPosition(x, y);
             
-            // Center the map in the viewport
-            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f + HEX_WIDTH * 0.25f;
-            float mapTotalHeight = mapHeight * HEX_HEIGHT + HEX_HEIGHT * 0.5f;
+            // Center the map in the viewport with zoom scaling
+            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * _zoomFactor + HEX_WIDTH * 0.25f * _zoomFactor;
+            float mapTotalHeight = mapHeight * HEX_HEIGHT * _zoomFactor + HEX_HEIGHT * 0.5f * _zoomFactor;
             float centerX = (viewportSize.X - mapTotalWidth) / 2;
-            float centerY = (viewportSize.Y - mapTotalHeight) / 2 + HEX_HEIGHT * 0.5f;
+            float centerY = (viewportSize.Y - mapTotalHeight) / 2 + HEX_HEIGHT * 0.5f * _zoomFactor;
             
             return new Vector2(basePosition.X + centerX, basePosition.Y + centerY);
         }
@@ -39,15 +46,32 @@ namespace Archistrateia
         public static Vector2[] CreateHexagonVertices()
         {
             var vertices = new Vector2[6];
+            float scaledHexSize = HEX_SIZE * _zoomFactor;
+            
             for (int i = 0; i < 6; i++)
             {
                 var angle = i * Mathf.Pi / 3.0f;
                 vertices[i] = new Vector2(
-                    HEX_SIZE * Mathf.Cos(angle),
-                    HEX_SIZE * Mathf.Sin(angle)
+                    scaledHexSize * Mathf.Cos(angle),
+                    scaledHexSize * Mathf.Sin(angle)
                 );
             }
             return vertices;
+        }
+        
+        public static void SetZoom(float zoomFactor)
+        {
+            ZoomFactor = zoomFactor;
+        }
+        
+        public static void ZoomIn()
+        {
+            ZoomFactor *= 1.2f;
+        }
+        
+        public static void ZoomOut()
+        {
+            ZoomFactor /= 1.2f;
         }
     }
 }
