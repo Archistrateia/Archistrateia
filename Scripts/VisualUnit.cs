@@ -87,6 +87,7 @@ public partial class VisualUnit : Area2D
         unitLabel.Text = LogicalUnit.Name.Substring(0, 1);
         unitLabel.Position = new Vector2(-5 * HexGridCalculator.ZoomFactor, -10 * HexGridCalculator.ZoomFactor);
         unitLabel.AddThemeColorOverride("font_color", new Color(1.0f, 1.0f, 1.0f));
+        unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * HexGridCalculator.ZoomFactor));
         AddChild(unitLabel);
     }
 
@@ -152,6 +153,7 @@ public partial class VisualUnit : Area2D
         if (unitLabel != null)
         {
             unitLabel.Position = new Vector2(-5 * HexGridCalculator.ZoomFactor, -10 * HexGridCalculator.ZoomFactor);
+            unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * HexGridCalculator.ZoomFactor));
         }
 
         // Update selection ring if it exists
@@ -246,6 +248,7 @@ public partial class VisualUnit : Area2D
         movementDisplay.Position = new Vector2(-15 * HexGridCalculator.ZoomFactor, -35 * HexGridCalculator.ZoomFactor); // Scale position with zoom
         movementDisplay.AddThemeColorOverride("font_color", new Color(1.0f, 1.0f, 0.0f)); // Yellow text
         movementDisplay.AddThemeColorOverride("font_shadow_color", new Color(0.0f, 0.0f, 0.0f)); // Black shadow
+        movementDisplay.AddThemeFontSizeOverride("font_size", (int)(14 * HexGridCalculator.ZoomFactor));
         movementDisplay.ZIndex = 15; // On top
         AddChild(movementDisplay);
     }
