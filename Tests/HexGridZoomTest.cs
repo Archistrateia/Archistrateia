@@ -317,6 +317,79 @@ namespace Archistrateia.Tests
             HexGridCalculator.SetZoom(originalZoom);
         }
 
+        [Test]
+        public void TestScrollingNeededLogic()
+        {
+            var originalZoom = HexGridCalculator.ZoomFactor;
+            var originalScrollOffset = HexGridCalculator.ScrollOffset;
+            
+            // Reset to default state
+            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetScrollOffset(Vector2.Zero);
+            
+            // Test case 1: Small grid on large viewport (no scrolling needed)
+            var largeViewport = new Vector2(1200, 800);
+            var smallGrid = new { Width = 10, Height = 5 };
+            bool scrollingNeededSmall = HexGridCalculator.IsScrollingNeeded(largeViewport, smallGrid.Width, smallGrid.Height);
+            Assert.IsFalse(scrollingNeededSmall, "Small grid on large viewport should not need scrolling");
+            
+            // Test case 2: Large grid on small viewport (scrolling needed)
+            var smallViewport = new Vector2(400, 300);
+            var largeGrid = new { Width = 30, Height = 20 };
+            bool scrollingNeededLarge = HexGridCalculator.IsScrollingNeeded(smallViewport, largeGrid.Width, largeGrid.Height);
+            Assert.IsTrue(scrollingNeededLarge, "Large grid on small viewport should need scrolling");
+            
+            // Test case 3: Zoomed in grid (scrolling needed)
+            HexGridCalculator.SetZoom(3.0f);
+            bool scrollingNeededZoomed = HexGridCalculator.IsScrollingNeeded(largeViewport, smallGrid.Width, smallGrid.Height);
+            Assert.IsTrue(scrollingNeededZoomed, "Zoomed in grid should need scrolling");
+            
+            // Test case 4: Zoomed out grid (no scrolling needed)
+            HexGridCalculator.SetZoom(0.5f);
+            bool scrollingNeededZoomedOut = HexGridCalculator.IsScrollingNeeded(largeViewport, smallGrid.Width, smallGrid.Height);
+            Assert.IsFalse(scrollingNeededZoomedOut, "Zoomed out grid should not need scrolling");
+            
+            // Test case 5: Current game dimensions
+            var gameViewport = new Vector2(800, 600);
+            var gameGrid = new { Width = 20, Height = 10 };
+            HexGridCalculator.SetZoom(1.0f);
+            bool scrollingNeededGame = HexGridCalculator.IsScrollingNeeded(gameViewport, gameGrid.Width, gameGrid.Height);
+            
+            // This should be true for the current game setup (20x10 grid on 800x600 viewport)
+            Assert.IsTrue(scrollingNeededGame, "Current game setup should need scrolling");
+            
+            // Restore original settings
+            HexGridCalculator.SetZoom(originalZoom);
+            HexGridCalculator.SetScrollOffset(originalScrollOffset);
+        }
+
+        [Test]
+        public void TestHomeKeyAlwaysWorks()
+        {
+            var originalZoom = HexGridCalculator.ZoomFactor;
+            var originalScrollOffset = HexGridCalculator.ScrollOffset;
+            
+            // Test that Home key works even when scrolling is not needed
+            var largeViewport = new Vector2(1200, 800);
+            var smallGrid = new { Width = 10, Height = 5 };
+            
+            // Set some scroll offset
+            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f));
+            Assert.AreNotEqual(Vector2.Zero, HexGridCalculator.ScrollOffset);
+            
+            // Verify that scrolling is not needed for this setup
+            bool scrollingNeeded = HexGridCalculator.IsScrollingNeeded(largeViewport, smallGrid.Width, smallGrid.Height);
+            Assert.IsFalse(scrollingNeeded, "Small grid on large viewport should not need scrolling");
+            
+            // Home key should still reset scroll offset to zero
+            HexGridCalculator.SetScrollOffset(Vector2.Zero);
+            Assert.AreEqual(Vector2.Zero, HexGridCalculator.ScrollOffset);
+            
+            // Restore original settings
+            HexGridCalculator.SetZoom(originalZoom);
+            HexGridCalculator.SetScrollOffset(originalScrollOffset);
+        }
+
 
     }
 } 

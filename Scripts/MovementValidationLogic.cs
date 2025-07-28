@@ -27,30 +27,47 @@ namespace Archistrateia
         {
             // FIXED: Proper hex grid adjacency for flat-top orientation
             // Adjacency depends on whether column is even or odd
+            // ADDED: Bounds checking to prevent positions outside map
             
             var adjacents = new List<Vector2I>();
             
             // Common neighbors (always the same)
-            adjacents.Add(new Vector2I(position.X - 1, position.Y));     // West
-            adjacents.Add(new Vector2I(position.X + 1, position.Y));     // East
+            var west = new Vector2I(position.X - 1, position.Y);
+            var east = new Vector2I(position.X + 1, position.Y);
             
             // Diagonal neighbors depend on even/odd column
+            Vector2I northwest, northeast, southwest, southeast;
+            
             if (position.X % 2 == 0) // Even column
             {
-                adjacents.Add(new Vector2I(position.X - 1, position.Y - 1)); // Northwest
-                adjacents.Add(new Vector2I(position.X, position.Y - 1));     // Northeast
-                adjacents.Add(new Vector2I(position.X - 1, position.Y + 1)); // Southwest  
-                adjacents.Add(new Vector2I(position.X, position.Y + 1));     // Southeast
+                northwest = new Vector2I(position.X - 1, position.Y - 1);
+                northeast = new Vector2I(position.X, position.Y - 1);
+                southwest = new Vector2I(position.X - 1, position.Y + 1);
+                southeast = new Vector2I(position.X, position.Y + 1);
             }
             else // Odd column
             {
-                adjacents.Add(new Vector2I(position.X, position.Y - 1));     // Northwest
-                adjacents.Add(new Vector2I(position.X + 1, position.Y - 1)); // Northeast
-                adjacents.Add(new Vector2I(position.X, position.Y + 1));     // Southwest
-                adjacents.Add(new Vector2I(position.X + 1, position.Y + 1)); // Southeast
+                northwest = new Vector2I(position.X, position.Y - 1);
+                northeast = new Vector2I(position.X + 1, position.Y - 1);
+                southwest = new Vector2I(position.X, position.Y + 1);
+                southeast = new Vector2I(position.X + 1, position.Y + 1);
             }
             
+            // Only add positions that are within map bounds
+            if (IsWithinMapBounds(west)) adjacents.Add(west);
+            if (IsWithinMapBounds(east)) adjacents.Add(east);
+            if (IsWithinMapBounds(northwest)) adjacents.Add(northwest);
+            if (IsWithinMapBounds(northeast)) adjacents.Add(northeast);
+            if (IsWithinMapBounds(southwest)) adjacents.Add(southwest);
+            if (IsWithinMapBounds(southeast)) adjacents.Add(southeast);
+            
             return adjacents.ToArray();
+        }
+        
+        private static bool IsWithinMapBounds(Vector2I position)
+        {
+            return position.X >= 0 && position.X < MapConfiguration.MAP_WIDTH &&
+                   position.Y >= 0 && position.Y < MapConfiguration.MAP_HEIGHT;
         }
 
         public List<Vector2I> GetValidMovementDestinations(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)

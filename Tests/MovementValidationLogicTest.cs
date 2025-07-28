@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using Archistrateia;
 
 namespace Archistrateia.Tests
@@ -401,6 +402,139 @@ namespace Archistrateia.Tests
             }
             
             return map;
+        }
+        
+        [Test]
+        public void Should_Verify_Second_Ring_Neighbors_Are_Not_Adjacent()
+        {
+            // Test that second ring neighbors (2 steps away) are never considered adjacent
+            GD.Print("=== TESTING SECOND RING NEIGHBORS ===");
+            GD.Print("Verifying that hexes 2 steps away are never considered adjacent");
+            
+            // Test positions that should be second ring neighbors
+            var testCases = new[]
+            {
+                // Even column positions and their second ring neighbors
+                new { Center = new Vector2I(0, 0), SecondRing = new Vector2I(0, 2) },
+                new { Center = new Vector2I(0, 0), SecondRing = new Vector2I(2, 0) },
+                new { Center = new Vector2I(0, 0), SecondRing = new Vector2I(2, 1) },
+                new { Center = new Vector2I(2, 2), SecondRing = new Vector2I(0, 2) },
+                new { Center = new Vector2I(2, 2), SecondRing = new Vector2I(4, 2) },
+                new { Center = new Vector2I(2, 2), SecondRing = new Vector2I(2, 0) },
+                new { Center = new Vector2I(2, 2), SecondRing = new Vector2I(2, 4) },
+                
+                // Odd column positions and their second ring neighbors
+                new { Center = new Vector2I(1, 1), SecondRing = new Vector2I(1, 3) },
+                new { Center = new Vector2I(1, 1), SecondRing = new Vector2I(3, 1) },
+                new { Center = new Vector2I(1, 1), SecondRing = new Vector2I(3, 2) },
+                new { Center = new Vector2I(3, 3), SecondRing = new Vector2I(1, 3) },
+                new { Center = new Vector2I(3, 3), SecondRing = new Vector2I(5, 3) },
+                new { Center = new Vector2I(3, 3), SecondRing = new Vector2I(3, 1) },
+                new { Center = new Vector2I(3, 3), SecondRing = new Vector2I(3, 5) },
+                
+                // Diagonal second ring neighbors
+                new { Center = new Vector2I(0, 0), SecondRing = new Vector2I(2, 2) },
+                new { Center = new Vector2I(2, 0), SecondRing = new Vector2I(0, 2) },
+                new { Center = new Vector2I(1, 1), SecondRing = new Vector2I(3, 3) },
+                new { Center = new Vector2I(3, 1), SecondRing = new Vector2I(1, 3) }
+            };
+            
+            bool anyFalseAdjacencies = false;
+            
+            foreach (var testCase in testCases)
+            {
+                var centerAdjacents = MovementValidationLogic.GetAdjacentPositions(testCase.Center).ToList();
+                bool isSecondRingAdjacent = centerAdjacents.Contains(testCase.SecondRing);
+                
+                GD.Print($"{testCase.Center} → {testCase.SecondRing}: {(isSecondRingAdjacent ? "🚨 FALSE ADJACENCY" : "✅ Correctly not adjacent")}");
+                
+                if (isSecondRingAdjacent)
+                {
+                    anyFalseAdjacencies = true;
+                }
+            }
+            
+            // Also test some specific cases from the bug scenarios
+            GD.Print("\n=== TESTING BUG SCENARIO SECOND RING CASES ===");
+            
+            // Test if the "island" positions are actually second ring neighbors
+            var medjayPos = new Vector2I(1, 3);
+            var nakhtuPos = new Vector2I(7, 2);
+            
+            // For (1,3), these should be second ring neighbors (2 steps away), not adjacent
+            var medjaySecondRing = new Vector2I[] { new Vector2I(1, 1), new Vector2I(1, 5), new Vector2I(-1, 3), new Vector2I(3, 3) };
+            var nakhtuSecondRing = new Vector2I[] { new Vector2I(7, 0), new Vector2I(7, 4), new Vector2I(5, 2), new Vector2I(9, 2) };
+            
+            GD.Print($"\nMedjay ({medjayPos}) second ring neighbors:");
+            foreach (var secondRing in medjaySecondRing)
+            {
+                var medjayAdjacents = MovementValidationLogic.GetAdjacentPositions(medjayPos).ToList();
+                bool isAdjacent = medjayAdjacents.Contains(secondRing);
+                GD.Print($"  {secondRing}: {(isAdjacent ? "🚨 FALSE ADJACENCY" : "✅ Correctly not adjacent")}");
+                if (isAdjacent) anyFalseAdjacencies = true;
+            }
+            
+            GD.Print($"\nNakhtu ({nakhtuPos}) second ring neighbors:");
+            foreach (var secondRing in nakhtuSecondRing)
+            {
+                var nakhtuAdjacents = MovementValidationLogic.GetAdjacentPositions(nakhtuPos).ToList();
+                bool isAdjacent = nakhtuAdjacents.Contains(secondRing);
+                GD.Print($"  {secondRing}: {(isAdjacent ? "🚨 FALSE ADJACENCY" : "✅ Correctly not adjacent")}");
+                if (isAdjacent) anyFalseAdjacencies = true;
+            }
+            
+            if (anyFalseAdjacencies)
+            {
+                GD.Print("\n🚨 BUG CONFIRMED: Second ring neighbors are being incorrectly marked as adjacent!");
+                GD.Print("This explains why pathfinding can reach 'islands' that should be unreachable.");
+            }
+            else
+            {
+                GD.Print("\n✅ All second ring neighbors correctly identified as non-adjacent");
+            }
+        }
+        
+        [Test]
+        public void Should_Compare_Current_vs_Proper_Hex_Adjacency()
+        {
+            // Systematic comparison of current vs proper hex adjacency
+            var logic = new MovementValidationLogic();
+            
+            GD.Print("=== SYSTEMATIC HEX ADJACENCY COMPARISON ===");
+            
+            // Test a grid of positions to see differences
+            for (int x = 0; x <= 3; x++)
+            {
+                for (int y = 0; y <= 3; y++)
+                {
+                    var pos = new Vector2I(x, y);
+                    var currentAdjacents = MovementValidationLogic.GetAdjacentPositions(pos).ToList();
+                    var properAdjacents = MovementValidationLogic.GetAdjacentPositions(pos).ToList();
+                    
+                    // Find differences
+                    var onlyInCurrent = currentAdjacents.Except(properAdjacents).ToList();
+                    var onlyInProper = properAdjacents.Except(currentAdjacents).ToList();
+                    
+                    if (onlyInCurrent.Count > 0 || onlyInProper.Count > 0)
+                    {
+                        GD.Print($"\n{pos} (column {(x % 2 == 0 ? "even" : "odd")}):");
+                        GD.Print($"  Current: {string.Join(", ", currentAdjacents)}");
+                        GD.Print($"  Proper:  {string.Join(", ", properAdjacents)}");
+                        
+                        if (onlyInCurrent.Count > 0)
+                        {
+                            GD.Print($"  🚨 False adjacencies: {string.Join(", ", onlyInCurrent)}");
+                        }
+                        
+                        if (onlyInProper.Count > 0)
+                        {
+                            GD.Print($"  ❌ Missing adjacencies: {string.Join(", ", onlyInProper)}");
+                        }
+                    }
+                }
+            }
+            
+            GD.Print("\n✅ Hex adjacency comparison completed");
         }
     }
 } 

@@ -76,7 +76,7 @@ public class VisualDisplayBugTest
                         GD.Print($"   🔍 Found the problematic destination {destination} in both maps");
                         
                         // Check its neighbors in visual tiles
-                        var neighbors = GetAdjacentPositions(destination);
+                        var neighbors = MovementValidationLogic.GetAdjacentPositions(destination);
                         var visualNeighbors = 0;
                         foreach (var neighbor in neighbors)
                         {
@@ -85,7 +85,7 @@ public class VisualDisplayBugTest
                                 visualNeighbors++;
                             }
                         }
-                        GD.Print($"   {destination} has {visualNeighbors}/{neighbors.Count} neighbors in visual tiles");
+                        GD.Print($"   {destination} has {visualNeighbors}/{neighbors.Length} neighbors in visual tiles");
                     }
                 }
             }
@@ -266,16 +266,5 @@ public class VisualDisplayBugTest
         return (TerrainType)seed;
     }
     
-    private List<Vector2I> GetAdjacentPositions(Vector2I position)
-    {
-        return new List<Vector2I>
-        {
-            new Vector2I(position.X + 1, position.Y),
-            new Vector2I(position.X - 1, position.Y),
-            new Vector2I(position.X, position.Y + 1),
-            new Vector2I(position.X, position.Y - 1),
-            new Vector2I(position.X + 1, position.Y - 1),
-            new Vector2I(position.X - 1, position.Y + 1)
-        };
-    }
+
 } 

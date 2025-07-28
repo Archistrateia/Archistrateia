@@ -135,5 +135,18 @@ namespace Archistrateia
             // Clamp to minimum zoom of 1.0 (never zoom out below 1.0)
             return Mathf.Max(optimalZoom, 1.0f);
         }
+
+        public static bool IsScrollingNeeded(Vector2 viewportSize, int mapWidth, int mapHeight)
+        {
+            // Calculate the map dimensions at current zoom level
+            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * _zoomFactor + HEX_WIDTH * 0.25f * _zoomFactor;
+            float mapTotalHeight = mapHeight * HEX_HEIGHT * _zoomFactor + HEX_HEIGHT * 0.5f * _zoomFactor;
+            
+            // Check if the map is larger than the viewport in either dimension
+            bool needsHorizontalScroll = mapTotalWidth > viewportSize.X;
+            bool needsVerticalScroll = mapTotalHeight > viewportSize.Y;
+            
+            return needsHorizontalScroll || needsVerticalScroll;
+        }
     }
 }

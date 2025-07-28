@@ -492,6 +492,13 @@ namespace Archistrateia
         {
             var mousePosition = GetViewport().GetMousePosition();
             var viewportSize = GetViewport().GetVisibleRect().Size;
+            
+            // Only activate scrolling if the grid extends beyond the viewport
+            if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
+            {
+                return;
+            }
+            
             var scrollDelta = Vector2.Zero;
             
             // Check if mouse is near edges
@@ -589,6 +596,24 @@ namespace Archistrateia
 
         private bool HandleScrollInput(InputEventKey keyEvent)
         {
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            
+            // Handle Home key regardless of whether scrolling is needed
+            if (keyEvent.Keycode == Key.Home)
+            {
+                _scrollOffset = Vector2.Zero;
+                HexGridCalculator.SetScrollOffset(_scrollOffset);
+                RegenerateMapWithCurrentZoom();
+                GetViewport().SetInputAsHandled();
+                return true;
+            }
+            
+            // Only allow directional scrolling if the grid extends beyond the viewport
+            if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
+            {
+                return false;
+            }
+            
             var scrollDelta = Vector2.Zero;
             const float ScrollStep = 50.0f;
 
@@ -607,14 +632,6 @@ namespace Archistrateia
             else if (keyEvent.Keycode == Key.D || keyEvent.Keycode == Key.Right)
             {
                 scrollDelta.X = ScrollStep;
-            }
-            else if (keyEvent.Keycode == Key.Home)
-            {
-                _scrollOffset = Vector2.Zero;
-                HexGridCalculator.SetScrollOffset(_scrollOffset);
-                RegenerateMapWithCurrentZoom();
-                GetViewport().SetInputAsHandled();
-                return true;
             }
 
             if (scrollDelta != Vector2.Zero)
