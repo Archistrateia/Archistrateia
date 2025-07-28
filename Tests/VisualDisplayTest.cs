@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Godot;
+using Archistrateia;
 
 [TestFixture]
 public partial class VisualDisplayTest : Node
@@ -7,10 +8,9 @@ public partial class VisualDisplayTest : Node
     [Test]
     public void Should_Format_Movement_Points_Display_Text()
     {
-        var displayLogic = new MovementDisplayLogic();
         var unit = new Charioteer();
         
-        var displayText = displayLogic.GetMovementDisplayText(unit);
+        var displayText = MovementDisplayLogic.GetMovementDisplayText(unit);
         
         var expectedText = $"MP: {unit.CurrentMovementPoints}";
         Assert.AreEqual(expectedText, displayText);
@@ -19,38 +19,36 @@ public partial class VisualDisplayTest : Node
     [Test]
     public void Should_Update_Display_Text_After_Movement()
     {
-        var displayLogic = new MovementDisplayLogic();
         var unit = new Nakhtu();
         
-        var initialText = displayLogic.GetMovementDisplayText(unit);
+        var initialText = MovementDisplayLogic.GetMovementDisplayText(unit);
         var expectedInitialText = $"MP: {unit.CurrentMovementPoints}";
         Assert.AreEqual(expectedInitialText, initialText);
         
         var originalMP = unit.CurrentMovementPoints;
         unit.CurrentMovementPoints = originalMP - 1;
-        var updatedText = displayLogic.GetMovementDisplayText(unit);
+        var updatedText = MovementDisplayLogic.GetMovementDisplayText(unit);
         var expectedUpdatedText = $"MP: {unit.CurrentMovementPoints}";
         Assert.AreEqual(expectedUpdatedText, updatedText);
         
         unit.CurrentMovementPoints = 0;
-        var finalText = displayLogic.GetMovementDisplayText(unit);
+        var finalText = MovementDisplayLogic.GetMovementDisplayText(unit);
         Assert.AreEqual("MP: 0", finalText);
     }
     
     [Test]
     public void Should_Determine_When_To_Show_Movement_Display()
     {
-        var displayLogic = new MovementDisplayLogic();
         var unit = new Charioteer();
         
-        bool shouldShow = displayLogic.ShouldShowMovementDisplay(unit, isSelected: true);
+        bool shouldShow = MovementDisplayLogic.ShouldShowMovementDisplay(unit, isSelected: true);
         Assert.IsTrue(shouldShow);
         
-        bool shouldNotShow = displayLogic.ShouldShowMovementDisplay(unit, isSelected: false);
+        bool shouldNotShow = MovementDisplayLogic.ShouldShowMovementDisplay(unit, isSelected: false);
         Assert.IsFalse(shouldNotShow);
         
         unit.CurrentMovementPoints = 0;
-        bool shouldShowEmpty = displayLogic.ShouldShowMovementDisplay(unit, isSelected: true);
+        bool shouldShowEmpty = MovementDisplayLogic.ShouldShowMovementDisplay(unit, isSelected: true);
         Assert.IsTrue(shouldShowEmpty);
     }
 

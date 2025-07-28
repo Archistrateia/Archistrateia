@@ -1,12 +1,15 @@
-public class MovementDisplayLogic
+namespace Archistrateia
 {
-    public string GetMovementDisplayText(Unit unit)
+    public class MovementDisplayLogic
     {
-        return $"MP: {unit.CurrentMovementPoints}";
-    }
-    
-    public bool ShouldShowMovementDisplay(Unit unit, bool isSelected)
-    {
-        return isSelected;
+        public static string GetMovementDisplayText(Unit unit)
+        {
+            return $"MP: {unit.CurrentMovementPoints}";
+        }
+        
+        public static bool ShouldShowMovementDisplay(Unit unit, bool isSelected)
+        {
+            return isSelected;
+        }
     }
 } 

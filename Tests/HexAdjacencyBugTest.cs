@@ -29,7 +29,7 @@ public class HexAdjacencyBugTest
         GD.Print("\nCurrent adjacency calculations:");
         foreach (var pos in testPositions)
         {
-            var adjacents = logic.GetAdjacentPositions(pos);
+            var adjacents = MovementValidationLogic.GetAdjacentPositions(pos);
             GD.Print($"{pos} adjacent to: {string.Join(", ", adjacents.Select(a => a.ToString()))}");
         }
         
@@ -39,7 +39,7 @@ public class HexAdjacencyBugTest
         // Case 1: (1,3) and (0,3) - are they actually adjacent in a hex grid?
         var medjayPos = new Vector2I(1, 3);
         var island1 = new Vector2I(0, 3);
-        var medjayAdjacents = logic.GetAdjacentPositions(medjayPos);
+        var medjayAdjacents = MovementValidationLogic.GetAdjacentPositions(medjayPos);
         bool isMedjayConnectedToIsland1 = medjayAdjacents.Contains(island1);
         
         GD.Print($"Is {medjayPos} adjacent to {island1}? {isMedjayConnectedToIsland1}");
@@ -47,7 +47,7 @@ public class HexAdjacencyBugTest
         // Case 2: (7,2) and (7,3) - are they actually adjacent in a hex grid?
         var nakhtuPos = new Vector2I(7, 2);
         var island2 = new Vector2I(7, 3);
-        var nakhtuAdjacents = logic.GetAdjacentPositions(nakhtuPos);
+        var nakhtuAdjacents = MovementValidationLogic.GetAdjacentPositions(nakhtuPos);
         bool isNakhtuConnectedToIsland2 = nakhtuAdjacents.Contains(island2);
         
         GD.Print($"Is {nakhtuPos} adjacent to {island2}? {isNakhtuConnectedToIsland2}");
@@ -153,7 +153,7 @@ public class HexAdjacencyBugTest
             for (int y = 0; y <= 3; y++)
             {
                 var pos = new Vector2I(x, y);
-                var currentAdjacents = logic.GetAdjacentPositions(pos).ToList();
+                var currentAdjacents = MovementValidationLogic.GetAdjacentPositions(pos).ToList();
                 var properAdjacents = GetProperHexAdjacents(pos);
                 
                 // Find differences

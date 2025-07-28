@@ -80,7 +80,7 @@ public class PathfindingTest
     {
         var logic = new MovementValidationLogic();
         
-        var adjacent = logic.GetAdjacentPositions(new Vector2I(1, 5));
+        var adjacent = MovementValidationLogic.GetAdjacentPositions(new Vector2I(1, 5));
         
         GD.Print("=== TESTING HEX ADJACENCY ===");
         GD.Print($"Adjacent to (1,5): [{string.Join(", ", adjacent)}]");
@@ -90,7 +90,7 @@ public class PathfindingTest
         Assert.Contains(new Vector2I(1, 4), adjacent, "(1,4) should be adjacent to (1,5)");
         Assert.Contains(new Vector2I(1, 6), adjacent, "(1,6) should be adjacent to (1,5)");
         
-        var adjacent13 = logic.GetAdjacentPositions(new Vector2I(1, 3));
+        var adjacent13 = MovementValidationLogic.GetAdjacentPositions(new Vector2I(1, 3));
         GD.Print($"Adjacent to (1,3): [{string.Join(", ", adjacent13)}]");
         
         Assert.Contains(new Vector2I(1, 4), adjacent13, "(1,4) should be adjacent to (1,3)");
@@ -161,7 +161,7 @@ public class PathfindingTest
             GD.Print($"  {dest}");
         }
         
-        var adjacent = logic.GetAdjacentPositions(new Vector2I(1, 0));
+        var adjacent = MovementValidationLogic.GetAdjacentPositions(new Vector2I(1, 0));
         GD.Print($"Direct adjacents from (1,0): [{string.Join(", ", adjacent)}]");
         
         Assert.GreaterOrEqual(validDestinations.Count, 1, "Should find at least some destinations");

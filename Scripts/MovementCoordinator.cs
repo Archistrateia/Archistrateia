@@ -1,11 +1,13 @@
 using Godot;
 using System.Collections.Generic;
+using Archistrateia;
 
 public class MovementCoordinator
 {
     private Unit _selectedUnit;
     private List<Vector2I> _validDestinations = new List<Vector2I>();
     private MovementValidationLogic _movementLogic = new MovementValidationLogic();
+
 
     public void SelectUnitForMovement(Unit unit)
     {
@@ -70,7 +72,7 @@ public class MovementCoordinator
         var fromTile = gameMap[fromPosition];
         var toTile = gameMap[toPosition];
 
-        if (!_movementLogic.CanUnitMoveTo(_selectedUnit, fromTile, toTile))
+        if (!MovementValidationLogic.CanUnitMoveTo(_selectedUnit, fromTile, toTile))
         {
             return MoveResult.CreateFailure("Cannot move to destination - insufficient movement or tile occupied");
         }

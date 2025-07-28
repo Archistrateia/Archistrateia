@@ -4,7 +4,7 @@ using Archistrateia;
 public partial class VisualUnit : Area2D
 {
     public Unit LogicalUnit { get; private set; }
-    private MovementDisplayLogic _movementDisplayLogic = new MovementDisplayLogic();
+
 
     [Signal]
     public delegate void UnitClickedEventHandler(VisualUnit visualUnit);
@@ -236,7 +236,7 @@ public partial class VisualUnit : Area2D
         existingDisplay?.QueueFree();
         
         // Check if we should show the display using tested logic
-        if (!_movementDisplayLogic.ShouldShowMovementDisplay(LogicalUnit, isSelected: true))
+        if (!MovementDisplayLogic.ShouldShowMovementDisplay(LogicalUnit, isSelected: true))
         {
             return;
         }
@@ -244,7 +244,7 @@ public partial class VisualUnit : Area2D
         // Create new movement points display using tested logic
         var movementDisplay = new Label();
         movementDisplay.Name = "MovementDisplay";
-        movementDisplay.Text = _movementDisplayLogic.GetMovementDisplayText(LogicalUnit);
+        movementDisplay.Text = MovementDisplayLogic.GetMovementDisplayText(LogicalUnit);
         movementDisplay.Position = new Vector2(-15 * HexGridCalculator.ZoomFactor, -35 * HexGridCalculator.ZoomFactor); // Scale position with zoom
         movementDisplay.AddThemeColorOverride("font_color", new Color(1.0f, 1.0f, 0.0f)); // Yellow text
         movementDisplay.AddThemeColorOverride("font_shadow_color", new Color(0.0f, 0.0f, 0.0f)); // Black shadow

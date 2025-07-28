@@ -538,93 +538,111 @@ namespace Archistrateia
         {
             if (@event is InputEventKey keyEvent && keyEvent.Pressed)
             {
-                if (keyEvent.Keycode == Key.Space)
-                {
-                    if (TurnManager != null)
-                    {
-                        TurnManager.AdvancePhase();
-                        UpdateTitleLabel();
-                    }
-                }
-                else if (keyEvent.Keycode == Key.Equal || keyEvent.Keycode == Key.KpAdd)
-                {
-                    // Plus key for zoom in
-                    HexGridCalculator.ZoomIn();
-                    _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-                    RegenerateMapWithCurrentZoom();
-                    UpdateTitleLabel();
-                    UpdateZoomLabel();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.Minus || keyEvent.Keycode == Key.KpSubtract)
-                {
-                    // Minus key for zoom out
-                    HexGridCalculator.ZoomOut();
-                    _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-                    RegenerateMapWithCurrentZoom();
-                    UpdateTitleLabel();
-                    UpdateZoomLabel();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.Key0)
-                {
-                    // Reset zoom to 1.0
-                    HexGridCalculator.SetZoom(1.0f);
-                    _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-                    RegenerateMapWithCurrentZoom();
-                    UpdateTitleLabel();
-                    UpdateZoomLabel();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.W || keyEvent.Keycode == Key.Up)
-                {
-                    // Scroll up
-                    _scrollOffset.Y -= 50.0f;
-                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-                    _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
-                    HexGridCalculator.SetScrollOffset(_scrollOffset);
-                    RegenerateMapWithCurrentZoom();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.S || keyEvent.Keycode == Key.Down)
-                {
-                    // Scroll down
-                    _scrollOffset.Y += 50.0f;
-                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-                    _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
-                    HexGridCalculator.SetScrollOffset(_scrollOffset);
-                    RegenerateMapWithCurrentZoom();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.A || keyEvent.Keycode == Key.Left)
-                {
-                    // Scroll left
-                    _scrollOffset.X -= 50.0f;
-                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-                    _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
-                    HexGridCalculator.SetScrollOffset(_scrollOffset);
-                    RegenerateMapWithCurrentZoom();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.D || keyEvent.Keycode == Key.Right)
-                {
-                    // Scroll right
-                    _scrollOffset.X += 50.0f;
-                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-                    _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
-                    HexGridCalculator.SetScrollOffset(_scrollOffset);
-                    RegenerateMapWithCurrentZoom();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (keyEvent.Keycode == Key.Home)
-                {
-                    // Reset scroll to center
-                    _scrollOffset = Vector2.Zero;
-                    HexGridCalculator.SetScrollOffset(_scrollOffset);
-                    RegenerateMapWithCurrentZoom();
-                    GetViewport().SetInputAsHandled();
-                }
+                if (HandlePhaseInput(keyEvent)) return;
+                if (HandleZoomInput(keyEvent)) return;
+                HandleScrollInput(keyEvent);
             }
+        }
+
+        private bool HandlePhaseInput(InputEventKey keyEvent)
+        {
+            if (keyEvent.Keycode == Key.Space)
+            {
+                if (TurnManager != null)
+                {
+                    TurnManager.AdvancePhase();
+                    UpdateTitleLabel();
+                }
+                return true;
+            }
+            return false;
+        }
+
+        private bool HandleZoomInput(InputEventKey keyEvent)
+        {
+            bool handled = false;
+            
+            if (keyEvent.Keycode == Key.Equal || keyEvent.Keycode == Key.KpAdd)
+            {
+                HexGridCalculator.ZoomIn();
+                handled = true;
+            }
+            else if (keyEvent.Keycode == Key.Minus || keyEvent.Keycode == Key.KpSubtract)
+            {
+                HexGridCalculator.ZoomOut();
+                handled = true;
+            }
+            else if (keyEvent.Keycode == Key.Key0)
+            {
+                HexGridCalculator.SetZoom(1.0f);
+                handled = true;
+            }
+
+            if (handled)
+            {
+                UpdateZoomUI();
+                GetViewport().SetInputAsHandled();
+            }
+
+            return handled;
+        }
+
+        private bool HandleScrollInput(InputEventKey keyEvent)
+        {
+            var scrollDelta = Vector2.Zero;
+            const float ScrollStep = 50.0f;
+
+            if (keyEvent.Keycode == Key.W || keyEvent.Keycode == Key.Up)
+            {
+                scrollDelta.Y = -ScrollStep;
+            }
+            else if (keyEvent.Keycode == Key.S || keyEvent.Keycode == Key.Down)
+            {
+                scrollDelta.Y = ScrollStep;
+            }
+            else if (keyEvent.Keycode == Key.A || keyEvent.Keycode == Key.Left)
+            {
+                scrollDelta.X = -ScrollStep;
+            }
+            else if (keyEvent.Keycode == Key.D || keyEvent.Keycode == Key.Right)
+            {
+                scrollDelta.X = ScrollStep;
+            }
+            else if (keyEvent.Keycode == Key.Home)
+            {
+                _scrollOffset = Vector2.Zero;
+                HexGridCalculator.SetScrollOffset(_scrollOffset);
+                RegenerateMapWithCurrentZoom();
+                GetViewport().SetInputAsHandled();
+                return true;
+            }
+
+            if (scrollDelta != Vector2.Zero)
+            {
+                ApplyScrollDelta(scrollDelta);
+                GetViewport().SetInputAsHandled();
+                return true;
+            }
+
+            return false;
+        }
+
+        private void UpdateZoomUI()
+        {
+            _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+            RegenerateMapWithCurrentZoom();
+            UpdateTitleLabel();
+            UpdateZoomLabel();
+        }
+
+        private void ApplyScrollDelta(Vector2 scrollDelta)
+        {
+            _scrollOffset += scrollDelta;
+            var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+            _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
+            _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
+            HexGridCalculator.SetScrollOffset(_scrollOffset);
+            RegenerateMapWithCurrentZoom();
         }
     }
 }
