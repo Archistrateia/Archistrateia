@@ -25,14 +25,16 @@ namespace Archistrateia
         
         // Zoom control UI elements
         private HSlider _zoomSlider;
-        private Button _zoomInButton;
-        private Button _zoomOutButton;
-        private Button _resetZoomButton;
         private Label _zoomLabel;
         
         // Map dimensions come from centralized configuration
         private static int MAP_WIDTH => MapConfiguration.MAP_WIDTH;
         private static int MAP_HEIGHT => MapConfiguration.MAP_HEIGHT;
+
+        // Scrolling variables
+        private Vector2 _scrollOffset = Vector2.Zero;
+        private const float SCROLL_SPEED = 300.0f; // pixels per second
+        private const float EDGE_SCROLL_THRESHOLD = 50.0f; // pixels from edge to trigger scrolling
 
         public override void _Ready()
         {
@@ -65,17 +67,24 @@ namespace Archistrateia
 
         private void CreateZoomControls()
         {
+            // Create a background panel for zoom controls
+            var backgroundPanel = new Panel();
+            backgroundPanel.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 150, 10);
+            backgroundPanel.Size = new Vector2(130, 60);
+            backgroundPanel.ZIndex = 1000; // Ensure zoom controls are always on top
+            AddChild(backgroundPanel);
+
             // Create a container for zoom controls
             var zoomContainer = new VBoxContainer();
-            zoomContainer.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 200, 10);
-            zoomContainer.Size = new Vector2(180, 120);
-            AddChild(zoomContainer);
+            zoomContainer.Position = new Vector2(5, 5); // Small margin from panel edges
+            zoomContainer.Size = new Vector2(120, 50);
+            backgroundPanel.AddChild(zoomContainer);
 
             // Zoom label
             _zoomLabel = new Label();
             _zoomLabel.Text = "Zoom: 1.0x";
             _zoomLabel.HorizontalAlignment = HorizontalAlignment.Center;
-            _zoomLabel.AddThemeFontSizeOverride("font_size", 18);
+            _zoomLabel.AddThemeFontSizeOverride("font_size", 16);
             zoomContainer.AddChild(_zoomLabel);
 
             // Zoom slider
@@ -86,34 +95,6 @@ namespace Archistrateia
             _zoomSlider.Step = 0.1f;
             _zoomSlider.ValueChanged += OnZoomSliderChanged;
             zoomContainer.AddChild(_zoomSlider);
-
-            // Zoom buttons container
-            var buttonContainer = new HBoxContainer();
-            zoomContainer.AddChild(buttonContainer);
-
-            // Zoom out button
-            _zoomOutButton = new Button();
-            _zoomOutButton.Text = "-";
-            _zoomOutButton.Size = new Vector2(40, 30);
-            _zoomOutButton.AddThemeFontSizeOverride("font_size", 16);
-            _zoomOutButton.Pressed += OnZoomOutPressed;
-            buttonContainer.AddChild(_zoomOutButton);
-
-            // Reset zoom button
-            _resetZoomButton = new Button();
-            _resetZoomButton.Text = "Reset";
-            _resetZoomButton.Size = new Vector2(60, 30);
-            _resetZoomButton.AddThemeFontSizeOverride("font_size", 14);
-            _resetZoomButton.Pressed += OnResetZoomPressed;
-            buttonContainer.AddChild(_resetZoomButton);
-
-            // Zoom in button
-            _zoomInButton = new Button();
-            _zoomInButton.Text = "+";
-            _zoomInButton.Size = new Vector2(40, 30);
-            _zoomInButton.AddThemeFontSizeOverride("font_size", 16);
-            _zoomInButton.Pressed += OnZoomInPressed;
-            buttonContainer.AddChild(_zoomInButton);
         }
 
         private void OnZoomSliderChanged(double value)
@@ -124,32 +105,7 @@ namespace Archistrateia
             UpdateZoomLabel();
         }
 
-        private void OnZoomInPressed()
-        {
-            HexGridCalculator.ZoomIn();
-            _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-            RegenerateMapWithCurrentZoom();
-            UpdateTitleLabel();
-            UpdateZoomLabel();
-        }
 
-        private void OnZoomOutPressed()
-        {
-            HexGridCalculator.ZoomOut();
-            _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-            RegenerateMapWithCurrentZoom();
-            UpdateTitleLabel();
-            UpdateZoomLabel();
-        }
-
-        private void OnResetZoomPressed()
-        {
-            HexGridCalculator.SetZoom(1.0f);
-            _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-            RegenerateMapWithCurrentZoom();
-            UpdateTitleLabel();
-            UpdateZoomLabel();
-        }
 
         private void UpdateZoomLabel()
         {
@@ -178,11 +134,34 @@ namespace Archistrateia
                 TitleLabel.Visible = false;
             }
 
+            // Create background panel for game status
+            var statusBackgroundPanel = new Panel();
+            statusBackgroundPanel.Position = new Vector2(10, 10);
+            statusBackgroundPanel.Size = new Vector2(400, 40);
+            statusBackgroundPanel.ZIndex = 1000; // Ensure UI is always on top
+            AddChild(statusBackgroundPanel);
+
             // Create dedicated game status label
             _gameStatusLabel = new Label();
-            _gameStatusLabel.Position = new Vector2(10, 10);
+            _gameStatusLabel.Position = new Vector2(5, 5); // Small margin from panel edges
+            _gameStatusLabel.Size = new Vector2(390, 30);
             _gameStatusLabel.AddThemeFontSizeOverride("font_size", 24);
-            AddChild(_gameStatusLabel);
+            _gameStatusLabel.ZIndex = 1000; // Ensure UI is always on top
+            statusBackgroundPanel.AddChild(_gameStatusLabel);
+
+            // Calculate and set optimal zoom based on viewport and grid size
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            var optimalZoom = HexGridCalculator.CalculateOptimalZoom(viewportSize, MAP_WIDTH, MAP_HEIGHT);
+            HexGridCalculator.SetZoom(optimalZoom);
+            
+            // Update zoom slider to reflect the optimal zoom
+            if (_zoomSlider != null)
+            {
+                _zoomSlider.Value = optimalZoom;
+            }
+            
+            // Update zoom label to reflect the optimal zoom
+            UpdateZoomLabel();
 
             GenerateMap();
             InitializeGameManager();
@@ -192,6 +171,7 @@ namespace Archistrateia
             _nextPhaseButton.Text = "Next Phase";
             _nextPhaseButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
             _nextPhaseButton.AddThemeFontSizeOverride("font_size", 20);
+            _nextPhaseButton.ZIndex = 1000; // Ensure UI is always on top
             _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
             AddChild(_nextPhaseButton);
         }
@@ -203,8 +183,13 @@ namespace Archistrateia
                 _mapContainer.QueueFree();
             }
 
+            // Reset scroll offset when generating new map
+            _scrollOffset = Vector2.Zero;
+            HexGridCalculator.SetScrollOffset(_scrollOffset);
+
             _mapContainer = new Node2D();
             _mapContainer.Name = "MapContainer";
+            _mapContainer.ZIndex = 0; // Ensure map is below UI elements
             AddChild(_mapContainer);
 
             int tilesCreated = 0;
@@ -236,7 +221,7 @@ namespace Archistrateia
                 {
                     if (child is VisualHexTile visualTile)
                     {
-                        // Update the tile's position with new zoom
+                        // Update the tile's position with new zoom and scroll offset
                         var worldPosition = HexGridCalculator.CalculateHexPositionCentered(
                             visualTile.GridPosition.X, 
                             visualTile.GridPosition.Y, 
@@ -260,7 +245,7 @@ namespace Archistrateia
                         var logicalTile = FindLogicalTileWithUnit(visualUnit.LogicalUnit);
                         if (logicalTile != null)
                         {
-                            // Calculate new position with current zoom
+                            // Calculate new position with current zoom and scroll offset
                             var newWorldPosition = HexGridCalculator.CalculateHexPositionCentered(
                                 logicalTile.Position.X, 
                                 logicalTile.Position.Y, 
@@ -461,7 +446,7 @@ namespace Archistrateia
                     currentPlayerName = _gameManager.Players[_currentPlayerIndex].Name;
                 }
                 
-                var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName} - Zoom: {HexGridCalculator.ZoomFactor:F1}x";
+                var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName}";
                 _gameStatusLabel.Text = newText;
             }
             // On title screen, update the title label
@@ -495,6 +480,57 @@ namespace Archistrateia
                     UpdateZoomLabel();
                     GetViewport().SetInputAsHandled();
                 }
+            }
+        }
+
+        public override void _Process(double delta)
+        {
+            HandleEdgeScrolling(delta);
+        }
+
+        private void HandleEdgeScrolling(double delta)
+        {
+            var mousePosition = GetViewport().GetMousePosition();
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            var scrollDelta = Vector2.Zero;
+            
+            // Check if mouse is near edges
+            if (mousePosition.X < EDGE_SCROLL_THRESHOLD)
+            {
+                scrollDelta.X = -SCROLL_SPEED * (float)delta;
+            }
+            else if (mousePosition.X > viewportSize.X - EDGE_SCROLL_THRESHOLD)
+            {
+                scrollDelta.X = SCROLL_SPEED * (float)delta;
+            }
+            
+            if (mousePosition.Y < EDGE_SCROLL_THRESHOLD)
+            {
+                scrollDelta.Y = -SCROLL_SPEED * (float)delta;
+            }
+            else if (mousePosition.Y > viewportSize.Y - EDGE_SCROLL_THRESHOLD)
+            {
+                scrollDelta.Y = SCROLL_SPEED * (float)delta;
+            }
+            
+            // Apply scroll delta if any
+            if (scrollDelta != Vector2.Zero)
+            {
+                _scrollOffset += scrollDelta;
+                
+                // Calculate dynamic scroll bounds based on current zoom and viewport
+                var currentViewportSize = GetViewport().GetVisibleRect().Size;
+                var scrollBounds = HexGridCalculator.CalculateScrollBounds(currentViewportSize, MAP_WIDTH, MAP_HEIGHT);
+                
+                // Clamp scroll offset to keep grid on screen
+                _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
+                _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
+                
+                // Update HexGridCalculator scroll offset
+                HexGridCalculator.SetScrollOffset(_scrollOffset);
+                
+                // Regenerate map with new scroll offset
+                RegenerateMapWithCurrentZoom();
             }
         }
 
@@ -538,6 +574,54 @@ namespace Archistrateia
                     RegenerateMapWithCurrentZoom();
                     UpdateTitleLabel();
                     UpdateZoomLabel();
+                    GetViewport().SetInputAsHandled();
+                }
+                else if (keyEvent.Keycode == Key.W || keyEvent.Keycode == Key.Up)
+                {
+                    // Scroll up
+                    _scrollOffset.Y -= 50.0f;
+                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                    _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
+                    HexGridCalculator.SetScrollOffset(_scrollOffset);
+                    RegenerateMapWithCurrentZoom();
+                    GetViewport().SetInputAsHandled();
+                }
+                else if (keyEvent.Keycode == Key.S || keyEvent.Keycode == Key.Down)
+                {
+                    // Scroll down
+                    _scrollOffset.Y += 50.0f;
+                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                    _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
+                    HexGridCalculator.SetScrollOffset(_scrollOffset);
+                    RegenerateMapWithCurrentZoom();
+                    GetViewport().SetInputAsHandled();
+                }
+                else if (keyEvent.Keycode == Key.A || keyEvent.Keycode == Key.Left)
+                {
+                    // Scroll left
+                    _scrollOffset.X -= 50.0f;
+                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                    _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
+                    HexGridCalculator.SetScrollOffset(_scrollOffset);
+                    RegenerateMapWithCurrentZoom();
+                    GetViewport().SetInputAsHandled();
+                }
+                else if (keyEvent.Keycode == Key.D || keyEvent.Keycode == Key.Right)
+                {
+                    // Scroll right
+                    _scrollOffset.X += 50.0f;
+                    var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                    _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
+                    HexGridCalculator.SetScrollOffset(_scrollOffset);
+                    RegenerateMapWithCurrentZoom();
+                    GetViewport().SetInputAsHandled();
+                }
+                else if (keyEvent.Keycode == Key.Home)
+                {
+                    // Reset scroll to center
+                    _scrollOffset = Vector2.Zero;
+                    HexGridCalculator.SetScrollOffset(_scrollOffset);
+                    RegenerateMapWithCurrentZoom();
                     GetViewport().SetInputAsHandled();
                 }
             }
