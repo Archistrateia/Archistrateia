@@ -72,12 +72,14 @@ namespace Archistrateia
             backgroundPanel.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 150, 10);
             backgroundPanel.Size = new Vector2(130, 60);
             backgroundPanel.ZIndex = 1000; // Ensure zoom controls are always on top
+            backgroundPanel.MouseFilter = Control.MouseFilterEnum.Ignore; // Don't block mouse events
             AddChild(backgroundPanel);
 
             // Create a container for zoom controls
             var zoomContainer = new VBoxContainer();
             zoomContainer.Position = new Vector2(5, 5); // Small margin from panel edges
             zoomContainer.Size = new Vector2(120, 50);
+            zoomContainer.CustomMinimumSize = new Vector2(120, 50); // Ensure minimum size
             backgroundPanel.AddChild(zoomContainer);
 
             // Zoom label
@@ -85,6 +87,7 @@ namespace Archistrateia
             _zoomLabel.Text = "Zoom: 1.0x";
             _zoomLabel.HorizontalAlignment = HorizontalAlignment.Center;
             _zoomLabel.AddThemeFontSizeOverride("font_size", 16);
+            _zoomLabel.CustomMinimumSize = new Vector2(120, 20); // Set minimum size
             zoomContainer.AddChild(_zoomLabel);
 
             // Zoom slider
@@ -93,7 +96,12 @@ namespace Archistrateia
             _zoomSlider.MaxValue = 3.0f;
             _zoomSlider.Value = 1.0f;
             _zoomSlider.Step = 0.1f;
+            _zoomSlider.CustomMinimumSize = new Vector2(120, 20); // Set minimum size
+            _zoomSlider.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure slider receives mouse events
             _zoomSlider.ValueChanged += OnZoomSliderChanged;
+            _zoomSlider.GuiInput += OnZoomSliderInput; // Add input event handler
+            _zoomSlider.AllowGreater = false; // Ensure value stays within bounds
+            _zoomSlider.AllowLesser = false; // Ensure value stays within bounds
             zoomContainer.AddChild(_zoomSlider);
         }
 
@@ -103,6 +111,35 @@ namespace Archistrateia
             RegenerateMapWithCurrentZoom();
             UpdateTitleLabel();
             UpdateZoomLabel();
+            UpdateUIPositions(); // Update UI positions when zoom changes
+        }
+        
+        private void OnZoomSliderInput(InputEvent @event)
+        {
+            GD.Print($"Zoom slider received input event: {@event.GetType().Name}");
+            
+            // Handle mouse button events manually if the slider isn't responding
+            if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
+            {
+                GD.Print($"Zoom slider mouse button pressed: {mouseEvent.ButtonIndex}");
+                
+                // Get the mouse position relative to the slider
+                var localPos = _zoomSlider.GetLocalMousePosition();
+                var sliderWidth = _zoomSlider.Size.X;
+                var normalizedPos = localPos.X / sliderWidth;
+                
+                // Calculate new value based on mouse position
+                var newValue = _zoomSlider.MinValue + (normalizedPos * (_zoomSlider.MaxValue - _zoomSlider.MinValue));
+                newValue = Mathf.Clamp(newValue, _zoomSlider.MinValue, _zoomSlider.MaxValue);
+                
+                GD.Print($"Calculated new zoom value: {newValue} from mouse position {localPos}");
+                
+                // Update the slider value manually
+                _zoomSlider.Value = newValue;
+                
+                // Trigger the value changed event manually
+                OnZoomSliderChanged(newValue);
+            }
         }
 
 
@@ -112,6 +149,37 @@ namespace Archistrateia
             if (_zoomLabel != null)
             {
                 _zoomLabel.Text = $"Zoom: {HexGridCalculator.ZoomFactor:F1}x";
+            }
+        }
+        
+        private void UpdateUIPositions()
+        {
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            
+            // Update Next Phase button position
+            if (_nextPhaseButton != null)
+            {
+                _nextPhaseButton.Position = new Vector2(10, viewportSize.Y - 50);
+            }
+            
+            // Update zoom controls position
+            if (_zoomSlider != null)
+            {
+                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
+                if (zoomPanel != null)
+                {
+                    zoomPanel.Position = new Vector2(viewportSize.X - 150, 10);
+                }
+            }
+            
+            // Update status panel position
+            if (_gameStatusLabel != null)
+            {
+                var statusPanel = _gameStatusLabel.GetParent() as Panel;
+                if (statusPanel != null)
+                {
+                    statusPanel.Position = new Vector2(10, 10);
+                }
             }
         }
 
@@ -139,6 +207,7 @@ namespace Archistrateia
             statusBackgroundPanel.Position = new Vector2(10, 10);
             statusBackgroundPanel.Size = new Vector2(400, 40);
             statusBackgroundPanel.ZIndex = 1000; // Ensure UI is always on top
+            statusBackgroundPanel.MouseFilter = Control.MouseFilterEnum.Ignore; // Don't block mouse events
             AddChild(statusBackgroundPanel);
 
             // Create dedicated game status label
@@ -165,15 +234,24 @@ namespace Archistrateia
 
             GenerateMap();
             InitializeGameManager();
+            
+            // Update UI positions after everything is initialized
+            UpdateUIPositions();
 
             // Create Next Phase button
             _nextPhaseButton = new Button();
             _nextPhaseButton.Text = "Next Phase";
             _nextPhaseButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
+            _nextPhaseButton.Size = new Vector2(120, 40); // Set explicit size
             _nextPhaseButton.AddThemeFontSizeOverride("font_size", 20);
             _nextPhaseButton.ZIndex = 1000; // Ensure UI is always on top
+            _nextPhaseButton.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure button receives mouse events
             _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
+            _nextPhaseButton.GuiInput += OnNextPhaseButtonInput; // Add input event handler
             AddChild(_nextPhaseButton);
+            
+            // Debug UI elements to help troubleshoot
+            DebugUIElements();
         }
 
         private void GenerateMap()
@@ -380,6 +458,11 @@ namespace Archistrateia
 
             UpdateTitleLabel();
         }
+        
+        private void OnNextPhaseButtonInput(InputEvent @event)
+        {
+            GD.Print($"Next Phase button received input event: {@event.GetType().Name}");
+        }
 
         private void HandlePhaseChange(GamePhase phase)
         {
@@ -480,7 +563,24 @@ namespace Archistrateia
                     UpdateZoomLabel();
                     GetViewport().SetInputAsHandled();
                 }
+                else if (mouseEvent.ButtonIndex == MouseButton.Left)
+                {
+                    // Debug mouse clicks to see if UI controls are being detected
+                    var mousePosition = GetViewport().GetMousePosition();
+                    DebugMousePosition(mousePosition);
+                    
+                    // Don't mark left clicks as handled to allow UI controls to receive them
+                }
             }
+            
+            // Handle two-finger scroll for Mac trackpad
+            if (@event is InputEventPanGesture panGesture)
+            {
+                HandleTwoFingerScroll(panGesture);
+                GetViewport().SetInputAsHandled();
+            }
+            
+            // Don't handle other input events to allow UI controls to receive them
         }
 
         public override void _Process(double delta)
@@ -495,6 +595,12 @@ namespace Archistrateia
             
             // Only activate scrolling if the grid extends beyond the viewport
             if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
+            {
+                return;
+            }
+            
+            // Check if mouse is hovering over UI controls - if so, don't scroll
+            if (IsMouseOverUIControls(mousePosition))
             {
                 return;
             }
@@ -660,6 +766,155 @@ namespace Archistrateia
             _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
             HexGridCalculator.SetScrollOffset(_scrollOffset);
             RegenerateMapWithCurrentZoom();
+        }
+        
+        private void HandleTwoFingerScroll(InputEventPanGesture panGesture)
+        {
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            
+            // Only allow scrolling if the grid extends beyond the viewport
+            if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
+            {
+                return;
+            }
+            
+            // Check if mouse is hovering over UI controls - if so, don't scroll
+            var mousePosition = GetViewport().GetMousePosition();
+            if (IsMouseOverUIControls(mousePosition))
+            {
+                return;
+            }
+            
+            // Convert pan gesture delta to scroll delta
+            // Pan gesture delta is typically smaller, so we scale it up for responsive scrolling
+            const float PAN_SCROLL_MULTIPLIER = 4.0f;
+            var scrollDelta = new Vector2(
+                panGesture.Delta.X * PAN_SCROLL_MULTIPLIER,
+                panGesture.Delta.Y * PAN_SCROLL_MULTIPLIER
+            );
+            
+            // Apply the scroll delta
+            ApplyScrollDelta(scrollDelta);
+        }
+        
+        public bool IsMouseOverUIControls(Vector2 mousePosition)
+        {
+            // Check if mouse is over zoom controls (top-right panel)
+            if (_zoomSlider != null)
+            {
+                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
+                if (zoomPanel != null)
+                {
+                    var panelRect = new Rect2(zoomPanel.GlobalPosition, zoomPanel.Size);
+                    if (panelRect.HasPoint(mousePosition))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            // Check if mouse is over Next Phase button
+            if (_nextPhaseButton != null)
+            {
+                var buttonRect = new Rect2(_nextPhaseButton.GlobalPosition, _nextPhaseButton.Size);
+                if (buttonRect.HasPoint(mousePosition))
+                {
+                    return true;
+                }
+            }
+            
+            // Check if mouse is over game status panel
+            if (_gameStatusLabel != null)
+            {
+                var statusPanel = _gameStatusLabel.GetParent() as Panel;
+                if (statusPanel != null)
+                {
+                    var panelRect = new Rect2(statusPanel.GlobalPosition, statusPanel.Size);
+                    if (panelRect.HasPoint(mousePosition))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        // Enhanced debug method to help troubleshoot UI issues with mouse coordinates
+        private void DebugMousePosition(Vector2 mousePosition)
+        {
+            GD.Print($"=== DEBUGGING MOUSE POSITION: {mousePosition} ===");
+            
+            if (_nextPhaseButton != null)
+            {
+                var buttonRect = new Rect2(_nextPhaseButton.GlobalPosition, _nextPhaseButton.Size);
+                bool overButton = buttonRect.HasPoint(mousePosition);
+                GD.Print($"Next Phase Button: GlobalPos={_nextPhaseButton.GlobalPosition}, Size={_nextPhaseButton.Size}, Over={overButton}");
+            }
+            
+            if (_zoomSlider != null)
+            {
+                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
+                if (zoomPanel != null)
+                {
+                    var panelRect = new Rect2(zoomPanel.GlobalPosition, zoomPanel.Size);
+                    bool overZoom = panelRect.HasPoint(mousePosition);
+                    GD.Print($"Zoom Panel: GlobalPos={zoomPanel.GlobalPosition}, Size={zoomPanel.Size}, Over={overZoom}");
+                }
+            }
+            
+            if (_gameStatusLabel != null)
+            {
+                var statusPanel = _gameStatusLabel.GetParent() as Panel;
+                if (statusPanel != null)
+                {
+                    var panelRect = new Rect2(statusPanel.GlobalPosition, statusPanel.Size);
+                    bool overStatus = panelRect.HasPoint(mousePosition);
+                    GD.Print($"Status Panel: GlobalPos={statusPanel.GlobalPosition}, Size={statusPanel.Size}, Over={overStatus}");
+                }
+            }
+        }
+        
+        // Debug method to help troubleshoot UI issues
+        private void DebugUIElements()
+        {
+            GD.Print("=== DEBUGGING UI ELEMENTS ===");
+            
+            if (_nextPhaseButton != null)
+            {
+                GD.Print($"Next Phase Button: Position={_nextPhaseButton.GlobalPosition}, Size={_nextPhaseButton.Size}, Visible={_nextPhaseButton.Visible}");
+            }
+            else
+            {
+                GD.Print("Next Phase Button: NULL");
+            }
+            
+            if (_zoomSlider != null)
+            {
+                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
+                if (zoomPanel != null)
+                {
+                    GD.Print($"Zoom Panel: Position={zoomPanel.GlobalPosition}, Size={zoomPanel.Size}, Visible={zoomPanel.Visible}");
+                }
+                GD.Print($"Zoom Slider: Position={_zoomSlider.GlobalPosition}, Size={_zoomSlider.Size}, Visible={_zoomSlider.Visible}");
+            }
+            else
+            {
+                GD.Print("Zoom Slider: NULL");
+            }
+            
+            if (_gameStatusLabel != null)
+            {
+                var statusPanel = _gameStatusLabel.GetParent() as Panel;
+                if (statusPanel != null)
+                {
+                    GD.Print($"Status Panel: Position={statusPanel.GlobalPosition}, Size={statusPanel.Size}, Visible={statusPanel.Visible}");
+                }
+            }
+            else
+            {
+                GD.Print("Game Status Label: NULL");
+            }
         }
     }
 }
