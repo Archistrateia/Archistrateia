@@ -28,7 +28,7 @@ public class PathfindingTest
         
         GD.Print("=== TESTING PATHFINDING COMPLETENESS ===");
         
-        var initialDestinations = logic.GetValidMovementDestinations(archer, new Vector2I(1, 3), map);
+        var initialDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, new Vector2I(1, 3), map);
         
         GD.Print($"Initial destinations from (1,3) with 4 MP: {initialDestinations.Count}");
         foreach (var dest in initialDestinations)
@@ -50,7 +50,6 @@ public class PathfindingTest
     [Test]
     public void Should_Match_Stepwise_Pathfinding()
     {
-        var logic = new MovementValidationLogic();
         var map = new Dictionary<Vector2I, HexTile>();
         
         map[new Vector2I(0, 0)] = new HexTile(new Vector2I(0, 0), TerrainType.Desert);
@@ -61,10 +60,10 @@ public class PathfindingTest
         var unit = new Nakhtu();
         unit.CurrentMovementPoints = 3;
         
-        var fromStart = logic.GetValidMovementDestinations(unit, new Vector2I(0, 0), map);
+        var fromStart = MovementValidationLogic.GetValidMovementDestinations(unit, new Vector2I(0, 0), map);
         
         unit.CurrentMovementPoints = 2;
-        var fromIntermediate = logic.GetValidMovementDestinations(unit, new Vector2I(1, 0), map);
+        var fromIntermediate = MovementValidationLogic.GetValidMovementDestinations(unit, new Vector2I(1, 0), map);
         
         Assert.Contains(new Vector2I(2, 0), fromStart, "(2,0) should be in initial pathfinding");
         Assert.Contains(new Vector2I(3, 0), fromStart, "(3,0) should be in initial pathfinding");
@@ -117,7 +116,7 @@ public class PathfindingTest
         var archer = new Archer();
         GD.Print($"Archer has {archer.CurrentMovementPoints} MP");
         
-        var validDestinations = logic.GetValidMovementDestinations(archer, new Vector2I(0, 0), gameMap);
+        var validDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, new Vector2I(0, 0), gameMap);
         
         GD.Print("Pathfinding results:");
         foreach (var dest in validDestinations.OrderBy(p => p.X))
@@ -153,7 +152,7 @@ public class PathfindingTest
         
         var archer = new Archer();
         
-        var validDestinations = logic.GetValidMovementDestinations(archer, new Vector2I(1, 0), gameMap);
+        var validDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, new Vector2I(1, 0), gameMap);
         
         GD.Print($"Diamond pattern results:");
         foreach (var dest in validDestinations.OrderBy(p => p.Y).ThenBy(p => p.X))
@@ -181,7 +180,7 @@ public class PathfindingTest
         
         GD.Print("=== TESTING OPTIMIZED PATHFINDING ===");
         
-        var validDestinations = logic.GetValidMovementDestinations(archer, startPosition, gameMap);
+        var validDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, startPosition, gameMap);
         
         Assert.IsTrue(validDestinations.Count > 0, "Should find valid destinations");
         
@@ -205,7 +204,7 @@ public class PathfindingTest
         
         gameMap[startPosition].PlaceUnit(charioteer);
         
-        var validDestinations = logic.GetValidMovementDestinations(charioteer, startPosition, gameMap);
+        var validDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, startPosition, gameMap);
         
         GD.Print($"=== COMPLEX TERRAIN TEST ===");
         GD.Print($"Charioteer with 4 MP found {validDestinations.Count} destinations");
@@ -221,28 +220,7 @@ public class PathfindingTest
         GD.Print("✅ Complex terrain pathfinding working correctly");
     }
     
-    [Test]
-    public void Should_Verify_Priority_Queue_Functionality()
-    {
-        var priorityQueue = new PriorityQueue<DijkstraNode>();
-        
-        priorityQueue.Enqueue(new DijkstraNode(5, new Vector2I(1, 1)));
-        priorityQueue.Enqueue(new DijkstraNode(1, new Vector2I(0, 0)));
-        priorityQueue.Enqueue(new DijkstraNode(3, new Vector2I(2, 2)));
-        priorityQueue.Enqueue(new DijkstraNode(2, new Vector2I(1, 0)));
-        
-        var first = priorityQueue.Dequeue();
-        var second = priorityQueue.Dequeue();
-        var third = priorityQueue.Dequeue();
-        var fourth = priorityQueue.Dequeue();
-        
-        Assert.AreEqual(1, first.Cost, "First dequeued should have cost 1");
-        Assert.AreEqual(2, second.Cost, "Second dequeued should have cost 2");
-        Assert.AreEqual(3, third.Cost, "Third dequeued should have cost 3");
-        Assert.AreEqual(5, fourth.Cost, "Fourth dequeued should have cost 5");
-        
-        GD.Print("✅ Priority queue binary heap working correctly");
-    }
+
     
     private Dictionary<Vector2I, HexTile> CreateTestMap()
     {

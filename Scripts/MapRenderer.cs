@@ -146,26 +146,22 @@ namespace Archistrateia
                 return;
             }
 
-            // Check if unit has any movement points left
             if (selectedUnit.CurrentMovementPoints <= 0)
             {
                 DeselectAll();
                 return;
             }
 
-            // Find the unit's current position
             var unitPosition = FindUnitPosition(selectedUnit);
             if (unitPosition == null)
             {
                 return;
             }
 
-            // Try to move the unit
             var moveResult = _movementCoordinator.TryMoveToDestination(unitPosition.Value, clickedTile.GridPosition, GameManager.GameMap);
             
             if (moveResult.Success)
             {
-                // Update visual unit position
                 var visualUnit = FindVisualUnit(selectedUnit);
                 if (visualUnit != null)
                 {
@@ -173,10 +169,8 @@ namespace Archistrateia
                     visualUnit.UpdatePosition(newWorldPosition);
                 }
                 
-                // Check movement points AFTER the move
                 if (selectedUnit.CurrentMovementPoints > 0)
                 {
-                    // Force recalculation from the new position with remaining movement points
                     ShowValidMovementDestinations(selectedUnit);
                 }
                 else

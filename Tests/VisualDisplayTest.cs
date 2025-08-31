@@ -139,22 +139,18 @@ public partial class VisualDisplayTest : Node
         GD.Print("=== TESTING IMMEDIATE OVERLAY REMOVAL ===");
         
         visualTile.SetGrayed(true);
-        var grayOverlay = visualTile.GetNodeOrNull("GrayOverlay");
-        Assert.IsNotNull(grayOverlay, "Gray overlay should be added");
+        Assert.IsTrue(visualTile.IsGrayed(), "Tile should be grayed");
         
         visualTile.SetGrayed(false);
-        var removedGrayOverlay = visualTile.GetNodeOrNull("GrayOverlay");
-        Assert.IsNull(removedGrayOverlay, "Gray overlay should be immediately removed from scene tree");
+        Assert.IsFalse(visualTile.IsGrayed(), "Tile should not be grayed");
         
         visualTile.SetBrightened(true);
-        var brightOverlay = visualTile.GetNodeOrNull("BrightOverlay");
-        Assert.IsNotNull(brightOverlay, "Bright overlay should be added");
+        Assert.IsTrue(visualTile.IsBrightened(), "Tile should be brightened");
         
         visualTile.SetBrightened(false);
-        var removedBrightOverlay = visualTile.GetNodeOrNull("BrightOverlay");
-        Assert.IsNull(removedBrightOverlay, "Bright overlay should be immediately removed from scene tree");
+        Assert.IsFalse(visualTile.IsBrightened(), "Tile should not be brightened");
         
-        GD.Print("✅ Visual overlays are immediately removed - highlighting synchronization fixed!");
+        GD.Print("✅ Visual overlay states are correctly managed!");
         
         visualTile.QueueFree();
     }
@@ -168,16 +164,16 @@ public partial class VisualDisplayTest : Node
         GD.Print("=== TESTING MULTIPLE OVERLAY STATE CHANGES ===");
         
         visualTile.SetGrayed(true);
-        Assert.IsNotNull(visualTile.GetNodeOrNull("GrayOverlay"), "Should have gray overlay");
+        Assert.IsTrue(visualTile.IsGrayed(), "Should be grayed");
         
         visualTile.SetBrightened(true);
-        Assert.IsNotNull(visualTile.GetNodeOrNull("BrightOverlay"), "Should have bright overlay");
+        Assert.IsTrue(visualTile.IsBrightened(), "Should be brightened");
         
         visualTile.SetGrayed(false);
         visualTile.SetBrightened(false);
         
-        Assert.IsNull(visualTile.GetNodeOrNull("GrayOverlay"), "Gray overlay should be gone");
-        Assert.IsNull(visualTile.GetNodeOrNull("BrightOverlay"), "Bright overlay should be gone");
+        Assert.IsFalse(visualTile.IsGrayed(), "Should not be grayed");
+        Assert.IsFalse(visualTile.IsBrightened(), "Should not be brightened");
         
         GD.Print("✅ Multiple overlay state changes handled correctly!");
         

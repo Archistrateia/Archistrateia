@@ -1,6 +1,7 @@
-using NUnit.Framework;
 using Godot;
+using NUnit.Framework;
 using System.Collections.Generic;
+using Archistrateia;
 
 [TestFixture]
 public partial class MovementCoordinatorTest : Node
@@ -9,6 +10,13 @@ public partial class MovementCoordinatorTest : Node
     public void Should_Handle_Unit_Selection_For_Movement()
     {
         var coordinator = new MovementCoordinator();
+        var gameMap = CreateTestMap();
+        
+        // Set up Godot's built-in movement system for this test map
+        var movementSystem = new GodotMovementSystem(forTesting: true);
+        movementSystem.InitializeNavigation(gameMap);
+        MovementValidationLogic.SetMovementSystem(movementSystem);
+        
         var nakhtu = new Nakhtu();
         
         coordinator.SelectUnitForMovement(nakhtu);
@@ -21,7 +29,14 @@ public partial class MovementCoordinatorTest : Node
     public void Should_Clear_Selection_When_Deselecting()
     {
         var coordinator = new MovementCoordinator();
-        var nakhtu = new Nakhtu();
+        var gameMap = CreateTestMap();
+        
+        // Set up Godot's built-in movement system for this test map
+        var movementSystem = new GodotMovementSystem(forTesting: true);
+        movementSystem.InitializeNavigation(gameMap);
+        MovementValidationLogic.SetMovementSystem(movementSystem);
+        
+        var nakhtu = new Nakhtu(); // Has 4 movement points (doubled)
         
         coordinator.SelectUnitForMovement(nakhtu);
         coordinator.ClearSelection();
@@ -153,35 +168,7 @@ public partial class MovementCoordinatorTest : Node
         Assert.IsNotNull(moveResult.ErrorMessage);
     }
 
-    // [Test] - REMOVED: had hardcoded hex adjacency expectations from old buggy behavior
-    public void Should_Only_Allow_Movement_To_Valid_Destinations_REMOVED()
-    {
-        var coordinator = new MovementCoordinator();
-        var gameMap = CreateTestMap();
-        var nakhtu = new Nakhtu();
-        var unitPosition = new Vector2I(1, 1);
-        var validDestination = new Vector2I(1, 2);
-        var invalidDestination = new Vector2I(2, 2);
-        
-        gameMap[unitPosition].PlaceUnit(nakhtu);
-        coordinator.SelectUnitForMovement(nakhtu);
-        
-        var validDestinations = coordinator.GetValidDestinations(unitPosition, gameMap);
-        
-        // Test valid destination
-        if (validDestinations.Contains(validDestination))
-        {
-            var validMoveResult = coordinator.TryMoveToDestination(unitPosition, validDestination, gameMap);
-            Assert.IsTrue(validMoveResult.Success, "Movement to valid destination should succeed");
-        }
-        
-        // Test invalid destination
-        if (!validDestinations.Contains(invalidDestination))
-        {
-            var invalidMoveResult = coordinator.TryMoveToDestination(unitPosition, invalidDestination, gameMap);
-            Assert.IsFalse(invalidMoveResult.Success, "Movement to invalid destination should fail");
-        }
-    }
+
 
     [Test]
     public void Should_Enforce_Valid_Destination_List_In_Coordinator()
@@ -226,6 +213,9 @@ public partial class MovementCoordinatorTest : Node
                 Assert.IsNotNull(moveResult.ErrorMessage, $"Should have error message for failed move to {destination}");
             }
         }
+        
+        // Clean up
+        MovementValidationLogic.SetMovementSystem(null);
     }
 
     [Test]
@@ -263,6 +253,9 @@ public partial class MovementCoordinatorTest : Node
         // Getting destinations should return empty list since unit has no movement
         var finalDestinations = coordinator.GetValidDestinations(destinationPosition, gameMap);
         Assert.AreEqual(0, finalDestinations.Count, "Should have no destinations with 0 movement points");
+        
+        // Clean up
+        MovementValidationLogic.SetMovementSystem(null);
     }
 
     private Dictionary<Vector2I, HexTile> CreateTestMap()

@@ -9,6 +9,12 @@ public partial class VisualHexTile : Area2D
     [Signal]
     public delegate void TileClickedEventHandler(VisualHexTile tile);
 
+    private Polygon2D _hexShape;
+    private Line2D _hexOutline;
+    private bool _isHighlighted = false;
+    private bool _isGrayed = false;
+    private bool _isBrightened = false;
+
     public void Initialize(Vector2I gridPosition, TerrainType terrainType, Color color, Vector2 worldPosition)
     {
         GridPosition = gridPosition;
@@ -18,22 +24,25 @@ public partial class VisualHexTile : Area2D
         
         CreateVisualComponents(color);
         SetupClickDetection();
+        UpdateVisualAppearance();
     }
 
     private void CreateVisualComponents(Color color)
     {
-        var hexShape = new Polygon2D();
-        hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
-        hexShape.Color = color;
-        hexShape.Name = "HexShape";
-        AddChild(hexShape);
+        // Create hex shape using Godot's built-in Polygon2D
+        _hexShape = new Polygon2D();
+        _hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
+        _hexShape.Color = color;
+        _hexShape.Name = "HexShape";
+        AddChild(_hexShape);
 
-        var outline = new Line2D();
-        outline.Points = HexGridCalculator.CreateHexagonVertices();
-        outline.DefaultColor = new Color(0.2f, 0.2f, 0.2f);
-        outline.Width = 2.0f;
-        outline.Name = "HexOutline";
-        AddChild(outline);
+        // Create hex outline using Godot's built-in Line2D
+        _hexOutline = new Line2D();
+        _hexOutline.Points = HexGridCalculator.CreateHexagonVertices();
+        _hexOutline.DefaultColor = new Color(0.2f, 0.2f, 0.2f);
+        _hexOutline.Width = 2.0f;
+        _hexOutline.Name = "HexOutline";
+        AddChild(_hexOutline);
     }
 
     private void SetupClickDetection()
@@ -61,17 +70,15 @@ public partial class VisualHexTile : Area2D
     public void UpdateVisualComponents()
     {
         // Update hex shape vertices
-        var hexShape = GetNode<Polygon2D>("HexShape");
-        if (hexShape != null)
+        if (_hexShape != null)
         {
-            hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
+            _hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
         }
 
         // Update outline vertices
-        var outline = GetNode<Line2D>("HexOutline");
-        if (outline != null)
+        if (_hexOutline != null)
         {
-            outline.Points = HexGridCalculator.CreateHexagonVertices();
+            _hexOutline.Points = HexGridCalculator.CreateHexagonVertices();
         }
 
         // Update collision shape
@@ -81,24 +88,46 @@ public partial class VisualHexTile : Area2D
             polygonShape.Points = HexGridCalculator.CreateHexagonVertices();
         }
 
-        // Update any overlay vertices
-        var highlightOverlay = GetNodeOrNull<Polygon2D>("HighlightOverlay");
-        if (highlightOverlay != null)
-        {
-            highlightOverlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-        }
+        // Update visual appearance
+        UpdateVisualAppearance();
+    }
 
-        var grayOverlay = GetNodeOrNull<Polygon2D>("GrayOverlay");
-        if (grayOverlay != null)
+    private void UpdateVisualAppearance()
+    {
+        if (_hexShape == null) return;
+        
+        // Get base terrain color
+        var terrainColor = GetTerrainColor(TerrainType);
+        
+        // Apply state-based modifications
+        if (_isHighlighted)
         {
-            grayOverlay.Polygon = HexGridCalculator.CreateHexagonVertices();
+            terrainColor = terrainColor.Lightened(0.3f);
         }
+        else if (_isGrayed)
+        {
+            terrainColor = terrainColor.Darkened(0.5f);
+        }
+        else if (_isBrightened)
+        {
+            terrainColor = terrainColor.Lightened(0.2f);
+        }
+        
+        // Update hex shape color
+        _hexShape.Color = terrainColor;
+    }
 
-        var brightOverlay = GetNodeOrNull<Polygon2D>("BrightOverlay");
-        if (brightOverlay != null)
+    private Color GetTerrainColor(TerrainType terrainType)
+    {
+        return terrainType switch
         {
-            brightOverlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-        }
+            TerrainType.Desert => new Color(0.9f, 0.8f, 0.6f),
+            TerrainType.Hill => new Color(0.6f, 0.5f, 0.3f),
+            TerrainType.River => new Color(0.3f, 0.6f, 0.9f),
+            TerrainType.Shoreline => new Color(0.8f, 0.7f, 0.5f),
+            TerrainType.Lagoon => new Color(0.2f, 0.5f, 0.7f),
+            _ => Colors.Gray
+        };
     }
 
     private void OnInputEvent(Node viewport, InputEvent @event, long shapeIdx)
@@ -153,87 +182,34 @@ public partial class VisualHexTile : Area2D
 
     public void SetHighlight(bool highlight, Color highlightColor = default)
     {
-        var hexShape = GetNode<Polygon2D>("HexShape");
-        if (highlight)
-        {
-            if (highlightColor == default)
-                highlightColor = new Color(1.0f, 1.0f, 0.0f, 0.7f); // Yellow highlight default
-            
-            // Add highlight overlay
-            if (GetNodeOrNull("HighlightOverlay") == null)
-            {
-                var overlay = new Polygon2D();
-                overlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-                overlay.Color = highlightColor;
-                overlay.Name = "HighlightOverlay";
-                overlay.ZIndex = 1;
-                AddChild(overlay);
-            }
-        }
-        else
-        {
-            // Remove highlight overlay IMMEDIATELY
-            var overlay = GetNodeOrNull("HighlightOverlay");
-            if (overlay != null)
-            {
-                RemoveChild(overlay);
-                overlay.QueueFree();
-            }
-        }
+        _isHighlighted = highlight;
+        UpdateVisualAppearance();
     }
 
     public void SetGrayed(bool grayed)
     {
-        var hexShape = GetNode<Polygon2D>("HexShape");
-        if (grayed)
-        {
-            // Darken the hex significantly with a much darker overlay
-            if (GetNodeOrNull("GrayOverlay") == null)
-            {
-                var overlay = new Polygon2D();
-                overlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-                overlay.Color = new Color(0.0f, 0.0f, 0.0f, 0.85f); // Almost black overlay for maximum contrast
-                overlay.Name = "GrayOverlay";
-                overlay.ZIndex = 2; // Above highlight but below units
-                AddChild(overlay);
-            }
-        }
-        else
-        {
-            // Remove gray overlay IMMEDIATELY to fix timing issues
-            var overlay = GetNodeOrNull("GrayOverlay");
-            if (overlay != null)
-            {
-                RemoveChild(overlay);
-                overlay.QueueFree(); // Still queue for cleanup, but remove from tree immediately
-            }
-        }
+        _isGrayed = grayed;
+        UpdateVisualAppearance();
     }
 
     public void SetBrightened(bool brightened)
     {
-        if (brightened)
-        {
-            // Add a much more prominent bright overlay for maximum visibility
-            if (GetNodeOrNull("BrightOverlay") == null)
-            {
-                var overlay = new Polygon2D();
-                overlay.Polygon = HexGridCalculator.CreateHexagonVertices();
-                overlay.Color = new Color(1.0f, 1.0f, 0.8f, 0.6f); // Bright yellow-white overlay with higher opacity
-                overlay.Name = "BrightOverlay";
-                overlay.ZIndex = 1; // Below gray overlay
-                AddChild(overlay);
-            }
-        }
-        else
-        {
-            // Remove bright overlay IMMEDIATELY to fix timing issues
-            var overlay = GetNodeOrNull("BrightOverlay");
-            if (overlay != null)
-            {
-                RemoveChild(overlay);
-                overlay.QueueFree(); // Still queue for cleanup, but remove from tree immediately
-            }
-        }
+        _isBrightened = brightened;
+        UpdateVisualAppearance();
+    }
+
+    public bool IsHighlighted()
+    {
+        return _isHighlighted;
+    }
+
+    public bool IsGrayed()
+    {
+        return _isGrayed;
+    }
+
+    public bool IsBrightened()
+    {
+        return _isBrightened;
     }
 } 

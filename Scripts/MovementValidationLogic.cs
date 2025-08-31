@@ -6,15 +6,20 @@ namespace Archistrateia
 {
     public class MovementValidationLogic
     {
+        private static GodotMovementSystem _movementSystem;
+
+        public static void SetMovementSystem(GodotMovementSystem movementSystem)
+        {
+            _movementSystem = movementSystem;
+        }
+
         public static bool CanUnitMoveTo(Unit unit, HexTile fromTile, HexTile toTile)
         {
-            // Check if unit has enough movement points
             if (unit.CurrentMovementPoints < toTile.MovementCost)
             {
                 return false;
             }
 
-            // Check if destination tile is occupied
             if (toTile.IsOccupied())
             {
                 return false;
@@ -26,139 +31,107 @@ namespace Archistrateia
         public static Vector2I[] GetAdjacentPositions(Vector2I position)
         {
             // FIXED: Proper hex grid adjacency for flat-top orientation
-            // Adjacency depends on whether column is even or odd
-            // ADDED: Bounds checking to prevent positions outside map
+            // For flat-top hex grid, each hex has exactly 6 adjacent neighbors
             
             var adjacents = new List<Vector2I>();
             
-            // Common neighbors (always the same)
-            var west = new Vector2I(position.X - 1, position.Y);
-            var east = new Vector2I(position.X + 1, position.Y);
-            
-            // Diagonal neighbors depend on even/odd column
-            Vector2I northwest, northeast, southwest, southeast;
-            
+            // For flat-top hex grid, adjacency pattern depends on even/odd columns
             if (position.X % 2 == 0) // Even column
             {
-                northwest = new Vector2I(position.X - 1, position.Y - 1);
-                northeast = new Vector2I(position.X, position.Y - 1);
-                southwest = new Vector2I(position.X - 1, position.Y + 1);
-                southeast = new Vector2I(position.X, position.Y + 1);
+                // Even columns: 6 neighbors
+                var west = new Vector2I(position.X - 1, position.Y);
+                var east = new Vector2I(position.X + 1, position.Y);
+                var northwest = new Vector2I(position.X - 1, position.Y - 1);
+                var northeast = new Vector2I(position.X, position.Y - 1);
+                var southwest = new Vector2I(position.X - 1, position.Y + 1);
+                var southeast = new Vector2I(position.X, position.Y + 1);
+                
+                adjacents.AddRange(new[] { west, east, northwest, northeast, southwest, southeast });
             }
             else // Odd column
             {
-                northwest = new Vector2I(position.X, position.Y - 1);
-                northeast = new Vector2I(position.X + 1, position.Y - 1);
-                southwest = new Vector2I(position.X, position.Y + 1);
-                southeast = new Vector2I(position.X + 1, position.Y + 1);
+                // Odd columns: 6 neighbors
+                var west = new Vector2I(position.X - 1, position.Y);
+                var east = new Vector2I(position.X + 1, position.Y);
+                var northwest = new Vector2I(position.X, position.Y - 1);
+                var northeast = new Vector2I(position.X + 1, position.Y - 1);
+                var southwest = new Vector2I(position.X, position.Y + 1);
+                var southeast = new Vector2I(position.X + 1, position.Y + 1);
+                
+                adjacents.AddRange(new[] { west, east, northwest, northeast, southwest, southeast });
             }
-            
-            // Only add positions that are within map bounds
-            if (IsWithinMapBounds(west)) adjacents.Add(west);
-            if (IsWithinMapBounds(east)) adjacents.Add(east);
-            if (IsWithinMapBounds(northwest)) adjacents.Add(northwest);
-            if (IsWithinMapBounds(northeast)) adjacents.Add(northeast);
-            if (IsWithinMapBounds(southwest)) adjacents.Add(southwest);
-            if (IsWithinMapBounds(southeast)) adjacents.Add(southeast);
             
             return adjacents.ToArray();
         }
+
+        public static List<Vector2I> GetValidMovementDestinations(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
+        {
+            if (_movementSystem != null)
+            {
+                return _movementSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
+            }
+            
+            // Auto-create a movement system for testing scenarios
+            var autoSystem = new GodotMovementSystem(forTesting: true);
+            autoSystem.InitializeNavigation(gameMap);
+            var result = autoSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
+            
+            // Clean up the auto-created system
+            autoSystem.QueueFree();
+            return result;
+        }
+
+        public static Dictionary<Vector2I, int> GetPathCostsFromPosition(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
+        {
+            if (_movementSystem != null)
+            {
+                var pathCosts = new Dictionary<Vector2I, int>();
+                var reachablePositions = _movementSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
+                
+                foreach (var pos in reachablePositions)
+                {
+                    var cost = (int)_movementSystem.GetPathCost(currentPosition, pos, gameMap);
+                    pathCosts[pos] = cost;
+                }
+                
+                return pathCosts;
+            }
+            
+            // Auto-create a movement system for testing scenarios
+            var autoSystem = new GodotMovementSystem(forTesting: true);
+            autoSystem.InitializeNavigation(gameMap);
+            var autoPathCosts = new Dictionary<Vector2I, int>();
+            var autoReachablePositions = autoSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
+            
+            foreach (var pos in autoReachablePositions)
+            {
+                var autoCost = (int)autoSystem.GetPathCost(currentPosition, pos, gameMap);
+                autoPathCosts[pos] = autoCost;
+            }
+            
+            // Clean up the auto-created system
+            autoSystem.QueueFree();
+            return autoPathCosts;
+        }
+
+        public static int GetOptimalPathCost(Vector2I from, Vector2I to, Dictionary<Vector2I, HexTile> gameMap)
+        {
+            if (_movementSystem != null)
+            {
+                var cost = (int)_movementSystem.GetPathCost(from, to, gameMap);
+                return cost;
+            }
+            
+            // Auto-create a movement system for testing scenarios
+            var autoSystem = new GodotMovementSystem(forTesting: true);
+            autoSystem.InitializeNavigation(gameMap);
+            var autoCost = (int)autoSystem.GetPathCost(from, to, gameMap);
+            
+            // Clean up the auto-created system
+            autoSystem.QueueFree();
+            return autoCost;
+        }
         
-        private static bool IsWithinMapBounds(Vector2I position)
-        {
-            return position.X >= 0 && position.X < MapConfiguration.MAP_WIDTH &&
-                   position.Y >= 0 && position.Y < MapConfiguration.MAP_HEIGHT;
-        }
 
-        public List<Vector2I> GetValidMovementDestinations(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
-        {
-            var distances = RunDijkstraAlgorithm(unit, currentPosition, gameMap);
-            return ExtractValidDestinations(distances, currentPosition, unit.CurrentMovementPoints);
-        }
-
-        public Dictionary<Vector2I, int> GetPathCostsFromPosition(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
-        {
-            return RunDijkstraAlgorithm(unit, currentPosition, gameMap);
-        }
-
-        private Dictionary<Vector2I, int> RunDijkstraAlgorithm(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
-        {
-            var movementBudget = unit.CurrentMovementPoints;
-            var distances = new Dictionary<Vector2I, int>();
-            var visited = new HashSet<Vector2I>();
-            var priorityQueue = new PriorityQueue<DijkstraNode>();
-            
-            // Start with current position (cost 0)
-            distances[currentPosition] = 0;
-            priorityQueue.Enqueue(new DijkstraNode(0, currentPosition));
-            
-            while (priorityQueue.Count > 0)
-            {
-                var currentNode = priorityQueue.Dequeue();
-                var position = currentNode.Position;
-                var currentCost = currentNode.Cost;
-                
-                if (visited.Contains(position))
-                    continue;
-                    
-                visited.Add(position);
-                
-                if (currentCost > movementBudget)
-                    continue;
-                
-                ProcessAdjacentPositions(position, currentCost, movementBudget, gameMap, distances, visited, priorityQueue);
-            }
-            
-            return distances;
-        }
-
-        private void ProcessAdjacentPositions(Vector2I position, int currentCost, int movementBudget, 
-            Dictionary<Vector2I, HexTile> gameMap, Dictionary<Vector2I, int> distances, 
-            HashSet<Vector2I> visited, PriorityQueue<DijkstraNode> priorityQueue)
-        {
-            var adjacentPositions = GetAdjacentPositions(position);
-            
-            foreach (var adjacentPos in adjacentPositions)
-            {
-                if (!gameMap.ContainsKey(adjacentPos))
-                {
-                    continue;
-                }
-                    
-                var tile = gameMap[adjacentPos];
-                var newCost = currentCost + tile.MovementCost;
-                
-                if (newCost > movementBudget)
-                {
-                    continue;
-                }
-                    
-                if (tile.IsOccupied())
-                {
-                    continue;
-                }
-                
-                if (!distances.ContainsKey(adjacentPos) || newCost < distances[adjacentPos])
-                {
-                    distances[adjacentPos] = newCost;
-                    priorityQueue.Enqueue(new DijkstraNode(newCost, adjacentPos));
-                }
-            }
-        }
-
-        private List<Vector2I> ExtractValidDestinations(Dictionary<Vector2I, int> distances, Vector2I currentPosition, int movementBudget)
-        {
-            var validDestinations = new List<Vector2I>();
-            
-            foreach (var kvp in distances)
-            {
-                if (kvp.Key != currentPosition && kvp.Value <= movementBudget)
-                {
-                    validDestinations.Add(kvp.Key);
-                }
-            }
-            
-            return validDestinations;
-        }
     }
 } 

@@ -74,8 +74,7 @@ namespace Archistrateia.Tests
             var nakhtu = new Nakhtu(); // Has 2 movement points
             var currentPosition = new Vector2I(1, 1);
 
-            var logic = new MovementValidationLogic();
-            var validDestinations = logic.GetValidMovementDestinations(nakhtu, currentPosition, gameMap);
+            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(nakhtu, currentPosition, gameMap);
 
             Assert.IsTrue(validDestinations.Count > 0, "Should find some valid destinations");
             
@@ -91,12 +90,11 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Find_Multi_Step_Movement_Destinations()
         {
-            var logic = new MovementValidationLogic();
             var gameMap = CreateSpecialTestMap();
             var charioteer = new Charioteer(); // Has 4 movement points
             var startPosition = new Vector2I(1, 1);
 
-            var validDestinations = logic.GetValidMovementDestinations(charioteer, startPosition, gameMap);
+            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, startPosition, gameMap);
 
             Assert.IsTrue(validDestinations.Count > 0, "Should find multi-step destinations");
             
@@ -118,7 +116,6 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Not_Find_Destinations_Beyond_Movement_Budget()
         {
-            var logic = new MovementValidationLogic();
             var gameMap = CreatePathfindingTestMap();
             var archer = new Archer(); // Has 4 movement points
             var startPosition = new Vector2I(1, 1);
@@ -126,7 +123,7 @@ namespace Archistrateia.Tests
             // Test with limited movement points
             archer.CurrentMovementPoints = 2;
             
-            var validDestinations = logic.GetValidMovementDestinations(archer, startPosition, gameMap);
+            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, startPosition, gameMap);
             
             // Verify that all destinations are reachable within the movement budget
             foreach (var destination in validDestinations)
@@ -138,7 +135,7 @@ namespace Archistrateia.Tests
             
             // Test with very limited movement points
             archer.CurrentMovementPoints = 1;
-            var limitedDestinations = logic.GetValidMovementDestinations(archer, startPosition, gameMap);
+            var limitedDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, startPosition, gameMap);
             
             // Should find fewer destinations with limited movement
             Assert.IsTrue(limitedDestinations.Count <= validDestinations.Count, 
@@ -148,13 +145,12 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Find_Optimal_Path_Within_Movement_Budget()
         {
-            var logic = new MovementValidationLogic();
             var gameMap = CreatePathfindingTestMap();
             var archer = new Archer(); // Has 4 movement points
             var startPosition = new Vector2I(1, 1);
             
-            var validDestinations = logic.GetValidMovementDestinations(archer, startPosition, gameMap);
-            var pathCosts = logic.GetPathCostsFromPosition(archer, startPosition, gameMap);
+            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(archer, startPosition, gameMap);
+            var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(archer, startPosition, gameMap);
             
             // Verify that path costs are calculated correctly
             foreach (var destination in validDestinations)
@@ -265,7 +261,7 @@ namespace Archistrateia.Tests
             var currentPosition = new Vector2I(1, 1);
 
             // Get destinations with full movement budget
-            var fullBudgetDestinations = logic.GetValidMovementDestinations(charioteer, currentPosition, gameMap);
+            var fullBudgetDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, currentPosition, gameMap);
             int fullCount = fullBudgetDestinations.Count;
             Assert.IsTrue(fullCount > 0, "Should find destinations with full movement budget");
 
@@ -273,7 +269,7 @@ namespace Archistrateia.Tests
             charioteer.CurrentMovementPoints = 1;
 
             // Should find fewer destinations with reduced budget
-            var reducedBudgetDestinations = logic.GetValidMovementDestinations(charioteer, currentPosition, gameMap);
+            var reducedBudgetDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, currentPosition, gameMap);
             int reducedCount = reducedBudgetDestinations.Count;
             Assert.IsTrue(reducedCount <= fullCount, "Should find same or fewer destinations with reduced movement");
             
@@ -289,8 +285,13 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Find_No_Destinations_When_No_Movement_Points()
         {
-            var logic = new MovementValidationLogic();
             var gameMap = CreateTestMap();
+            
+            // Set up Godot's built-in movement system for this test map
+            var movementSystem = new GodotMovementSystem(forTesting: true);
+            movementSystem.InitializeNavigation(gameMap);
+            MovementValidationLogic.SetMovementSystem(movementSystem);
+            
             var nakhtu = new Nakhtu();
             var currentPosition = new Vector2I(1, 1);
 
@@ -298,14 +299,16 @@ namespace Archistrateia.Tests
             nakhtu.CurrentMovementPoints = 0;
 
             // Should find no valid destinations
-            var destinations = logic.GetValidMovementDestinations(nakhtu, currentPosition, gameMap);
+            var destinations = MovementValidationLogic.GetValidMovementDestinations(nakhtu, currentPosition, gameMap);
             Assert.AreEqual(0, destinations.Count, "Should find no destinations with 0 movement points");
+            
+            // Clean up
+            MovementValidationLogic.SetMovementSystem(null);
         }
 
         [Test]
         public void Should_Allow_Movement_To_Destinations_With_Exact_Budget()
         {
-            var logic = new MovementValidationLogic();
             // Verify that when a path costs exactly the unit's movement budget, it should be allowed
             
             // Create a controlled scenario with a path that costs exactly 8 MP (matching Charioteer's budget)
@@ -316,10 +319,15 @@ namespace Archistrateia.Tests
             gameMap[new Vector2I(3, 0)] = new HexTile(new Vector2I(3, 0), TerrainType.Hill);      // +2 = 5
             gameMap[new Vector2I(4, 0)] = new HexTile(new Vector2I(4, 0), TerrainType.River);     // +3 = 8
             
+            // Set up Godot's built-in movement system for this test map
+            var movementSystem = new GodotMovementSystem(forTesting: true);
+            movementSystem.InitializeNavigation(gameMap);
+            MovementValidationLogic.SetMovementSystem(movementSystem);
+            
             var charioteer = new Charioteer(); // 8 MP
             
-            var validDestinations = logic.GetValidMovementDestinations(charioteer, new Vector2I(0, 0), gameMap);
-            var pathCosts = logic.GetPathCostsFromPosition(charioteer, new Vector2I(0, 0), gameMap);
+            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, new Vector2I(0, 0), gameMap);
+            var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(charioteer, new Vector2I(0, 0), gameMap);
             
             // The destination at cost 8 should be reachable
             bool canReachExactBudget = validDestinations.Contains(new Vector2I(4, 0));
@@ -328,6 +336,9 @@ namespace Archistrateia.Tests
             // This should PASS - exact budget paths are valid
             Assert.IsTrue(canReachExactBudget, "Units should be able to move to destinations that cost exactly their movement budget");
             Assert.AreEqual(8, pathCostToEnd, "Path cost should exactly match movement budget");
+            
+            // Clean up
+            MovementValidationLogic.SetMovementSystem(null);
         }
 
         private static Dictionary<Vector2I, HexTile> CreateTestMap()

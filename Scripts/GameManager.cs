@@ -7,6 +7,7 @@ public partial class GameManager : Node
     public TurnManager TurnManager { get; private set; }
     public List<Player> Players { get; private set; } = new List<Player>();
     public Dictionary<Vector2I, HexTile> GameMap { get; private set; } = new Dictionary<Vector2I, HexTile>();
+    public GodotMovementSystem MovementSystem { get; private set; }
     private bool _initialized = false;
 
     public override void _Ready()
@@ -30,6 +31,11 @@ public partial class GameManager : Node
         CreatePlayers();
         CreateGameMap();
         SetupInitialUnits();
+        
+        MovementSystem = new GodotMovementSystem();
+        AddChild(MovementSystem);
+        MovementSystem.InitializeNavigation(GameMap);
+        MovementValidationLogic.SetMovementSystem(MovementSystem);
 
         GD.Print("Archistrateia game initialized successfully!");
     }

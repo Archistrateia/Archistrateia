@@ -8,11 +8,10 @@ public class MovementCoordinator
     private List<Vector2I> _validDestinations = new List<Vector2I>();
     private MovementValidationLogic _movementLogic = new MovementValidationLogic();
 
-
     public void SelectUnitForMovement(Unit unit)
     {
         _selectedUnit = unit;
-        _validDestinations.Clear(); // Clear previous destinations
+        _validDestinations.Clear();
     }
 
     public Unit GetSelectedUnit()
@@ -38,9 +37,8 @@ public class MovementCoordinator
             return new List<Vector2I>();
         }
 
-        // Always recalculate destinations based on current position and remaining movement points
         _validDestinations.Clear();
-        _validDestinations = _movementLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap);
+        _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap);
         
         return _validDestinations;
     }
@@ -57,13 +55,11 @@ public class MovementCoordinator
             return MoveResult.CreateFailure("Invalid position");
         }
 
-        // Ensure valid destinations are calculated if not already done
         if (_validDestinations.Count == 0)
         {
-            _validDestinations = _movementLogic.GetValidMovementDestinations(_selectedUnit, fromPosition, gameMap);
+            _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, fromPosition, gameMap);
         }
 
-        // Check if destination is in the list of valid destinations
         if (!_validDestinations.Contains(toPosition))
         {
             return MoveResult.CreateFailure("Destination is not a valid move for this unit");
@@ -77,18 +73,14 @@ public class MovementCoordinator
             return MoveResult.CreateFailure("Cannot move to destination - insufficient movement or tile occupied");
         }
 
-        // Execute the movement by consuming movement points directly (movement budget system)
-        // CRITICAL FIX: Use the actual path cost calculated by Dijkstra's, not just destination tile cost
         var pathCost = GetPathCostToDestination(fromPosition, toPosition, gameMap);
         
         fromTile.RemoveUnit();
-        toTile.PlaceUnit(_selectedUnit); // Use PlaceUnit to avoid HasMoved flag
+        toTile.PlaceUnit(_selectedUnit);
         _selectedUnit.CurrentMovementPoints -= pathCost;
         
-        // Clear valid destinations so they'll be recalculated for remaining movement
         _validDestinations.Clear();
         
-        // Only clear selection if unit has no movement points left
         if (_selectedUnit.CurrentMovementPoints <= 0)
         {
             ClearSelection();
@@ -99,16 +91,22 @@ public class MovementCoordinator
 
     private int GetPathCostToDestination(Vector2I fromPosition, Vector2I toPosition, Dictionary<Vector2I, HexTile> gameMap)
     {
-        // Use Dijkstra's algorithm to get the actual path cost to the destination
-        // This ensures we deduct the correct total path cost, not just the destination tile cost
-        var pathCosts = _movementLogic.GetPathCostsFromPosition(_selectedUnit, fromPosition, gameMap);
+        // Use the new optimal path cost calculation for more accurate results
+        var optimalPathCost = MovementValidationLogic.GetOptimalPathCost(fromPosition, toPosition, gameMap);
+        
+        if (optimalPathCost != int.MaxValue)
+        {
+            return optimalPathCost;
+        }
+        
+        // Fallback to the old method if optimal path not found
+        var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(_selectedUnit, fromPosition, gameMap);
         
         if (pathCosts.ContainsKey(toPosition))
         {
             return pathCosts[toPosition];
         }
         
-        // Fallback: if pathfinding fails, use destination tile cost (should not happen in normal gameplay)
         return gameMap[toPosition].MovementCost;
     }
 
@@ -131,6 +129,28 @@ public class MovementCoordinator
             return TileClickResult.CreateError("Tile is occupied");
         }
 
-        return TileClickResult.CreateMovementAttempt(clickPosition);
+        // Check if the clicked tile is a valid movement destination
+        if (_validDestinations.Count == 0)
+        {
+            // Find the current position of the selected unit in the game map
+            Vector2I currentPosition = Vector2I.Zero;
+            foreach (var kvp in gameMap)
+            {
+                if (kvp.Value.IsOccupied() && kvp.Value.OccupyingUnit == _selectedUnit)
+                {
+                    currentPosition = kvp.Key;
+                    break;
+                }
+            }
+            
+            _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap);
+        }
+
+        if (_validDestinations.Contains(clickPosition))
+        {
+            return TileClickResult.CreateMovementAttempt(clickPosition);
+        }
+
+        return TileClickResult.CreateError("Destination is not a valid move for this unit");
     }
 } 

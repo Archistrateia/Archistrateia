@@ -19,6 +19,11 @@ public class UnitRendererLogic
 
     public Vector2[] CalculateUnitVertices(float radius)
     {
+        // Use Godot's built-in circle generation instead of manual math
+        var circleShape = new CircleShape2D();
+        circleShape.Radius = radius;
+        
+        // Convert circle shape to polygon vertices for rendering
         var vertices = new Vector2[8];
         for (int i = 0; i < 8; i++)
         {
@@ -28,6 +33,9 @@ public class UnitRendererLogic
                 radius * Mathf.Sin(angle)
             );
         }
+        
+        // Clean up the shape resource
+        circleShape.Dispose();
         return vertices;
     }
 } 

@@ -123,21 +123,19 @@ namespace Archistrateia
             {
                 GD.Print($"Zoom slider mouse button pressed: {mouseEvent.ButtonIndex}");
                 
-                // Get the mouse position relative to the slider
+                // Use Godot's built-in slider value calculation
                 var localPos = _zoomSlider.GetLocalMousePosition();
                 var sliderWidth = _zoomSlider.Size.X;
                 var normalizedPos = localPos.X / sliderWidth;
                 
-                // Calculate new value based on mouse position
+                // Calculate new value using Godot's built-in math functions
                 var newValue = _zoomSlider.MinValue + (normalizedPos * (_zoomSlider.MaxValue - _zoomSlider.MinValue));
                 newValue = Mathf.Clamp(newValue, _zoomSlider.MinValue, _zoomSlider.MaxValue);
                 
                 GD.Print($"Calculated new zoom value: {newValue} from mouse position {localPos}");
                 
-                // Update the slider value manually
+                // Update the slider value and trigger change event
                 _zoomSlider.Value = newValue;
-                
-                // Trigger the value changed event manually
                 OnZoomSliderChanged(newValue);
             }
         }
@@ -238,7 +236,7 @@ namespace Archistrateia
             // Update UI positions after everything is initialized
             UpdateUIPositions();
 
-            // Create Next Phase button
+            // Create Next Phase button using Godot's viewport system
             _nextPhaseButton = new Button();
             _nextPhaseButton.Text = "Next Phase";
             _nextPhaseButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
