@@ -1,0 +1,48 @@
+{
+  "name": "archistrateia",
+  "version": "1.0.0",
+  "description": "A strategic war simulation game built with Godot Engine and C#",
+  "main": "index.js",
+  "scripts": {
+    "test": "dotnet test",
+    "build": "dotnet build",
+    "release": "semantic-release"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/Archistrateia.git"
+  },
+  "keywords": [
+    "godot",
+    "game",
+    "strategy",
+    "war",
+    "simulation",
+    "csharp",
+    "dotnet"
+  ],
+  "author": "Archistrateia Development Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/Archistrateia/issues"
+  },
+  "homepage": "https://github.com/yourusername/Archistrateia#readme",
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.0",
+    "@semantic-release/git": "^10.0.0",
+    "@semantic-release/github": "^8.0.0",
+    "@semantic-release/npm": "^9.0.0",
+    "semantic-release": "^21.0.0"
+  },
+  "release": {
+    "branches": ["main"],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/changelog",
+      "@semantic-release/npm",
+      "@semantic-release/git",
+      "@semantic-release/github"
+    ]
+  }
+}
