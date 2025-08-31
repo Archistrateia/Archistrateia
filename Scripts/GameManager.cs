@@ -8,7 +8,13 @@ public partial class GameManager : Node
     public List<Player> Players { get; private set; } = new List<Player>();
     public Dictionary<Vector2I, HexTile> GameMap { get; private set; } = new Dictionary<Vector2I, HexTile>();
     public GodotMovementSystem MovementSystem { get; private set; }
+    public MapRenderer MapRenderer { get; private set; }
     private bool _initialized = false;
+
+    public GameManager()
+    {
+        // Constructor doesn't initialize - _Ready() handles it
+    }
 
     public override void _Ready()
     {
@@ -37,7 +43,33 @@ public partial class GameManager : Node
         MovementSystem.InitializeNavigation(GameMap);
         MovementValidationLogic.SetMovementSystem(MovementSystem);
 
+        // Connect phase change signal to clear movement displays
+        TurnManager.PhaseChanged += OnPhaseChanged;
+
         GD.Print("Archistrateia game initialized successfully!");
+    }
+
+
+
+    private void OnPhaseChanged(int oldPhase, int newPhase)
+    {
+        GD.Print($"🔄 GameManager.OnPhaseChanged: {(GamePhase)oldPhase} → {(GamePhase)newPhase}");
+        
+        // Notify MapRenderer of phase change to clear movement displays
+        if (MapRenderer != null)
+        {
+            GD.Print($"   📡 Forwarding to MapRenderer");
+            MapRenderer.OnPhaseChanged((GamePhase)newPhase);
+        }
+        else
+        {
+            GD.Print($"   ❌ MapRenderer is null - cannot forward phase change");
+        }
+    }
+
+    public void SetMapRenderer(MapRenderer mapRenderer)
+    {
+        MapRenderer = mapRenderer;
     }
 
     private void CreatePlayers()
@@ -69,6 +101,8 @@ public partial class GameManager : Node
         CreateCities();
         GD.Print($"Created game map with {GameMap.Count} tiles");
     }
+
+
 
     private TerrainType GetRandomTerrainType()
     {

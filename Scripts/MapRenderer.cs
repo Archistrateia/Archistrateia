@@ -25,7 +25,33 @@ namespace Archistrateia
 
         public void SetCurrentPhase(GamePhase phase)
         {
+            var oldPhase = _currentPhase;
             _currentPhase = phase;
+            
+            // Update movement phase state for all tiles
+            bool isMovementPhase = (phase == GamePhase.Move);
+            foreach (var tile in _visualTiles.Values)
+            {
+                tile.SetMovementPhase(isMovementPhase);
+            }
+            
+            // Clear movement displays when leaving movement phase
+            if (oldPhase == GamePhase.Move && phase != GamePhase.Move)
+            {
+                ClearAllHighlights();
+                DeselectAll();
+                ClearAllUnitMovementDisplays();
+            }
+        }
+
+        public GamePhase GetCurrentPhase()
+        {
+            return _currentPhase;
+        }
+
+        public Player GetCurrentPlayer()
+        {
+            return _currentPlayer;
         }
 
         public List<VisualUnit> GetVisualUnits()
@@ -39,6 +65,7 @@ namespace Archistrateia
             AddChild(visualUnit);
             
             visualUnit.Initialize(logicalUnit, position, color);
+            visualUnit.SetMapRenderer(this); // Set the MapRenderer reference
             visualUnit.UnitClicked += OnUnitClicked;
             
             _visualUnits.Add(visualUnit);
@@ -46,7 +73,7 @@ namespace Archistrateia
             return visualUnit;
         }
 
-        private void OnUnitClicked(VisualUnit clickedUnit)
+        public void OnUnitClicked(VisualUnit clickedUnit)
         {
             GD.Print($"🎯 MapRenderer: Unit {clickedUnit.LogicalUnit.Name} clicked!");
             GD.Print($"   Current Player: {_currentPlayer?.Name ?? "NULL"}");
@@ -125,6 +152,7 @@ namespace Archistrateia
             _movementCoordinator.ClearSelection();
             UpdateVisualSelection();
             ClearAllHighlights();
+            ClearAllUnitMovementDisplays();
         }
 
         public void AddVisualTile(VisualHexTile visualTile)
@@ -167,7 +195,13 @@ namespace Archistrateia
                 {
                     var newWorldPosition = _visualTiles[clickedTile.GridPosition].Position;
                     visualUnit.UpdatePosition(newWorldPosition);
+                    
+                    // Update the movement indicator after MP deduction
+                    visualUnit.RefreshMovementDisplay();
                 }
+                
+                // Update tile occupation status after movement
+                UpdateTileOccupationStatus();
                 
                 if (selectedUnit.CurrentMovementPoints > 0)
                 {
@@ -177,6 +211,12 @@ namespace Archistrateia
                 {
                     DeselectAll();
                 }
+            }
+            else
+            {
+                // Move failed - deselect the unit and clear highlights
+                GD.Print($"❌ Move failed: {moveResult.ErrorMessage} - Deselecting unit");
+                DeselectAll();
             }
         }
 
@@ -209,8 +249,10 @@ namespace Archistrateia
             foreach (var tile in _visualTiles.Values)
             {
                 tile.SetHighlight(false);
-                tile.SetGrayed(false);      // Remove graying
-                tile.SetBrightened(false);  // Remove brightening
+                tile.SetGrayed(false);
+                tile.SetBrightened(false);
+                tile.SetOccupied(false);
+                tile.SetUnavailable(false);
             }
         }
 
@@ -233,10 +275,19 @@ namespace Archistrateia
             // Only apply highlighting if there are valid destinations
             if (validDestinations.Count > 0)
             {
-                // Gray out all tiles first for dark background
+                // Mark all tiles as unavailable first for maximum contrast
                 foreach (var tile in _visualTiles.Values)
                 {
-                    tile.SetGrayed(true);
+                    tile.SetUnavailable(true);
+                }
+                
+                // Mark occupied tiles as clearly unavailable with red overlay (only during movement phase)
+                foreach (var kvp in GameManager.GameMap)
+                {
+                    if (kvp.Value.IsOccupied() && _visualTiles.ContainsKey(kvp.Key))
+                    {
+                        _visualTiles[kvp.Key].SetOccupied(true);
+                    }
                 }
                 
                 // Brighten valid destination tiles for maximum contrast
@@ -244,11 +295,147 @@ namespace Archistrateia
                 {
                     if (_visualTiles.ContainsKey(destination))
                     {
-                        _visualTiles[destination].SetGrayed(false);      // Remove dark overlay
-                        _visualTiles[destination].SetBrightened(true);   // Add bright overlay
+                        _visualTiles[destination].SetUnavailable(false);  // Remove unavailable overlay
+                        _visualTiles[destination].SetBrightened(true);    // Add bright overlay
                     }
                 }
             }
         }
-    }
+
+        public void OnPhaseChanged(GamePhase newPhase)
+        {
+            // Capture the old phase before changing it
+            var oldPhase = _currentPhase;
+            
+            GD.Print($"🔄 MapRenderer.OnPhaseChanged: {oldPhase} → {newPhase}");
+            
+            // Check if we're leaving the movement phase
+            bool isLeavingMovementPhase = (oldPhase == GamePhase.Move && newPhase != GamePhase.Move);
+            GD.Print($"   Leaving movement phase: {isLeavingMovementPhase}");
+            
+            // Update movement phase state for all tiles
+            bool isMovementPhase = (newPhase == GamePhase.Move);
+            foreach (var tile in _visualTiles.Values)
+            {
+                tile.SetMovementPhase(isMovementPhase);
+            }
+            
+            // Clear all movement-related displays when moving out of movement phase
+            if (isLeavingMovementPhase)
+            {
+                GD.Print("   🧹 Clearing movement displays and highlights");
+                ClearAllHighlights();
+                DeselectAll();
+                ClearAllUnitMovementDisplays();
+            }
+            
+            _currentPhase = newPhase;
+            
+            // Update all visual units to reflect the new phase
+            UpdateAllVisualUnitsForPhase(newPhase, oldPhase);
+        }
+        
+        private void UpdateAllVisualUnitsForPhase(GamePhase newPhase, GamePhase oldPhase)
+        {
+            GD.Print($"   📊 UpdateAllVisualUnitsForPhase: {oldPhase} → {newPhase}");
+            
+            if (oldPhase == GamePhase.Move && newPhase != GamePhase.Move)
+            {
+                GD.Print("   🎯 ENDING movement phase - resetting all MPs to 0");
+                
+                // End of movement phase: Set all MPs to 0
+                if (GameManager?.Players != null)
+                {
+                    int totalUnits = 0;
+                    foreach (var player in GameManager.Players)
+                    {
+                        foreach (var unit in player.Units)
+                        {
+                            unit.CurrentMovementPoints = 0;
+                            totalUnits++;
+                        }
+                    }
+                    GD.Print($"   ✅ Reset {totalUnits} units to 0 MP");
+                }
+                else
+                {
+                    GD.Print("   ❌ GameManager or Players is null!");
+                }
+                
+                // Refresh all MP displays to reflect the new MP values
+                foreach (var visualUnit in _visualUnits)
+                {
+                    visualUnit.RefreshMovementDisplay();
+                }
+            }
+            else if (oldPhase != GamePhase.Move && newPhase == GamePhase.Move)
+            {
+                GD.Print("   🎯 STARTING movement phase - restoring all MPs to full");
+                
+                // Start of movement phase: Reset all MPs to full
+                if (GameManager?.Players != null)
+                {
+                    int totalUnits = 0;
+                    foreach (var player in GameManager.Players)
+                    {
+                        foreach (var unit in player.Units)
+                        {
+                            player.ResetUnitMovement();
+                            totalUnits++;
+                        }
+                    }
+                    GD.Print($"   ✅ Restored {totalUnits} units to full MP");
+                }
+                else
+                {
+                    GD.Print("   ❌ GameManager or Players is null!");
+                }
+                
+                // Refresh all MP displays to reflect the new MP values
+                foreach (var visualUnit in _visualUnits)
+                {
+                    visualUnit.RefreshMovementDisplay();
+                }
+            }
+            else
+            {
+                GD.Print($"   ⏭️  Phase change doesn't affect movement: {oldPhase} → {newPhase}");
+            }
+        }
+
+        private void ClearAllUnitMovementDisplays()
+        {
+            // Clear movement displays from all visual units
+            foreach (var visualUnit in _visualUnits)
+            {
+                var movementDisplay = visualUnit.GetNodeOrNull("MovementDisplay");
+                if (movementDisplay != null)
+                {
+                    movementDisplay.QueueFree();
+                }
+            }
+        }
+
+        public void UpdateTileOccupationStatus()
+        {
+            // Update visual occupation status for all tiles
+            foreach (var kvp in GameManager.GameMap)
+            {
+                if (_visualTiles.ContainsKey(kvp.Key))
+                {
+                    var tile = kvp.Value;
+                    var visualTile = _visualTiles[kvp.Key];
+                    
+                    if (tile.IsOccupied())
+                    {
+                        visualTile.SetOccupied(true);
+                    }
+                    else
+                    {
+                        visualTile.SetOccupied(false);
+                                         }
+                 }
+             }
+         }
+     }
 } 

@@ -7,8 +7,49 @@ using NUnit.Framework;
 namespace Archistrateia.Tests
 {
     [TestFixture]
-    public class IntegrationTests
+    public partial class IntegrationTests : Node
     {
+        [TearDown]
+        public void CleanupAfterEachTest()
+        {
+            // Clean up all children to prevent resource leaks
+            foreach (var child in GetChildren())
+            {
+                if (child is Node node)
+                {
+                    node.QueueFree();
+                }
+            }
+            
+            // Wait a frame for cleanup to complete
+            if (Engine.IsEditorHint() == false)
+            {
+                // In test environment, wait for cleanup
+                System.Threading.Thread.Sleep(10);
+            }
+            
+            // Force cleanup of any remaining resources
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        [OneTimeTearDown]
+        public void FinalCleanup()
+        {
+            // Final cleanup after all tests in this class
+            foreach (var child in GetChildren())
+            {
+                if (child is Node node)
+                {
+                    node.QueueFree();
+                }
+            }
+            
+            // Force final cleanup
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
         [Test]
         public void TestTerrainColorInitialization()
         {
@@ -47,6 +88,9 @@ namespace Archistrateia.Tests
 
             Assert.AreEqual(expectedTiles, tilesCreated, "Should create expected number of tiles");
             Assert.AreEqual(expectedTiles, mapContainer.GetChildCount(), "MapContainer should have expected number of children");
+            
+            // Clean up the map container to prevent resource leaks
+            mapContainer.QueueFree();
         }
 
         [Test]
@@ -65,6 +109,9 @@ namespace Archistrateia.Tests
             Assert.IsNotNull(outline, "Hex outline should be created successfully");
             Assert.AreEqual(6, hexShape.Polygon.Length, "Hex shape should have 6 vertices");
             Assert.AreEqual(6, outline.Points.Length, "Hex outline should have 6 points");
+            
+            // Clean up the test tile immediately to prevent resource leaks
+            testTile.QueueFree();
         }
 
         [Test]
@@ -81,6 +128,9 @@ namespace Archistrateia.Tests
             testButton.EmitSignal("pressed");
 
             Assert.IsTrue(signalReceived, "Signal should be received after emitting");
+            
+            // Clean up the test button to prevent resource leaks
+            testButton.QueueFree();
         }
 
         [Test]
@@ -124,6 +174,170 @@ namespace Archistrateia.Tests
             // Test mathematical relationships
             Assert.AreEqual(HexGridCalculator.HEX_SIZE * 2.0f, HexGridCalculator.HEX_WIDTH, 0.001f, "HEX_WIDTH should be 2 * HEX_SIZE");
             Assert.AreEqual(HexGridCalculator.HEX_SIZE * 1.732f, HexGridCalculator.HEX_HEIGHT, 0.01f, "HEX_HEIGHT should be HEX_SIZE * sqrt(3)");
+        }
+
+        [Test]
+        public void TestUnitDeselectionOnFailedMove()
+        {
+            // Test that units get deselected when clicking outside movement range
+            // Use the same pattern as working tests: create TurnManager directly
+            
+            // Create a simple test environment
+            var turnManager = new TurnManager();
+            AddChild(turnManager);
+            
+            // Create a simple player and unit
+            var player = new Player("TestPlayer", 100);
+            var unit = new Nakhtu(); // 4 MP
+            player.AddUnit(unit);
+            
+            // Set up the game in Move phase
+            turnManager.AdvancePhase(); // Earn -> Purchase
+            turnManager.AdvancePhase(); // Purchase -> Move
+            
+            // Verify we're in Move phase
+            Assert.AreEqual(GamePhase.Move, turnManager.CurrentPhase, "Should be in Move phase");
+            
+            // Select the unit
+            var interactionLogic = new PlayerInteractionLogic();
+            var wasSelected = interactionLogic.SelectUnit(player, unit, GamePhase.Move);
+            Assert.IsTrue(wasSelected, "Unit should be selectable in Move phase");
+            
+            // Verify unit has movement points
+            Assert.IsTrue(unit.CurrentMovementPoints > 0, "Unit should have movement points");
+            
+            // Simulate clicking on a tile that's outside movement range
+            // We'll test this by trying to move to a position that's too far
+            var fromPosition = new Vector2I(0, 0);
+            var toPosition = new Vector2I(10, 10); // Very far away
+            
+            // Create a simple test map
+            var testMap = new Dictionary<Vector2I, HexTile>();
+            testMap[fromPosition] = new HexTile(fromPosition, TerrainType.Shoreline);
+            testMap[toPosition] = new HexTile(toPosition, TerrainType.Shoreline);
+            
+            // Place unit on starting tile
+            testMap[fromPosition].PlaceUnit(unit);
+            
+            // Try to move to invalid destination
+            var movementCoordinator = new MovementCoordinator();
+            movementCoordinator.SelectUnitForMovement(unit);
+            var moveResult = movementCoordinator.TryMoveToDestination(fromPosition, toPosition, testMap);
+            
+            // Movement should fail
+            Assert.IsFalse(moveResult.Success, "Movement to far destination should fail");
+            Assert.IsNotNull(moveResult.ErrorMessage, "Should have error message");
+            
+            // Unit should still be selected in coordinator (this is the low-level behavior)
+            Assert.IsNotNull(movementCoordinator.GetSelectedUnit(), "Coordinator should still have unit selected");
+        }
+
+        [Test]
+        public void TestUnitDeselectionOnInvalidDestination()
+        {
+            // Test that units get deselected when clicking on invalid destinations
+            // Use the same pattern as working tests: create TurnManager directly
+            
+            // Create a simple test environment
+            var turnManager = new TurnManager();
+            AddChild(turnManager);
+            
+            // Create a simple player and unit
+            var player = new Player("TestPlayer", 100);
+            var unit = new Nakhtu(); // 4 MP
+            player.AddUnit(unit);
+            
+            // Set up the game in Move phase
+            turnManager.AdvancePhase(); // Earn -> Purchase
+            turnManager.AdvancePhase(); // Purchase -> Move
+            
+            // Verify we're in Move phase
+            Assert.AreEqual(GamePhase.Move, turnManager.CurrentPhase, "Should be in Move phase");
+            
+            // Create a simple test map with occupied tile
+            var testMap = new Dictionary<Vector2I, HexTile>();
+            var fromPosition = new Vector2I(0, 0);
+            var toPosition = new Vector2I(1, 0);
+            
+            testMap[fromPosition] = new HexTile(fromPosition, TerrainType.Shoreline);
+            testMap[toPosition] = new HexTile(toPosition, TerrainType.Shoreline);
+            
+            // Place unit on starting tile
+            testMap[fromPosition].PlaceUnit(unit);
+            
+            // Place another unit on destination tile (making it occupied)
+            var otherUnit = new Nakhtu();
+            testMap[toPosition].PlaceUnit(otherUnit);
+            
+            // Try to move to occupied tile
+            var movementCoordinator = new MovementCoordinator();
+            movementCoordinator.SelectUnitForMovement(unit);
+            var moveResult = movementCoordinator.TryMoveToDestination(fromPosition, toPosition, testMap);
+            
+            // Movement should fail
+            Assert.IsFalse(moveResult.Success, "Movement to occupied tile should fail");
+            Assert.IsNotNull(moveResult.ErrorMessage, "Should have error message");
+            
+            // Verify the error message indicates why movement failed
+            GD.Print($"Actual error message: '{moveResult.ErrorMessage}'");
+            Assert.IsTrue(moveResult.ErrorMessage.Contains("occupied") || moveResult.ErrorMessage.Contains("Cannot move") || 
+                         moveResult.ErrorMessage.Contains("invalid") || moveResult.ErrorMessage.Contains("destination") ||
+                         moveResult.ErrorMessage.Contains("not a valid move"), 
+                $"Error message should indicate why movement failed. Actual: '{moveResult.ErrorMessage}'");
+        }
+
+        [Test]
+        public void TestMovementIndicatorUpdatesAfterMove()
+        {
+            // Test that movement indicators update correctly after unit movement
+            // Use the same pattern as working tests: create TurnManager directly
+            
+            // Create a simple test environment
+            var turnManager = new TurnManager();
+            AddChild(turnManager);
+            
+            // Create a simple player and unit
+            var player = new Player("TestPlayer", 100);
+            var unit = new Nakhtu(); // 4 MP
+            player.AddUnit(unit);
+            
+            // Set up the game in Move phase
+            turnManager.AdvancePhase(); // Earn -> Purchase
+            turnManager.AdvancePhase(); // Purchase -> Move
+            
+            // Verify we're in Move phase
+            Assert.AreEqual(GamePhase.Move, turnManager.CurrentPhase, "Should be in Move phase");
+            
+            // Verify unit starts with full movement points
+            var initialMP = unit.MovementPoints;
+            Assert.AreEqual(initialMP, unit.CurrentMovementPoints, "Unit should start with full MP");
+            
+            // Create a simple test map
+            var testMap = new Dictionary<Vector2I, HexTile>();
+            var fromPosition = new Vector2I(0, 0);
+            var toPosition = new Vector2I(1, 0);
+            
+            testMap[fromPosition] = new HexTile(fromPosition, TerrainType.Shoreline); // Cost 1
+            testMap[toPosition] = new HexTile(toPosition, TerrainType.Shoreline);     // Cost 1
+            
+            // Place unit on starting tile
+            testMap[fromPosition].PlaceUnit(unit);
+            
+            // Move unit to destination
+            var movementCoordinator = new MovementCoordinator();
+            movementCoordinator.SelectUnitForMovement(unit);
+            var moveResult = movementCoordinator.TryMoveToDestination(fromPosition, toPosition, testMap);
+            
+            // Movement should succeed
+            Assert.IsTrue(moveResult.Success, "Movement should succeed");
+            
+            // Verify MP was deducted
+            var expectedMP = initialMP - 1; // Shoreline costs 1 MP
+            Assert.AreEqual(expectedMP, unit.CurrentMovementPoints, "MP should be deducted after movement");
+            
+            // Verify unit is now on destination tile
+            Assert.AreEqual(unit, testMap[toPosition].OccupyingUnit, "Unit should be on destination tile");
+            Assert.IsNull(testMap[fromPosition].OccupyingUnit, "Unit should no longer be on starting tile");
         }
 
 

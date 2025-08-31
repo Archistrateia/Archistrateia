@@ -1,6 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Archistrateia
 {
@@ -147,6 +148,13 @@ namespace Archistrateia
                 return float.MaxValue;
             }
 
+            // For adjacent tiles, return the direct terrain cost
+            if (IsAdjacent(from, to))
+            {
+                var toTile = gameMap[to];
+                return toTile.MovementCost;
+            }
+
             var fromWorld = _gridToWorldMap[from];
             var toWorld = _gridToWorldMap[to];
             
@@ -181,6 +189,12 @@ namespace Archistrateia
             return totalCost;
         }
 
+        private bool IsAdjacent(Vector2I from, Vector2I to)
+        {
+            var adjacentPositions = MovementValidationLogic.GetAdjacentPositions(from);
+            return adjacentPositions.Contains(to);
+        }
+
         public List<Vector2I> GetReachablePositions(Vector2I from, int maxMovement, Dictionary<Vector2I, HexTile> gameMap)
         {
             var reachable = new List<Vector2I>();
@@ -203,8 +217,11 @@ namespace Archistrateia
                 
                 if (currentCost <= maxMovement)
                 {
-                    // Add all positions within movement budget
-                    reachable.Add(currentPos);
+                    // Only add current position if it's not occupied (allows starting from occupied position)
+                    if (currentPos == from || !gameMap[currentPos].IsOccupied())
+                    {
+                        reachable.Add(currentPos);
+                    }
                     
                     var adjacentPositions = MovementValidationLogic.GetAdjacentPositions(currentPos);
                     foreach (var adjacentPos in adjacentPositions)
@@ -212,6 +229,13 @@ namespace Archistrateia
                         if (gameMap.ContainsKey(adjacentPos) && !visited.Contains(adjacentPos))
                         {
                             var tile = gameMap[adjacentPos];
+                            
+                            // Skip occupied tiles
+                            if (tile.IsOccupied())
+                            {
+                                continue;
+                            }
+                            
                             var newCost = currentCost + tile.MovementCost;
                             
                             if (newCost <= maxMovement)

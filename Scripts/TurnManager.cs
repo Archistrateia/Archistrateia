@@ -10,6 +10,9 @@ public enum GamePhase
 
 public partial class TurnManager : Node
 {
+    [Signal]
+    public delegate void PhaseChangedEventHandler(int oldPhase, int newPhase);
+    
     private GamePhase _currentPhase = GamePhase.Earn;
     private int _currentTurn = 1;
 
@@ -23,6 +26,8 @@ public partial class TurnManager : Node
 
     public void AdvancePhase()
     {
+        var oldPhase = _currentPhase;
+        
         switch (_currentPhase)
         {
             case GamePhase.Earn:
@@ -41,12 +46,19 @@ public partial class TurnManager : Node
         }
 
         GD.Print($"Turn {_currentTurn} - {_currentPhase} phase started");
+        
+        // Emit signal for phase change
+        EmitSignal(SignalName.PhaseChanged, (int)oldPhase, (int)_currentPhase);
     }
 
     public void SetPhase(GamePhase phase)
     {
+        var oldPhase = _currentPhase;
         _currentPhase = phase;
         GD.Print($"Phase set to: {_currentPhase}");
+        
+        // Emit signal for phase change
+        EmitSignal(SignalName.PhaseChanged, (int)oldPhase, (int)_currentPhase);
     }
 
     public string GetCurrentPhaseName()

@@ -14,6 +14,9 @@ public partial class VisualHexTile : Area2D
     private bool _isHighlighted = false;
     private bool _isGrayed = false;
     private bool _isBrightened = false;
+    private bool _isOccupied = false;
+    private bool _isUnavailable = false;
+    private bool _isInMovementPhase = false;
 
     public void Initialize(Vector2I gridPosition, TerrainType terrainType, Color color, Vector2 worldPosition)
     {
@@ -99,22 +102,62 @@ public partial class VisualHexTile : Area2D
         // Get base terrain color
         var terrainColor = GetTerrainColor(TerrainType);
         
-        // Apply state-based modifications
-        if (_isHighlighted)
+        // Apply state-based modifications in priority order
+        if (_isInMovementPhase && _isOccupied)
         {
-            terrainColor = terrainColor.Lightened(0.3f);
+            // Only show occupied tiles as red during movement phase
+            terrainColor = terrainColor.Darkened(0.6f);
+            terrainColor = terrainColor.Blend(new Color(0.8f, 0.2f, 0.2f, 0.7f));
         }
-        else if (_isGrayed)
+        else if (_isUnavailable)
         {
-            terrainColor = terrainColor.Darkened(0.5f);
+            // Unavailable tiles get a dark gray overlay
+            terrainColor = terrainColor.Darkened(0.7f);
+            terrainColor = terrainColor.Blend(new Color(0.3f, 0.3f, 0.3f, 0.8f));
+        }
+        else if (_isHighlighted)
+        {
+            // Highlighted tiles get a bright green glow for maximum visibility
+            terrainColor = terrainColor.Lightened(0.4f);
+            terrainColor = terrainColor.Blend(new Color(0.2f, 0.8f, 0.2f, 0.6f));
         }
         else if (_isBrightened)
         {
-            terrainColor = terrainColor.Lightened(0.2f);
+            // Brightened tiles (available destinations) get enhanced visibility
+            terrainColor = terrainColor.Lightened(0.3f);
+            terrainColor = terrainColor.Blend(new Color(0.1f, 0.6f, 0.1f, 0.4f));
+        }
+        else if (_isGrayed)
+        {
+            // Grayed tiles (background) get a subtle darkening
+            terrainColor = terrainColor.Darkened(0.3f);
         }
         
         // Update hex shape color
         _hexShape.Color = terrainColor;
+        
+        // Update outline color based on state
+        if (_isHighlighted)
+        {
+            _hexOutline.DefaultColor = new Color(0.0f, 1.0f, 0.0f);
+            _hexOutline.Width = 3.0f;
+        }
+        else if (_isBrightened)
+        {
+            _hexOutline.DefaultColor = new Color(0.0f, 0.8f, 0.0f);
+            _hexOutline.Width = 2.5f;
+        }
+        else if (_isInMovementPhase && _isOccupied)
+        {
+            // Only show red outline during movement phase
+            _hexOutline.DefaultColor = new Color(0.8f, 0.0f, 0.0f);
+            _hexOutline.Width = 2.5f;
+        }
+        else
+        {
+            _hexOutline.DefaultColor = new Color(0.2f, 0.2f, 0.2f);
+            _hexOutline.Width = 2.0f;
+        }
     }
 
     private Color GetTerrainColor(TerrainType terrainType)
@@ -198,6 +241,24 @@ public partial class VisualHexTile : Area2D
         UpdateVisualAppearance();
     }
 
+    public void SetOccupied(bool occupied)
+    {
+        _isOccupied = occupied;
+        UpdateVisualAppearance();
+    }
+
+    public void SetUnavailable(bool unavailable)
+    {
+        _isUnavailable = unavailable;
+        UpdateVisualAppearance();
+    }
+
+    public void SetMovementPhase(bool inMovementPhase)
+    {
+        _isInMovementPhase = inMovementPhase;
+        UpdateVisualAppearance();
+    }
+
     public bool IsHighlighted()
     {
         return _isHighlighted;
@@ -211,5 +272,20 @@ public partial class VisualHexTile : Area2D
     public bool IsBrightened()
     {
         return _isBrightened;
+    }
+
+    public bool IsOccupied()
+    {
+        return _isOccupied;
+    }
+
+    public bool IsUnavailable()
+    {
+        return _isUnavailable;
+    }
+
+    public bool IsInMovementPhase()
+    {
+        return _isInMovementPhase;
     }
 } 

@@ -245,7 +245,7 @@ namespace Archistrateia
             _nextPhaseButton.ZIndex = 1000; // Ensure UI is always on top
             _nextPhaseButton.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure button receives mouse events
             _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
-            _nextPhaseButton.GuiInput += OnNextPhaseButtonInput; // Add input event handler
+            // _nextPhaseButton.GuiInput += OnNextPhaseButtonInput; // Add input event handler
             AddChild(_nextPhaseButton);
             
             // Debug UI elements to help troubleshoot
@@ -371,6 +371,9 @@ namespace Archistrateia
             AddChild(_mapRenderer);
             _mapRenderer.Initialize(_gameManager);
             
+            // Connect MapRenderer to GameManager for phase change notifications
+            _gameManager.SetMapRenderer(_mapRenderer);
+            
             // Set initial player and phase
             if (_gameManager.Players.Count > 0)
             {
@@ -380,6 +383,9 @@ namespace Archistrateia
             // TurnManager is now guaranteed to be available
             _mapRenderer.SetCurrentPhase(TurnManager.CurrentPhase);
             
+            // Ensure all tiles know the current phase state
+            _mapRenderer.UpdateTileOccupationStatus();
+            
             // Update the title label with the correct initial phase
             UpdateTitleLabel();
             
@@ -387,6 +393,9 @@ namespace Archistrateia
             RegisterVisualTilesWithMapRenderer();
             
             CreateVisualUnitsForPlayers();
+            
+            // Update initial tile occupation status
+            _mapRenderer.UpdateTileOccupationStatus();
         }
 
         private void RegisterVisualTilesWithMapRenderer()
@@ -452,14 +461,15 @@ namespace Archistrateia
                 {
                     HandlePhaseChange(TurnManager.CurrentPhase);
                 }
+                
+                // Update MapRenderer with new phase
+                if (_mapRenderer != null)
+                {
+                    _mapRenderer.OnPhaseChanged(TurnManager.CurrentPhase);
+                }
             }
 
             UpdateTitleLabel();
-        }
-        
-        private void OnNextPhaseButtonInput(InputEvent @event)
-        {
-            GD.Print($"Next Phase button received input event: {@event.GetType().Name}");
         }
 
         private void HandlePhaseChange(GamePhase phase)

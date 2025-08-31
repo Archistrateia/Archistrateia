@@ -6,6 +6,8 @@ public partial class VisualUnit : Area2D
     public Unit LogicalUnit { get; private set; }
     private Tween _animationTween;
     private AnimationPlayer _animationPlayer;
+    private bool _isSelected = false;
+    private MapRenderer _mapRenderer;
 
     [Signal]
     public delegate void UnitClickedEventHandler(VisualUnit visualUnit);
@@ -26,6 +28,11 @@ public partial class VisualUnit : Area2D
         ZIndex = 10;
         CreateVisualComponents(color);
         SetupClickDetection();
+    }
+
+    public void SetMapRenderer(MapRenderer mapRenderer)
+    {
+        _mapRenderer = mapRenderer;
     }
 
     private void SetupClickDetection()
@@ -94,6 +101,9 @@ public partial class VisualUnit : Area2D
         unitLabel.AddThemeColorOverride("font_color", new Color(1.0f, 1.0f, 1.0f));
         unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * HexGridCalculator.ZoomFactor));
         AddChild(unitLabel);
+        
+        // Movement status will be shown via border color changes
+        // No separate indicator needed
     }
 
     private Vector2[] CreateUnitVertices()
@@ -172,6 +182,90 @@ public partial class VisualUnit : Area2D
         if (movementDisplay != null)
         {
             movementDisplay.Position = new Vector2(-15 * HexGridCalculator.ZoomFactor, -35 * HexGridCalculator.ZoomFactor);
+        }
+        
+        // Update movement indicator (border color)
+        UpdateMovementIndicator();
+    }
+
+    private Player GetUnitOwner()
+    {
+        // Find the unit's owner by checking which player has this unit
+        if (_mapRenderer?.GameManager?.Players != null)
+        {
+            foreach (var player in _mapRenderer.GameManager.Players)
+            {
+                if (player.Units.Contains(LogicalUnit))
+                {
+                    return player;
+                }
+            }
+        }
+        return null;
+    }
+
+
+
+    private void UpdateMovementIndicator()
+    {
+        // Change unit outline color based on movement status
+        var unitOutline = GetNodeOrNull<Line2D>("UnitOutline");
+        if (unitOutline != null)
+        {
+            // Use the stored MapRenderer reference
+            if (_mapRenderer != null)
+            {
+                var currentPhase = _mapRenderer.GetCurrentPhase();
+                var currentPlayer = _mapRenderer.GetCurrentPlayer();
+                
+                GD.Print($"   🔍 Unit {LogicalUnit.Name}: Phase={currentPhase}, CurrentPlayer={currentPlayer?.Name ?? "NULL"}");
+                
+                // Only show movement indicators for current player's units during movement phase
+                if (currentPhase == GamePhase.Move && currentPlayer != null)
+                {
+                    // Check if this unit belongs to the current player
+                    var unitOwner = GetUnitOwner();
+                    GD.Print($"   🔍 Unit {LogicalUnit.Name}: UnitOwner={unitOwner?.Name ?? "NULL"}, MP={LogicalUnit.CurrentMovementPoints}");
+                    
+                    if (unitOwner == currentPlayer)
+                    {
+                        if (LogicalUnit.CurrentMovementPoints > 0)
+                        {
+                            // Green = can move (bright, visible)
+                            unitOutline.DefaultColor = new Color(0.0f, 1.0f, 0.0f, 1.0f);
+                            GD.Print($"   🟢 Unit {LogicalUnit.Name}: Set GREEN border (can move)");
+                        }
+                        else
+                        {
+                            // Red = cannot move (bright, visible)
+                            unitOutline.DefaultColor = new Color(1.0f, 0.0f, 0.0f, 1.0f);
+                            GD.Print($"   🔴 Unit {LogicalUnit.Name}: Set RED border (cannot move)");
+                        }
+                    }
+                    else
+                    {
+                        // Not current player's unit - use default black outline
+                        unitOutline.DefaultColor = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                        GD.Print($"   ⚫ Unit {LogicalUnit.Name}: Set BLACK border (not current player)");
+                    }
+                }
+                else
+                {
+                    // Not movement phase - use default black outline
+                    unitOutline.DefaultColor = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                    GD.Print($"   ⚫ Unit {LogicalUnit.Name}: Set BLACK border (not movement phase)");
+                }
+            }
+            else
+            {
+                // Fallback to default black outline
+                unitOutline.DefaultColor = new Color(0.0f, 0.0f, 0.0f, 1.0f);
+                GD.Print($"   ⚫ Unit {LogicalUnit.Name}: Set BLACK border (MapRenderer not set)");
+            }
+        }
+        else
+        {
+            GD.Print($"   ❌ Unit {LogicalUnit.Name}: No unitOutline found!");
         }
     }
 
@@ -261,7 +355,7 @@ public partial class VisualUnit : Area2D
         var existingDisplay = GetNodeOrNull("MovementDisplay");
         existingDisplay?.QueueFree();
         
-        if (!MovementDisplayLogic.ShouldShowMovementDisplay(LogicalUnit, isSelected: true))
+        if (!MovementDisplayLogic.ShouldShowMovementDisplay(LogicalUnit, _isSelected))
         {
             return;
         }
@@ -278,6 +372,15 @@ public partial class VisualUnit : Area2D
         AddChild(movementDisplay);
         
         AnimateMovementDisplay(movementDisplay);
+    }
+
+    public void RefreshMovementDisplay()
+    {
+        // Force refresh of MP display when MP values change
+        UpdateMovementPointsDisplay();
+        
+        // Also update the movement indicator
+        UpdateMovementIndicator();
     }
 
     private void AnimateMovementDisplay(Label movementDisplay)

@@ -1,9 +1,27 @@
 using NUnit.Framework;
 using Godot;
+using System;
 
 [TestFixture]
 public partial class InitialPhaseTest : Node
 {
+    [TearDown]
+    public void CleanupAfterEachTest()
+    {
+        // Clean up all children to prevent resource leaks
+        foreach (var child in GetChildren())
+        {
+            if (child is Node node)
+            {
+                node.QueueFree();
+            }
+        }
+        
+        // Force cleanup of any remaining resources
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+    }
+
     [Test]
     public void Should_Start_With_Earn_Phase_Not_Movement()
     {
