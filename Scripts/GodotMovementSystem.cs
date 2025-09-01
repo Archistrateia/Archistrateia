@@ -185,7 +185,6 @@ namespace Archistrateia
                     totalCost += tile.MovementCost;
                 }
             }
-            
             return totalCost;
         }
 

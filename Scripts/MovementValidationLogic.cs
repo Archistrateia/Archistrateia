@@ -13,52 +13,55 @@ namespace Archistrateia
             _movementSystem = movementSystem;
         }
 
-        public static bool CanUnitMoveTo(Unit unit, HexTile fromTile, HexTile toTile)
+                public static bool CanUnitMoveTo(Unit unit, HexTile fromTile, HexTile toTile)
         {
             if (unit.CurrentMovementPoints < toTile.MovementCost)
             {
                 return false;
             }
-
+            
             if (toTile.IsOccupied())
             {
                 return false;
             }
-
+            
+            // Check if the destination is actually adjacent (single-step movement only)
+            var adjacentPositions = GetAdjacentPositions(fromTile.Position);
+            if (!adjacentPositions.ToList().Contains(toTile.Position))
+            {
+                return false;
+            }
+            
             return true;
         }
 
         public static Vector2I[] GetAdjacentPositions(Vector2I position)
         {
-            // FIXED: Proper hex grid adjacency for flat-top orientation
-            // For flat-top hex grid, each hex has exactly 6 adjacent neighbors
+            // FIXED: Proper hex grid adjacency for pointy-top orientation using offset coordinates
+            // Based on actual Godot hex grid layout where odd columns are offset downward
             
             var adjacents = new List<Vector2I>();
             
-            // For flat-top hex grid, adjacency pattern depends on even/odd columns
-            if (position.X % 2 == 0) // Even column
+            // For pointy-top hex grid with offset coordinates, adjacency depends on even/odd columns
+            if (position.X % 2 == 0) // Even column (like column 4)
             {
-                // Even columns: 6 neighbors
-                var west = new Vector2I(position.X - 1, position.Y);
-                var east = new Vector2I(position.X + 1, position.Y);
-                var northwest = new Vector2I(position.X - 1, position.Y - 1);
-                var northeast = new Vector2I(position.X, position.Y - 1);
-                var southwest = new Vector2I(position.X - 1, position.Y + 1);
-                var southeast = new Vector2I(position.X, position.Y + 1);
-                
-                adjacents.AddRange(new[] { west, east, northwest, northeast, southwest, southeast });
+                // Even columns: diagonals go up-left and down-left relative to neighbors
+                adjacents.Add(new Vector2I(position.X - 1, position.Y - 1)); // northwest
+                adjacents.Add(new Vector2I(position.X - 1, position.Y));     // west
+                adjacents.Add(new Vector2I(position.X, position.Y + 1));     // southwest  
+                adjacents.Add(new Vector2I(position.X + 1, position.Y));     // southeast
+                adjacents.Add(new Vector2I(position.X + 1, position.Y - 1)); // northeast
+                adjacents.Add(new Vector2I(position.X, position.Y - 1));     // north
             }
-            else // Odd column
+            else // Odd column  
             {
-                // Odd columns: 6 neighbors
-                var west = new Vector2I(position.X - 1, position.Y);
-                var east = new Vector2I(position.X + 1, position.Y);
-                var northwest = new Vector2I(position.X, position.Y - 1);
-                var northeast = new Vector2I(position.X + 1, position.Y - 1);
-                var southwest = new Vector2I(position.X, position.Y + 1);
-                var southeast = new Vector2I(position.X + 1, position.Y + 1);
-                
-                adjacents.AddRange(new[] { west, east, northwest, northeast, southwest, southeast });
+                // Odd columns: diagonals go up-right and down-right relative to neighbors
+                adjacents.Add(new Vector2I(position.X - 1, position.Y));     // northwest
+                adjacents.Add(new Vector2I(position.X - 1, position.Y + 1)); // west
+                adjacents.Add(new Vector2I(position.X, position.Y + 1));     // southwest
+                adjacents.Add(new Vector2I(position.X + 1, position.Y + 1)); // southeast  
+                adjacents.Add(new Vector2I(position.X + 1, position.Y));     // northeast
+                adjacents.Add(new Vector2I(position.X, position.Y - 1));     // north
             }
             
             return adjacents.ToArray();

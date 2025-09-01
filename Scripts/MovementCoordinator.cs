@@ -68,12 +68,19 @@ public class MovementCoordinator
         var fromTile = gameMap[fromPosition];
         var toTile = gameMap[toPosition];
 
-        if (!MovementValidationLogic.CanUnitMoveTo(_selectedUnit, fromTile, toTile))
+        // Check if destination is occupied
+        if (toTile.IsOccupied())
         {
-            return MoveResult.CreateFailure("Cannot move to destination - insufficient movement or tile occupied");
+            return MoveResult.CreateFailure("Destination tile is occupied");
         }
 
         var pathCost = GetPathCostToDestination(fromPosition, toPosition, gameMap);
+        
+        // Check if unit has enough movement points for the path
+        if (_selectedUnit.CurrentMovementPoints < pathCost)
+        {
+            return MoveResult.CreateFailure("Insufficient movement points for this destination");
+        }
         
         fromTile.RemoveUnit();
         toTile.PlaceUnit(_selectedUnit);

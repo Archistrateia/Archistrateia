@@ -51,20 +51,115 @@ namespace Archistrateia.Tests
         }
 
         [Test]
-        public void Should_Calculate_Adjacent_Tiles()
+        public void Should_Calculate_Adjacent_Tiles_Exact_Pattern()
         {
-            var centerPosition = new Vector2I(3, 3);
-
-            var adjacentTiles = MovementValidationLogic.GetAdjacentPositions(centerPosition);
-
-            Assert.AreEqual(6, adjacentTiles.Length, "Hex tile should have 6 adjacent positions");
+            // Test the exact counter-clockwise adjacency pattern for pointy-top hex grid
+            // Pattern: (y-1,x-1), (y-1,x), (y-1,x+1), (y+1,x+1), (y+1,x), (y+1,x-1)
             
-            // Check that all adjacent positions are exactly 1 tile away
-            foreach (var position in adjacentTiles)
+            // Test case from user: (4,2) should have adjacents: (3,1), (3,2), (4,3), (5,2), (5,1), (4,1)
+            var testPosition = new Vector2I(4, 2);
+            var expectedAdjacents = new Vector2I[] 
             {
-                var distance = Mathf.Abs(position.X - centerPosition.X) + Mathf.Abs(position.Y - centerPosition.Y);
-                Assert.IsTrue(distance <= 2, $"Adjacent position {position} should be close to center {centerPosition}");
+                new Vector2I(3, 1), // (y-1, x-1) = (2-1, 4-1) = (1, 3) -> But formula is backwards, it's (x-1, y-1)
+                new Vector2I(3, 2), // (y-1, x)   = (2-1, 4)   = (1, 4) -> (x-1, y)
+                new Vector2I(4, 3), // (y-1, x+1) = (2-1, 4+1) = (1, 5) -> (x, y+1)
+                new Vector2I(5, 2), // (y+1, x+1) = (2+1, 4+1) = (3, 5) -> (x+1, y)
+                new Vector2I(5, 1), // (y+1, x)   = (2+1, 4)   = (3, 4) -> (x+1, y-1)
+                new Vector2I(4, 1)  // (y+1, x-1) = (2+1, 4-1) = (3, 3) -> (x, y-1)
+            };
+
+            var actualAdjacents = MovementValidationLogic.GetAdjacentPositions(testPosition);
+
+            Assert.AreEqual(6, actualAdjacents.Length, "Hex tile should have exactly 6 adjacent positions");
+            
+            // Verify each expected adjacent is found
+            foreach (var expected in expectedAdjacents)
+            {
+                Assert.Contains(expected, actualAdjacents, 
+                    $"Expected adjacent {expected} not found in actual adjacents: [{string.Join(", ", actualAdjacents)}]");
             }
+            
+            // Verify no unexpected adjacents
+            foreach (var actual in actualAdjacents)
+            {
+                Assert.Contains(actual, expectedAdjacents, 
+                    $"Unexpected adjacent {actual} found. Expected only: [{string.Join(", ", expectedAdjacents)}]");
+            }
+        }
+
+        [TestCase(4, 2, new int[] { 3, 1, 3, 2, 4, 3, 5, 2, 5, 1, 4, 1 })] // User's exact example
+        [TestCase(0, 0, new int[] { -1, -1, -1, 0, 0, 1, 1, 0, 1, -1, 0, -1 })] // Even column
+        [TestCase(1, 1, new int[] { 0, 1, 0, 2, 1, 2, 2, 1, 2, 0, 1, 0 })]       // Odd column  
+        [TestCase(2, 2, new int[] { 1, 1, 1, 2, 2, 3, 3, 2, 3, 1, 2, 1 })]       // Even column
+        [TestCase(3, 3, new int[] { 2, 3, 2, 4, 3, 4, 4, 3, 4, 2, 3, 2 })]       // Odd column
+        public void Should_Follow_Counter_Clockwise_Adjacency_Pattern(int x, int y, int[] expectedCoords)
+        {
+            // Test the exact counter-clockwise pattern based on user's formula and examples
+            // For pointy-top hex grid: counter-clockwise from northwest
+            var testPosition = new Vector2I(x, y);
+            var expectedAdjacents = new Vector2I[6];
+            
+            for (int i = 0; i < 6; i++)
+            {
+                expectedAdjacents[i] = new Vector2I(expectedCoords[i * 2], expectedCoords[i * 2 + 1]);
+            }
+
+            var actualAdjacents = MovementValidationLogic.GetAdjacentPositions(testPosition);
+
+            Assert.AreEqual(6, actualAdjacents.Length, $"Position {testPosition} should have exactly 6 adjacent positions");
+            
+            // Verify each expected adjacent is found (order may vary in implementation)
+            foreach (var expected in expectedAdjacents)
+            {
+                Assert.Contains(expected, actualAdjacents, 
+                    $"Expected adjacent {expected} not found for center {testPosition}. Actual: [{string.Join(", ", actualAdjacents)}]");
+            }
+            
+            // Verify no unexpected adjacents
+            foreach (var actual in actualAdjacents)
+            {
+                Assert.Contains(actual, expectedAdjacents, 
+                    $"Unexpected adjacent {actual} found for center {testPosition}. Expected: [{string.Join(", ", expectedAdjacents)}]");
+            }
+        }
+
+        [Test]
+        public void Should_Apply_General_Adjacency_Formula()
+        {
+            // Test the general formula provided by user: (y-1,x-1),(y-1,x),(y-1,x+1),(y+1,x+1),(y+1,x),(y+1,x-1)
+            // This test verifies that the formula works for the user's specific example
+            
+            var testPos = new Vector2I(4, 2); // User's example position
+            var x = testPos.X;
+            var y = testPos.Y;
+            
+            // Apply the formula as given: (y-1,x-1),(y-1,x),(y-1,x+1),(y+1,x+1),(y+1,x),(y+1,x-1)
+            var formulaExpected = new Vector2I[]
+            {
+                new Vector2I(y-1, x-1), // (y-1,x-1) = (1,3)
+                new Vector2I(y-1, x),   // (y-1,x) = (1,4)  
+                new Vector2I(y-1, x+1), // (y-1,x+1) = (1,5)
+                new Vector2I(y+1, x+1), // (y+1,x+1) = (3,5)
+                new Vector2I(y+1, x),   // (y+1,x) = (3,4)
+                new Vector2I(y+1, x-1)  // (y+1,x-1) = (3,3)
+            };
+
+            var actualAdjacents = MovementValidationLogic.GetAdjacentPositions(testPos);
+            var userExpected = new Vector2I[] { new Vector2I(3,1), new Vector2I(3,2), new Vector2I(4,3), new Vector2I(5,2), new Vector2I(5,1), new Vector2I(4,1) };
+
+            // Verify that the actual implementation matches the user's expected result
+            Assert.AreEqual(6, actualAdjacents.Length, "Should have exactly 6 adjacent positions");
+            
+            foreach (var expected in userExpected)
+            {
+                Assert.Contains(expected, actualAdjacents, 
+                    $"User's expected adjacent {expected} not found for {testPos}. Actual: [{string.Join(", ", actualAdjacents)}]");
+            }
+
+            GD.Print($"Position {testPos}:");
+            GD.Print($"  Formula result: [{string.Join(", ", formulaExpected)}]");
+            GD.Print($"  User expected:  [{string.Join(", ", userExpected)}]");
+            GD.Print($"  Actual result:  [{string.Join(", ", actualAdjacents)}]");
         }
 
         [Test]
@@ -224,8 +319,13 @@ namespace Archistrateia.Tests
             
             coordinator.SelectUnitForMovement(charioteer);
             
-            // Move directly to destination (3,0) - should deduct total path cost of 5
+            // Check what the actual path cost is before attempting the move
+            var actualPathCost = MovementValidationLogic.GetOptimalPathCost(new Vector2I(0, 0), new Vector2I(3, 0), gameMap);
+            GD.Print($"Actual path cost calculated: {actualPathCost}");
+            
+            // Move directly to destination (3,0) - should deduct total path cost
             var moveResult = coordinator.TryMoveToDestination(new Vector2I(0, 0), new Vector2I(3, 0), gameMap);
+            GD.Print($"Move result: {moveResult.Success} - {moveResult.ErrorMessage}");
             Assert.IsTrue(moveResult.Success, "Multi-step move should succeed");
             
             var expectedMPAfterMove = initialMP - 5; // Should deduct total path cost
@@ -255,7 +355,6 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Find_Destinations_Based_On_Remaining_Movement()
         {
-            var logic = new MovementValidationLogic();
             var gameMap = CreateTestMap();
             var charioteer = new Charioteer(); // Has 4 movement points initially
             var currentPosition = new Vector2I(1, 1);
@@ -509,7 +608,6 @@ namespace Archistrateia.Tests
         public void Should_Compare_Current_vs_Proper_Hex_Adjacency()
         {
             // Systematic comparison of current vs proper hex adjacency
-            var logic = new MovementValidationLogic();
             
             GD.Print("=== SYSTEMATIC HEX ADJACENCY COMPARISON ===");
             

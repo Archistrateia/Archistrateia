@@ -17,6 +17,7 @@ public partial class VisualHexTile : Area2D
     private bool _isOccupied = false;
     private bool _isUnavailable = false;
     private bool _isInMovementPhase = false;
+    private Color _highlightColor = default; // Added for custom highlight color
 
     public void Initialize(Vector2I gridPosition, TerrainType terrainType, Color color, Vector2 worldPosition)
     {
@@ -117,9 +118,18 @@ public partial class VisualHexTile : Area2D
         }
         else if (_isHighlighted)
         {
-            // Highlighted tiles get a bright green glow for maximum visibility
-            terrainColor = terrainColor.Lightened(0.4f);
-            terrainColor = terrainColor.Blend(new Color(0.2f, 0.8f, 0.2f, 0.6f));
+            // Highlighted tiles get a bright glow using custom color or default green
+            if (_highlightColor != default)
+            {
+                terrainColor = terrainColor.Lightened(0.4f);
+                terrainColor = terrainColor.Blend(_highlightColor);
+            }
+            else
+            {
+                // Default green highlight
+                terrainColor = terrainColor.Lightened(0.4f);
+                terrainColor = terrainColor.Blend(new Color(0.2f, 0.8f, 0.2f, 0.6f));
+            }
         }
         else if (_isBrightened)
         {
@@ -139,7 +149,17 @@ public partial class VisualHexTile : Area2D
         // Update outline color based on state
         if (_isHighlighted)
         {
-            _hexOutline.DefaultColor = new Color(0.0f, 1.0f, 0.0f);
+            if (_highlightColor != default)
+            {
+                // Use a brighter version of the custom highlight color for the outline
+                var outlineColor = _highlightColor;
+                outlineColor.A = 1.0f; // Full opacity for outline
+                _hexOutline.DefaultColor = outlineColor;
+            }
+            else
+            {
+                _hexOutline.DefaultColor = new Color(0.0f, 1.0f, 0.0f);
+            }
             _hexOutline.Width = 3.0f;
         }
         else if (_isBrightened)
@@ -226,6 +246,7 @@ public partial class VisualHexTile : Area2D
     public void SetHighlight(bool highlight, Color highlightColor = default)
     {
         _isHighlighted = highlight;
+        _highlightColor = highlightColor; // Store the custom highlight color
         UpdateVisualAppearance();
     }
 

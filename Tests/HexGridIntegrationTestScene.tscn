@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://bqxvn8yqxqxqx"]
+[gd_scene load_steps=2 format=3 uid="uid://bqxvn8yqxqxqy"]
 
 [ext_resource type="Script" path="res://Tests/HexGridIntegrationTest.cs" id="1_0x0x0"]
 
