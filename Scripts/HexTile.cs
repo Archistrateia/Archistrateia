@@ -57,11 +57,11 @@ public partial class HexTile : Node
                 DefenseBonus = 0;
                 break;
             case TerrainType.Mountain:
-                MovementCost = 3;
+                MovementCost = 10;
                 DefenseBonus = 3;
                 break;
             case TerrainType.Water:
-                MovementCost = 5;
+                MovementCost = 10;
                 DefenseBonus = 0;
                 break;
         }

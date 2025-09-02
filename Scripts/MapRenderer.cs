@@ -48,6 +48,38 @@ namespace Archistrateia
         {
             return _currentPhase;
         }
+        
+        public void ClearAllTiles()
+        {
+            GD.Print("🧹 MapRenderer: Clearing all tile references");
+            _visualTiles.Clear();
+            
+            // Also clear any highlights or selections that reference old tiles
+            ClearAllHighlights();
+            DeselectAll();
+            ClearAllUnitMovementDisplays();
+        }
+        
+        public void ClearAllUnits()
+        {
+            GD.Print("🧹 MapRenderer: Clearing all visual units");
+            
+            // Disconnect signals and free visual units
+            foreach (var visualUnit in _visualUnits)
+            {
+                if (visualUnit.IsConnected(VisualUnit.SignalName.UnitClicked, new Callable(this, MethodName.OnUnitClicked)))
+                {
+                    visualUnit.UnitClicked -= OnUnitClicked;
+                }
+                visualUnit.QueueFree();
+            }
+            
+            _visualUnits.Clear();
+            
+            // Clear any unit-related selections
+            _interactionLogic.DeselectUnit();
+            _movementCoordinator.ClearSelection();
+        }
 
         public Player GetCurrentPlayer()
         {

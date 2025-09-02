@@ -38,6 +38,9 @@ namespace Archistrateia
         private bool _debugAdjacentMode = false;
         private VisualHexTile _lastHoveredTile = null;
         
+        // Game state
+        private bool _gameStarted = false;
+        
         // Map dimensions come from centralized configuration
         private static int MAP_WIDTH => MapConfiguration.MAP_WIDTH;
         private static int MAP_HEIGHT => MapConfiguration.MAP_HEIGHT;
@@ -61,8 +64,79 @@ namespace Archistrateia
             }
 
             InitializeTerrainColors();
+            
+            // Use CallDeferred to ensure viewport is ready before creating UI
+            CallDeferred(MethodName.InitializeUI);
+        }
+
+        private void InitializeUI()
+        {
+            GD.Print("🚀 Starting UI initialization...");
+            
+            // Create title label if it doesn't exist  
+            if (TitleLabel == null)
+            {
+                GD.Print("📝 Title label is null, creating it...");
+                CreateTitleLabel();
+            }
+            else
+            {
+                GD.Print($"📝 Title label already exists: {TitleLabel.Text}");
+                // Update the existing title label position and properties
+                var viewportSize = GetViewport().GetVisibleRect().Size;
+                TitleLabel.Text = "Archistrateia";
+                TitleLabel.Position = new Vector2(viewportSize.X / 2 - 150, 20);
+                TitleLabel.Size = new Vector2(300, 60);
+                TitleLabel.AddThemeFontSizeOverride("font_size", 48);
+                TitleLabel.HorizontalAlignment = HorizontalAlignment.Center;
+                TitleLabel.ZIndex = 1000;
+                TitleLabel.Visible = true;
+                GD.Print($"📝 Updated title label position to: {TitleLabel.Position}");
+            }
+
+            // Create start button if it doesn't exist
+            if (StartButton == null)
+            {
+                GD.Print("🔘 Start button is null, creating it...");
+                CreateStartButton();
+            }
+            else
+            {
+                GD.Print("🔘 Start button already exists");
+            }
+
             CreateZoomControls();
             CreateMapGenerationControls();
+            
+            // Generate preview map before game starts
+            GeneratePreviewMap();
+            
+            // Update UI positions after everything is initialized
+            UpdateUIPositions();
+            
+            GD.Print("✨ UI initialization complete");
+        }
+
+        private void CreateStartButton()
+        {
+            // Don't create the start button here - it will be added to the map controls panel
+            GD.Print("✨ Start button will be created in map controls");
+        }
+
+        private void CreateTitleLabel()
+        {
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            GD.Print($"🖥️ Viewport size for title: {viewportSize}");
+            
+            TitleLabel = new Label();
+            TitleLabel.Text = "Archistrateia";
+            TitleLabel.Position = new Vector2(viewportSize.X / 2 - 150, 20);
+            TitleLabel.Size = new Vector2(300, 60);
+            TitleLabel.AddThemeFontSizeOverride("font_size", 48);
+            TitleLabel.HorizontalAlignment = HorizontalAlignment.Center;
+            TitleLabel.ZIndex = 1000;
+            AddChild(TitleLabel);
+            GD.Print($"✨ Created title label at position: {TitleLabel.Position}");
         }
 
         private void InitializeTerrainColors()
@@ -82,17 +156,21 @@ namespace Archistrateia
 
         private void CreateMapGenerationControls()
         {
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            GD.Print($"🖥️ Viewport size for controls: {viewportSize}");
+            
             // Create a background panel for map generation controls
             var mapControlPanel = new Panel();
-            mapControlPanel.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 180, 80);
-            mapControlPanel.Size = new Vector2(170, 140);
+            mapControlPanel.Position = new Vector2(viewportSize.X - 180, 80);
+            mapControlPanel.Size = new Vector2(170, 180); // Increased height for start button
             mapControlPanel.ZIndex = 1000;
             mapControlPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
             AddChild(mapControlPanel);
+            GD.Print($"📋 Created map control panel at position: {mapControlPanel.Position}");
 
             var mapContainer = new VBoxContainer();
             mapContainer.Position = new Vector2(5, 5);
-            mapContainer.Size = new Vector2(160, 130);
+            mapContainer.Size = new Vector2(160, 170); // Increased height
             mapContainer.AddThemeConstantOverride("separation", 3);
             mapControlPanel.AddChild(mapContainer);
 
@@ -131,6 +209,31 @@ namespace Archistrateia
             _regenerateMapButton.CustomMinimumSize = new Vector2(150, 25);
             _regenerateMapButton.Connect("pressed", new Callable(this, MethodName.OnRegenerateMapPressed));
             mapContainer.AddChild(_regenerateMapButton);
+
+            // Start Game button (only visible before game starts)
+            if (StartButton == null)
+            {
+                StartButton = new Button();
+                StartButton.Text = "Start Game";
+                StartButton.CustomMinimumSize = new Vector2(150, 35);
+                StartButton.AddThemeFontSizeOverride("font_size", 16);
+                StartButton.Connect("pressed", new Callable(this, MethodName.OnStartButtonPressed));
+                mapContainer.AddChild(StartButton);
+                GD.Print("✨ Created and added new Start Game button to controls panel");
+            }
+            else
+            {
+                // Start button exists from scene - just add it to the controls panel
+                if (StartButton.GetParent() != null)
+                {
+                    StartButton.GetParent().RemoveChild(StartButton);
+                }
+                StartButton.Text = "Start Game";
+                StartButton.CustomMinimumSize = new Vector2(150, 35);
+                StartButton.AddThemeFontSizeOverride("font_size", 16);
+                mapContainer.AddChild(StartButton);
+                GD.Print("✨ Moved existing Start Game button to controls panel");
+            }
         }
 
         private void CreateZoomControls()
@@ -257,6 +360,8 @@ namespace Archistrateia
 
         public void OnStartButtonPressed()
         {
+            _gameStarted = true;
+            
             // Try to find StartButton if reference is null
             if (StartButton == null)
             {
@@ -273,6 +378,9 @@ namespace Archistrateia
             {
                 TitleLabel.Visible = false;
             }
+
+            // Hide map generation controls when game starts
+            HideMapGenerationControls();
 
             // Create background panel for game status
             var statusBackgroundPanel = new Panel();
@@ -304,7 +412,8 @@ namespace Archistrateia
             // Update zoom label to reflect the optimal zoom
             UpdateZoomLabel();
 
-            GenerateMap();
+            // Use the existing preview map as the game map (don't regenerate)
+            GD.Print("🎮 Using preview map as game map - no regeneration needed");
             InitializeGameManager();
             
             // Update UI positions after everything is initialized
@@ -337,7 +446,7 @@ namespace Archistrateia
             DebugUIElements();
         }
 
-        private void GenerateMap()
+        private void GeneratePreviewMap()
         {
             if (_mapContainer != null)
             {
@@ -371,11 +480,55 @@ namespace Archistrateia
                 tilesCreated++;
             }
 
-            GD.Print($"Generated hex map with {tilesCreated} tiles");
+            GD.Print($"Generated preview map with {tilesCreated} tiles");
+        }
+
+        private void GenerateGameMap()
+        {
+            // This method generates the actual game map when the game starts
+            if (_mapContainer != null)
+            {
+                _mapContainer.QueueFree();
+            }
+
+            // Reset scroll offset when generating new map
+            _scrollOffset = Vector2.Zero;
+            HexGridCalculator.SetScrollOffset(_scrollOffset);
+
+            _mapContainer = new Node2D();
+            _mapContainer.Name = "MapContainer";
+            _mapContainer.ZIndex = 0; // Ensure map is below UI elements
+            AddChild(_mapContainer);
+
+            var gameMap = MapGenerator.GenerateMap(MAP_WIDTH, MAP_HEIGHT, _currentMapType);
+            int tilesCreated = 0;
+            
+            foreach (var kvp in gameMap)
+            {
+                var gridPosition = kvp.Key;
+                var tile = kvp.Value;
+                var terrainType = tile.TerrainType;
+                
+                var worldPosition = HexGridCalculator.CalculateHexPositionCentered(gridPosition.X, gridPosition.Y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                
+                var visualTile = new VisualHexTile();
+                visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
+                _mapContainer.AddChild(visualTile);
+                
+                tilesCreated++;
+            }
+
+            GD.Print($"Generated game map with {tilesCreated} tiles");
         }
 
         private void OnMapTypeSelected(long index)
         {
+            if (_gameStarted)
+            {
+                // Game has started - map type selection is disabled
+                return;
+            }
+            
             var mapTypes = System.Enum.GetValues<MapType>();
             if (index >= 0 && index < mapTypes.Length)
             {
@@ -383,13 +536,50 @@ namespace Archistrateia
                 var config = MapTypeConfiguration.GetConfig(_currentMapType);
                 _mapTypeDescriptionLabel.Text = config.Description;
                 GD.Print($"🗺️ Selected map type: {config.Name}");
+                
+                // Regenerate preview map with new type
+                GeneratePreviewMap();
+            }
+        }
+        
+        private void HideMapGenerationControls()
+        {
+            // Find and hide the map generation control panel
+            foreach (Node child in GetChildren())
+            {
+                if (child is Panel panel && panel.GetChildCount() > 0)
+                {
+                    // Check if this panel contains map generation controls
+                    var container = panel.GetChild(0);
+                    if (container is VBoxContainer vbox)
+                    {
+                        // Look for the map type selector
+                        foreach (Node vboxChild in vbox.GetChildren())
+                        {
+                            if (vboxChild is OptionButton)
+                            {
+                                // This is the map generation panel
+                                panel.Visible = false;
+                                GD.Print("🙈 Hidden map generation controls");
+                                return;
+                            }
+                        }
+                    }
+                }
             }
         }
 
         private void OnRegenerateMapPressed()
         {
-            GD.Print($"🔄 Regenerating map as {_currentMapType}");
-            GenerateMap();
+            if (_gameStarted)
+            {
+                // Game has started - regeneration is disabled
+                GD.Print("⚠️ Map regeneration disabled during gameplay");
+                return;
+            }
+            
+            GD.Print($"🔄 Regenerating preview map as {_currentMapType}");
+            GeneratePreviewMap();
         }
 
         private void RegenerateMapWithCurrentZoom()
@@ -450,8 +640,37 @@ namespace Archistrateia
             _gameManager = new GameManager();
             AddChild(_gameManager);
             
+            // Convert the preview map to a logical game map
+            var previewGameMap = ConvertVisualMapToGameMap();
+            
+            // Set the game map before initialization
+            _gameManager.SetGameMap(previewGameMap);
+            
+            // Now initialize the game with the preview map
+            _gameManager.InitializeGame();
+            
             // Use CallDeferred to connect TurnManager after GameManager's _Ready is called
             CallDeferred(MethodName.ConnectTurnManager);
+        }
+
+        private Dictionary<Vector2I, HexTile> ConvertVisualMapToGameMap()
+        {
+            var gameMap = new Dictionary<Vector2I, HexTile>();
+            
+            if (_mapContainer != null)
+            {
+                foreach (Node child in _mapContainer.GetChildren())
+                {
+                    if (child is VisualHexTile visualTile)
+                    {
+                        var logicalTile = new HexTile(visualTile.GridPosition, visualTile.TerrainType);
+                        gameMap[visualTile.GridPosition] = logicalTile;
+                    }
+                }
+            }
+            
+            GD.Print($"🔄 Converted preview map to logical game map with {gameMap.Count} tiles");
+            return gameMap;
         }
 
         private void ConnectTurnManager()
@@ -551,14 +770,29 @@ namespace Archistrateia
 
         private void OnNextPhaseButtonPressed()
         {
-            if (TurnManager != null)
+            GD.Print("🔘 Next Phase button pressed");
+            
+            if (TurnManager == null)
+            {
+                GD.PrintErr("❌ TurnManager is null! Cannot advance phase.");
+                return;
+            }
+            
+            GD.Print($"📋 Current phase before advance: {TurnManager.CurrentPhase}");
+            
+            try
             {
                 TurnManager.AdvancePhase();
+                GD.Print($"📋 New phase after advance: {TurnManager.CurrentPhase}");
                 
                 // Handle phase-specific actions with GameManager
                 if (_gameManager != null)
                 {
                     HandlePhaseChange(TurnManager.CurrentPhase);
+                }
+                else
+                {
+                    GD.PrintErr("❌ GameManager is null! Cannot handle phase change.");
                 }
                 
                 // Update MapRenderer with new phase
@@ -566,9 +800,19 @@ namespace Archistrateia
                 {
                     _mapRenderer.OnPhaseChanged(TurnManager.CurrentPhase);
                 }
+                else
+                {
+                    GD.PrintErr("❌ MapRenderer is null! Cannot update phase.");
+                }
+                
+                UpdateTitleLabel();
+                GD.Print("✅ Phase advance completed successfully");
             }
-
-            UpdateTitleLabel();
+            catch (System.Exception ex)
+            {
+                GD.PrintErr($"❌ Error advancing phase: {ex.Message}");
+                GD.PrintErr($"Stack trace: {ex.StackTrace}");
+            }
         }
 
         private void HandlePhaseChange(GamePhase phase)

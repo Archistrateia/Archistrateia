@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using Archistrateia;
 
 public partial class GameManager : Node
@@ -18,7 +19,7 @@ public partial class GameManager : Node
 
     public override void _Ready()
     {
-        InitializeGame();
+        // Don't auto-initialize - wait for SetGameMap() and manual InitializeGame() call
     }
 
     public void InitializeGame()
@@ -35,7 +36,23 @@ public partial class GameManager : Node
         AddChild(TurnManager);
 
         CreatePlayers();
-        CreateGameMap();
+        
+        // Only create a new map if one hasn't been set already
+        if (GameMap.Count == 0)
+        {
+            CreateGameMap();
+        }
+        else
+        {
+            GD.Print($"Using existing game map with {GameMap.Count} tiles");
+            // Still need to add tiles to scene tree and create cities
+            foreach (var tile in GameMap.Values)
+            {
+                AddChild(tile);
+            }
+            CreateCities();
+        }
+        
         SetupInitialUnits();
         
         MovementSystem = new GodotMovementSystem();
@@ -85,6 +102,7 @@ public partial class GameManager : Node
 
     private void CreateGameMap()
     {
+        // Generate default map if no map is provided
         GameMap = MapGenerator.GenerateMap(MapConfiguration.MAP_WIDTH, MapConfiguration.MAP_HEIGHT, MapType.Continental);
         
         foreach (var tile in GameMap.Values)
@@ -94,6 +112,12 @@ public partial class GameManager : Node
 
         CreateCities();
         GD.Print($"Created game map with {GameMap.Count} tiles");
+    }
+
+    public void SetGameMap(Dictionary<Vector2I, HexTile> gameMap)
+    {
+        GameMap = gameMap;
+        GD.Print($"Set game map from preview with {GameMap.Count} tiles");
     }
 
     private void CreateCities()
@@ -131,14 +155,54 @@ public partial class GameManager : Node
         player2.AddUnit(nakhtu2);
         player2.AddUnit(charioteer2);
 
-        GameMap[new Vector2I(1, 2)].MoveUnitTo(nakhtu1);
-        GameMap[new Vector2I(2, 1)].MoveUnitTo(medjay1);
-        GameMap[new Vector2I(1, 3)].MoveUnitTo(archer1);
+        // Find suitable starting positions dynamically
+        var suitablePositions = FindSuitableStartingPositions();
+        
+        if (suitablePositions.Count >= 5)
+        {
+            GameMap[suitablePositions[0]].MoveUnitTo(nakhtu1);
+            GameMap[suitablePositions[1]].MoveUnitTo(medjay1);
+            GameMap[suitablePositions[2]].MoveUnitTo(archer1);
+            GameMap[suitablePositions[3]].MoveUnitTo(nakhtu2);
+            GameMap[suitablePositions[4]].MoveUnitTo(charioteer2);
+            
+            GD.Print($"Initial units deployed at positions: {string.Join(", ", suitablePositions.Take(5))}");
+        }
+        else
+        {
+            GD.PrintErr($"Not enough suitable positions found for units! Found {suitablePositions.Count}, need 5");
+        }
+    }
 
-        GameMap[new Vector2I(6, 3)].MoveUnitTo(nakhtu2);
-        GameMap[new Vector2I(5, 4)].MoveUnitTo(charioteer2);
-
-        GD.Print("Initial units deployed");
+    private List<Vector2I> FindSuitableStartingPositions()
+    {
+        var suitablePositions = new List<Vector2I>();
+        
+        // Look for grassland, desert, or hill tiles (avoid water, rivers, mountains)
+        var preferredTerrains = new[] { TerrainType.Grassland, TerrainType.Desert, TerrainType.Hill, TerrainType.Shoreline };
+        
+        foreach (var kvp in GameMap)
+        {
+            var position = kvp.Key;
+            var tile = kvp.Value;
+            
+            if (preferredTerrains.Contains(tile.TerrainType) && !tile.IsOccupied() && tile.City == null)
+            {
+                suitablePositions.Add(position);
+            }
+        }
+        
+        // Sort by distance from center to spread units out
+        var center = new Vector2I(MapConfiguration.MAP_WIDTH / 2, MapConfiguration.MAP_HEIGHT / 2);
+        suitablePositions.Sort((a, b) => 
+        {
+            var distA = (a - center).Length();
+            var distB = (b - center).Length();
+            return distA.CompareTo(distB);
+        });
+        
+        GD.Print($"Found {suitablePositions.Count} suitable starting positions");
+        return suitablePositions;
     }
 
     public void StartNewTurn()
