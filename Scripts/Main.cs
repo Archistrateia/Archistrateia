@@ -27,6 +27,12 @@ namespace Archistrateia
         private HSlider _zoomSlider;
         private Label _zoomLabel;
         
+        // Map generation UI elements
+        private OptionButton _mapTypeSelector;
+        private Button _regenerateMapButton;
+        private Label _mapTypeDescriptionLabel;
+        private MapType _currentMapType = MapType.Continental;
+        
         // Debug functionality
         private Button _debugAdjacentButton;
         private bool _debugAdjacentMode = false;
@@ -56,6 +62,7 @@ namespace Archistrateia
 
             InitializeTerrainColors();
             CreateZoomControls();
+            CreateMapGenerationControls();
         }
 
         private void InitializeTerrainColors()
@@ -66,8 +73,64 @@ namespace Archistrateia
                 { TerrainType.Hill, new Color(0.6f, 0.5f, 0.3f) },
                 { TerrainType.River, new Color(0.3f, 0.6f, 0.9f) },
                 { TerrainType.Shoreline, new Color(0.8f, 0.7f, 0.5f) },
-                { TerrainType.Lagoon, new Color(0.2f, 0.5f, 0.7f) }
+                { TerrainType.Lagoon, new Color(0.2f, 0.5f, 0.7f) },
+                { TerrainType.Grassland, new Color(0.4f, 0.8f, 0.3f) },
+                { TerrainType.Mountain, new Color(0.5f, 0.4f, 0.4f) },
+                { TerrainType.Water, new Color(0.1f, 0.4f, 0.8f) }
             };
+        }
+
+        private void CreateMapGenerationControls()
+        {
+            // Create a background panel for map generation controls
+            var mapControlPanel = new Panel();
+            mapControlPanel.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 180, 80);
+            mapControlPanel.Size = new Vector2(170, 140);
+            mapControlPanel.ZIndex = 1000;
+            mapControlPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
+            AddChild(mapControlPanel);
+
+            var mapContainer = new VBoxContainer();
+            mapContainer.Position = new Vector2(5, 5);
+            mapContainer.Size = new Vector2(160, 130);
+            mapContainer.AddThemeConstantOverride("separation", 3);
+            mapControlPanel.AddChild(mapContainer);
+
+            // Map type label
+            var mapTypeLabel = new Label();
+            mapTypeLabel.Text = "Map Type:";
+            mapTypeLabel.AddThemeFontSizeOverride("font_size", 12);
+            mapContainer.AddChild(mapTypeLabel);
+
+            // Map type selector
+            _mapTypeSelector = new OptionButton();
+            _mapTypeSelector.CustomMinimumSize = new Vector2(150, 25);
+            
+            foreach (MapType mapType in System.Enum.GetValues<MapType>())
+            {
+                var config = MapTypeConfiguration.GetConfig(mapType);
+                _mapTypeSelector.AddItem(config.Name);
+            }
+            
+            _mapTypeSelector.Selected = 0; // Continental
+            _mapTypeSelector.Connect("item_selected", new Callable(this, MethodName.OnMapTypeSelected));
+            mapContainer.AddChild(_mapTypeSelector);
+
+            // Map description
+            _mapTypeDescriptionLabel = new Label();
+            _mapTypeDescriptionLabel.Text = MapTypeConfiguration.GetConfig(_currentMapType).Description;
+            _mapTypeDescriptionLabel.AddThemeFontSizeOverride("font_size", 9);
+            _mapTypeDescriptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            _mapTypeDescriptionLabel.CustomMinimumSize = new Vector2(150, 50);
+            _mapTypeDescriptionLabel.VerticalAlignment = VerticalAlignment.Top;
+            mapContainer.AddChild(_mapTypeDescriptionLabel);
+
+            // Regenerate button
+            _regenerateMapButton = new Button();
+            _regenerateMapButton.Text = "Regenerate";
+            _regenerateMapButton.CustomMinimumSize = new Vector2(150, 25);
+            _regenerateMapButton.Connect("pressed", new Callable(this, MethodName.OnRegenerateMapPressed));
+            mapContainer.AddChild(_regenerateMapButton);
         }
 
         private void CreateZoomControls()
@@ -290,24 +353,43 @@ namespace Archistrateia
             _mapContainer.ZIndex = 0; // Ensure map is below UI elements
             AddChild(_mapContainer);
 
+            var gameMap = MapGenerator.GenerateMap(MAP_WIDTH, MAP_HEIGHT, _currentMapType);
             int tilesCreated = 0;
-            for (int x = 0; x < MAP_WIDTH; x++)
+            
+            foreach (var kvp in gameMap)
             {
-                for (int y = 0; y < MAP_HEIGHT; y++)
-                {
-                    var terrainType = GetRandomTerrainType();
-                    var worldPosition = HexGridCalculator.CalculateHexPositionCentered(x, y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-                    var gridPosition = new Vector2I(x, y);
-                    
-                    var visualTile = new VisualHexTile();
-                    visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
-                    _mapContainer.AddChild(visualTile);
-                    
-                    tilesCreated++;
-                }
+                var gridPosition = kvp.Key;
+                var tile = kvp.Value;
+                var terrainType = tile.TerrainType;
+                
+                var worldPosition = HexGridCalculator.CalculateHexPositionCentered(gridPosition.X, gridPosition.Y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                
+                var visualTile = new VisualHexTile();
+                visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
+                _mapContainer.AddChild(visualTile);
+                
+                tilesCreated++;
             }
 
             GD.Print($"Generated hex map with {tilesCreated} tiles");
+        }
+
+        private void OnMapTypeSelected(long index)
+        {
+            var mapTypes = System.Enum.GetValues<MapType>();
+            if (index >= 0 && index < mapTypes.Length)
+            {
+                _currentMapType = mapTypes[index];
+                var config = MapTypeConfiguration.GetConfig(_currentMapType);
+                _mapTypeDescriptionLabel.Text = config.Description;
+                GD.Print($"🗺️ Selected map type: {config.Name}");
+            }
+        }
+
+        private void OnRegenerateMapPressed()
+        {
+            GD.Print($"🔄 Regenerating map as {_currentMapType}");
+            GenerateMap();
         }
 
         private void RegenerateMapWithCurrentZoom()
@@ -361,12 +443,7 @@ namespace Archistrateia
             }
         }
 
-        private static TerrainType GetRandomTerrainType()
-        {
-            var terrainTypes = System.Enum.GetValues<TerrainType>();
-            var randomType = terrainTypes[GD.RandRange(0, terrainTypes.Length - 1)];
-            return randomType;
-        }
+
 
         private void InitializeGameManager()
         {

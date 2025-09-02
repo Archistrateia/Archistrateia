@@ -6,7 +6,10 @@ public enum TerrainType
     Hill,
     River,
     Shoreline,
-    Lagoon
+    Lagoon,
+    Grassland,
+    Mountain,
+    Water
 }
 
 public partial class HexTile : Node
@@ -47,6 +50,18 @@ public partial class HexTile : Node
                 break;
             case TerrainType.Lagoon:
                 MovementCost = 4;
+                DefenseBonus = 0;
+                break;
+            case TerrainType.Grassland:
+                MovementCost = 1;
+                DefenseBonus = 0;
+                break;
+            case TerrainType.Mountain:
+                MovementCost = 3;
+                DefenseBonus = 3;
+                break;
+            case TerrainType.Water:
+                MovementCost = 5;
                 DefenseBonus = 0;
                 break;
         }

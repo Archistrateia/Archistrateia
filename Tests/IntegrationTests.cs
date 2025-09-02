@@ -54,7 +54,7 @@ namespace Archistrateia.Tests
         public void TestTerrainColorInitialization()
         {
             var terrainTypes = System.Enum.GetValues<TerrainType>();
-            Assert.AreEqual(5, terrainTypes.Length, "Should have 5 terrain types");
+            Assert.AreEqual(8, terrainTypes.Length, "Should have 8 terrain types");
 
             foreach (TerrainType terrainType in terrainTypes)
             {
@@ -160,7 +160,7 @@ namespace Archistrateia.Tests
             Assert.IsTrue(unitTypes.Length > 0, "UnitType enum should have values");
 
             var terrainTypes = System.Enum.GetValues<TerrainType>();
-            Assert.AreEqual(5, terrainTypes.Length, "TerrainType enum should have 5 values");
+            Assert.AreEqual(8, terrainTypes.Length, "TerrainType enum should have 8 values");
         }
 
         [Test]
@@ -393,7 +393,10 @@ namespace Archistrateia.Tests
                 { TerrainType.Hill, new Color(0.6f, 0.5f, 0.3f) },
                 { TerrainType.River, new Color(0.3f, 0.6f, 0.9f) },
                 { TerrainType.Shoreline, new Color(0.8f, 0.7f, 0.5f) },
-                { TerrainType.Lagoon, new Color(0.2f, 0.5f, 0.7f) }
+                { TerrainType.Lagoon, new Color(0.2f, 0.5f, 0.7f) },
+                { TerrainType.Grassland, new Color(0.4f, 0.8f, 0.3f) },
+                { TerrainType.Mountain, new Color(0.5f, 0.4f, 0.4f) },
+                { TerrainType.Water, new Color(0.1f, 0.4f, 0.8f) }
             };
             return colors[terrainType];
         }

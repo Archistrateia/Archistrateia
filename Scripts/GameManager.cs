@@ -85,29 +85,15 @@ public partial class GameManager : Node
 
     private void CreateGameMap()
     {
-        for (int x = 0; x < MapConfiguration.MAP_WIDTH; x++)
+        GameMap = MapGenerator.GenerateMap(MapConfiguration.MAP_WIDTH, MapConfiguration.MAP_HEIGHT, MapType.Continental);
+        
+        foreach (var tile in GameMap.Values)
         {
-            for (int y = 0; y < MapConfiguration.MAP_HEIGHT; y++)
-            {
-                var position = new Vector2I(x, y);
-                var terrainType = GetRandomTerrainType();
-                var tile = new HexTile(position, terrainType);
-
-                GameMap[position] = tile;
-                AddChild(tile);
-            }
+            AddChild(tile);
         }
 
         CreateCities();
         GD.Print($"Created game map with {GameMap.Count} tiles");
-    }
-
-
-
-    private TerrainType GetRandomTerrainType()
-    {
-        var terrainTypes = System.Enum.GetValues<TerrainType>();
-        return terrainTypes[GD.RandRange(0, terrainTypes.Length - 1)];
     }
 
     private void CreateCities()
