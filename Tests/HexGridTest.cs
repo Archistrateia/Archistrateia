@@ -94,7 +94,7 @@ namespace Archistrateia.Tests
             var centeredPosition = HexGridCalculator.CalculateHexPositionCentered(0, 0, viewportSize, mapWidth, mapHeight);
 
             float expectedCenterX = (viewportSize.X - (mapWidth * HexGridCalculator.HEX_WIDTH * 0.75f + HexGridCalculator.HEX_WIDTH * 0.25f)) / 2;
-            float expectedCenterY = (viewportSize.Y - (mapHeight * HexGridCalculator.HEX_HEIGHT + HexGridCalculator.HEX_HEIGHT * 0.5f)) / 2 + HexGridCalculator.HEX_HEIGHT * 0.5f;
+            float expectedCenterY = (viewportSize.Y - (mapHeight * HexGridCalculator.HEX_HEIGHT + HexGridCalculator.HEX_HEIGHT * 0.5f)) / 2;
 
             Assert.AreEqual(expectedCenterX, centeredPosition.X, 0.001f, "Centered X should match expected value");
             Assert.AreEqual(expectedCenterY, centeredPosition.Y, 0.001f, "Centered Y should match expected value");

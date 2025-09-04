@@ -155,24 +155,8 @@ public static class MapGenerator
     
     private static List<Vector2I> GetNeighborPositions(int x, int y, int width, int height)
     {
-        var neighbors = new List<Vector2I>();
-        
-        var hexOffsets = y % 2 == 0 
-            ? new[] { new Vector2I(-1, -1), new Vector2I(0, -1), new Vector2I(1, 0), new Vector2I(0, 1), new Vector2I(-1, 1), new Vector2I(-1, 0) }
-            : new[] { new Vector2I(0, -1), new Vector2I(1, -1), new Vector2I(1, 0), new Vector2I(1, 1), new Vector2I(0, 1), new Vector2I(-1, 0) };
-        
-        foreach (var offset in hexOffsets)
-        {
-            var nx = x + offset.X;
-            var ny = y + offset.Y;
-            
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height)
-            {
-                neighbors.Add(new Vector2I(nx, ny));
-            }
-        }
-        
-        return neighbors;
+        // Delegate to centralized hex adjacency calculator
+        return HexAdjacencyCalculator.GetNeighborPositions(new Vector2I(x, y), width, height);
     }
     
     private static Dictionary<Vector2I, HexTile> CreateGameMap(TerrainType[,] terrainMap, int width, int height)

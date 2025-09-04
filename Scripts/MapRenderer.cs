@@ -12,10 +12,24 @@ namespace Archistrateia
         private MovementCoordinator _movementCoordinator = new MovementCoordinator();
         private Player _currentPlayer;
         private GamePhase _currentPhase;
+        private InformationPanel _informationPanel;
+        private TileUnitCoordinator _tileUnitCoordinator;
+        private Node2D _mapContainer;
 
-        public void Initialize(GameManager gameManager)
+        public void Initialize(GameManager gameManager, TileUnitCoordinator tileUnitCoordinator = null, Node2D mapContainer = null)
         {
             GameManager = gameManager;
+            _tileUnitCoordinator = tileUnitCoordinator ?? new TileUnitCoordinator();
+            _mapContainer = mapContainer;
+            CreateInformationPanel();
+        }
+
+        private void CreateInformationPanel()
+        {
+            _informationPanel = new InformationPanel();
+            _informationPanel.Name = "InformationPanel";
+            _informationPanel.ZIndex = 2000;
+            GetTree().CurrentScene.AddChild(_informationPanel);
         }
 
         public void SetCurrentPlayer(Player player)
@@ -94,7 +108,19 @@ namespace Archistrateia
         public VisualUnit CreateVisualUnit(Unit logicalUnit, Vector2 position, Color color)
         {
             var visualUnit = new VisualUnit();
-            AddChild(visualUnit);
+            
+            // Add units to the same container as tiles to ensure consistent coordinate system
+            var mapContainer = GetMapContainer();
+            if (mapContainer != null)
+            {
+                mapContainer.AddChild(visualUnit);
+                GD.Print($"🔧 CONTAINER: Adding unit to map container");
+            }
+            else
+            {
+                AddChild(visualUnit);
+                GD.Print($"⚠️ CONTAINER: No map container found, adding to MapRenderer");
+            }
             
             visualUnit.Initialize(logicalUnit, position, color);
             visualUnit.SetMapRenderer(this); // Set the MapRenderer reference
@@ -102,11 +128,23 @@ namespace Archistrateia
             
             _visualUnits.Add(visualUnit);
             
+            // Find where this unit is logically positioned
+            var logicalPosition = FindUnitPosition(logicalUnit);
+            GD.Print($"🔥 UNIT CREATE Debug: Unit({logicalUnit.Name}) LogicalGrid({logicalPosition?.X ?? -1},{logicalPosition?.Y ?? -1}) VisualWorld({position.X:F1},{position.Y:F1})");
+            
             return visualUnit;
+        }
+        
+        private Node2D GetMapContainer()
+        {
+            return _mapContainer;
         }
 
         public void OnUnitClicked(VisualUnit clickedUnit)
         {
+            var gridPos = FindUnitPosition(clickedUnit.LogicalUnit) ?? new Vector2I(-1, -1);
+            GD.Print($"🖱️ UNIT CLICK Debug: Unit({clickedUnit.LogicalUnit.Name}) at Grid({gridPos.X},{gridPos.Y}) World({clickedUnit.Position.X:F1},{clickedUnit.Position.Y:F1})");
+            
             GD.Print($"🎯 MapRenderer: Unit {clickedUnit.LogicalUnit.Name} clicked!");
             GD.Print($"   Current Player: {_currentPlayer?.Name ?? "NULL"}");
             GD.Print($"   Current Phase: {_currentPhase}");
@@ -191,18 +229,24 @@ namespace Archistrateia
         {
             _visualTiles[visualTile.GridPosition] = visualTile;
             visualTile.TileClicked += OnTileClicked;
+            visualTile.TileHovered += OnTileHovered;
+            visualTile.TileUnhovered += OnTileUnhovered;
         }
 
         private void OnTileClicked(VisualHexTile clickedTile)
         {
+            GD.Print($"🖱️ CLICK Debug: Tile clicked at Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y}) World({clickedTile.Position.X:F1},{clickedTile.Position.Y:F1})");
+            
             if (_currentPhase != GamePhase.Move)
             {
+                GD.Print($"   ❌ Not in Move phase (current: {_currentPhase})");
                 return;
             }
 
             var selectedUnit = _interactionLogic.GetSelectedUnit();
             if (selectedUnit == null)
             {
+                GD.Print($"   ❌ No unit selected");
                 return;
             }
 
@@ -218,14 +262,33 @@ namespace Archistrateia
                 return;
             }
 
+            var selectedUnitId = selectedUnit?.GetInstanceId() ?? 0;
+            var selectedUnitOwner = GetUnitOwner(selectedUnit)?.Name ?? "UNKNOWN";
+            GD.Print($"🚀 MOVEMENT Debug: Attempting move from Grid({unitPosition.Value.X},{unitPosition.Value.Y}) to Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y})");
+            GD.Print($"🚀 MOVING UNIT: Unit({selectedUnit?.Name ?? "NULL"}) ID({selectedUnitId}) Owner({selectedUnitOwner})");
             var moveResult = _movementCoordinator.TryMoveToDestination(unitPosition.Value, clickedTile.GridPosition, GameManager.GameMap);
             
             if (moveResult.Success)
             {
+                GD.Print($"✅ MOVEMENT SUCCESS: Unit moved to Grid({moveResult.NewPosition.X},{moveResult.NewPosition.Y})");
+                
+                // Verify the logical position after movement
+                var verifyLogicalPosition = FindUnitPosition(selectedUnit);
+                GD.Print($"🔍 VERIFY LOGICAL: Unit({selectedUnit.Name}) is logically at Grid({verifyLogicalPosition?.X ?? -1},{verifyLogicalPosition?.Y ?? -1})");
+                
                 var visualUnit = FindVisualUnit(selectedUnit);
                 if (visualUnit != null)
                 {
-                    var newWorldPosition = _visualTiles[clickedTile.GridPosition].Position;
+                    // Use the actual final position from the move result, not the clicked tile
+                    var actualFinalPosition = moveResult.NewPosition;
+                    var newWorldPosition = _visualTiles[actualFinalPosition].Position;
+                    GD.Print($"🎯 VISUAL UPDATE: Moving unit visual from World({visualUnit.Position.X:F1},{visualUnit.Position.Y:F1}) to World({newWorldPosition.X:F1},{newWorldPosition.Y:F1})");
+                    GD.Print($"🎯 POSITION FIX: Using actual final position Grid({actualFinalPosition.X},{actualFinalPosition.Y}) instead of clicked Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y})");
+                    
+                    // Double-check which tile we're using for the world position
+                    var targetTile = _visualTiles[actualFinalPosition];
+                    GD.Print($"🎯 TARGET TILE: Grid({actualFinalPosition.X},{actualFinalPosition.Y}) -> World({targetTile.Position.X:F1},{targetTile.Position.Y:F1})");
+                    
                     visualUnit.UpdatePosition(newWorldPosition);
                     
                     // Update the movement indicator after MP deduction
@@ -252,28 +315,35 @@ namespace Archistrateia
             }
         }
 
+        private void OnTileHovered(VisualHexTile hoveredTile)
+        {
+            if (_informationPanel == null) return;
+
+            var gameMap = GameManager?.GameMap;
+            if (gameMap != null && gameMap.ContainsKey(hoveredTile.GridPosition))
+            {
+                var tile = gameMap[hoveredTile.GridPosition];
+                var mousePos = hoveredTile.GetGlobalMousePosition();
+                _informationPanel.ShowTerrainInfo(tile.TerrainType, tile.MovementCost, mousePos);
+            }
+        }
+
+        private void OnTileUnhovered(VisualHexTile unhoveredTile)
+        {
+            if (_informationPanel != null)
+            {
+                _informationPanel.Hide();
+            }
+        }
+
         private Vector2I? FindUnitPosition(Unit unit)
         {
-            foreach (var kvp in GameManager.GameMap)
-            {
-                if (kvp.Value.OccupyingUnit == unit)
-                {
-                    return kvp.Key;
-                }
-            }
-            return null;
+            return _tileUnitCoordinator?.FindUnitPosition(unit, GameManager.GameMap);
         }
 
         private VisualUnit FindVisualUnit(Unit unit)
         {
-            foreach (var visualUnit in _visualUnits)
-            {
-                if (visualUnit.LogicalUnit == unit)
-                {
-                    return visualUnit;
-                }
-            }
-            return null;
+            return _tileUnitCoordinator?.FindVisualUnit(unit, _visualUnits);
         }
 
         private void ClearAllHighlights()
@@ -327,8 +397,11 @@ namespace Archistrateia
                 {
                     if (_visualTiles.ContainsKey(destination))
                     {
-                        _visualTiles[destination].SetUnavailable(false);  // Remove unavailable overlay
-                        _visualTiles[destination].SetBrightened(true);    // Add bright overlay
+                        var visualTile = _visualTiles[destination];
+                        GD.Print($"🌟 HIGHLIGHT: Marking Grid({destination.X},{destination.Y}) as valid destination");
+                        GD.Print($"   Visual tile at World({visualTile.Position.X:F1},{visualTile.Position.Y:F1})");
+                        visualTile.SetUnavailable(false);  // Remove unavailable overlay
+                        visualTile.SetBrightened(true);    // Add bright overlay
                     }
                 }
             }
@@ -450,24 +523,8 @@ namespace Archistrateia
 
         public void UpdateTileOccupationStatus()
         {
-            // Update visual occupation status for all tiles
-            foreach (var kvp in GameManager.GameMap)
-            {
-                if (_visualTiles.ContainsKey(kvp.Key))
-                {
-                    var tile = kvp.Value;
-                    var visualTile = _visualTiles[kvp.Key];
-                    
-                    if (tile.IsOccupied())
-                    {
-                        visualTile.SetOccupied(true);
-                    }
-                    else
-                    {
-                        visualTile.SetOccupied(false);
-                                         }
-                 }
-             }
-         }
+            // Delegate to centralized tile-unit coordinator
+            _tileUnitCoordinator?.SynchronizeTileOccupation(GameManager.GameMap, _visualTiles);
+        }
      }
 } 

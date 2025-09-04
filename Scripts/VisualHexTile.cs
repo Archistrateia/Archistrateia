@@ -8,6 +8,12 @@ public partial class VisualHexTile : Area2D
     
     [Signal]
     public delegate void TileClickedEventHandler(VisualHexTile tile);
+    
+    [Signal]
+    public delegate void TileHoveredEventHandler(VisualHexTile tile);
+    
+    [Signal]
+    public delegate void TileUnhoveredEventHandler(VisualHexTile tile);
 
     private Polygon2D _hexShape;
     private Line2D _hexOutline;
@@ -19,10 +25,13 @@ public partial class VisualHexTile : Area2D
     private bool _isInMovementPhase = false;
     private Color _highlightColor = default; // Added for custom highlight color
 
+    private Color _baseTerrainColor;
+
     public void Initialize(Vector2I gridPosition, TerrainType terrainType, Color color, Vector2 worldPosition)
     {
         GridPosition = gridPosition;
         TerrainType = terrainType;
+        _baseTerrainColor = color; // Store the passed color
         Position = worldPosition;
         Name = $"VisualHexTile_{gridPosition.X}_{gridPosition.Y}";
         
@@ -67,8 +76,10 @@ public partial class VisualHexTile : Area2D
         Monitoring = false;
         Monitorable = false;
         
-        // Connect input event
+        // Connect input event and mouse events
         Connect("input_event", new Callable(this, MethodName.OnInputEvent));
+        Connect("mouse_entered", new Callable(this, MethodName.OnMouseEntered));
+        Connect("mouse_exited", new Callable(this, MethodName.OnMouseExited));
     }
 
     public void UpdateVisualComponents()
@@ -100,8 +111,8 @@ public partial class VisualHexTile : Area2D
     {
         if (_hexShape == null) return;
         
-        // Get base terrain color
-        var terrainColor = GetTerrainColor(TerrainType);
+        // Get base terrain color - use stored color if available, otherwise fallback
+        var terrainColor = _baseTerrainColor != default ? _baseTerrainColor : GetTerrainColor(TerrainType);
         
         // Apply state-based modifications in priority order
         if (_isInMovementPhase && _isOccupied)
@@ -202,6 +213,9 @@ public partial class VisualHexTile : Area2D
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
+            GD.Print($"🎯 TILE CLICK DEBUG: Tile Grid({GridPosition.X},{GridPosition.Y}) at World({Position.X:F1},{Position.Y:F1}) clicked");
+            GD.Print($"   Mouse Global: ({mouseEvent.GlobalPosition.X:F1},{mouseEvent.GlobalPosition.Y:F1})");
+            GD.Print($"   Mouse Local: ({ToLocal(mouseEvent.GlobalPosition).X:F1},{ToLocal(mouseEvent.GlobalPosition).Y:F1})");
             EmitSignal(SignalName.TileClicked, this);
         }
     }
@@ -311,5 +325,15 @@ public partial class VisualHexTile : Area2D
     public bool IsInMovementPhase()
     {
         return _isInMovementPhase;
+    }
+
+    private void OnMouseEntered()
+    {
+        EmitSignal(SignalName.TileHovered, this);
+    }
+
+    private void OnMouseExited()
+    {
+        EmitSignal(SignalName.TileUnhovered, this);
     }
 } 

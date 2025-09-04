@@ -24,11 +24,10 @@ namespace Archistrateia
 
         public static Vector2 CalculateHexPosition(int x, int y)
         {
-            // Flat-top hex grid positioning formula with zoom scaling
             float xPos = x * HEX_WIDTH * 0.75f * _zoomFactor;
             float yPos = y * HEX_HEIGHT * _zoomFactor;
             
-            // Offset odd columns up by half the hex height
+            // Offset odd columns down by half the hex height (for pointy-top hexes)
             if (x % 2 == 1)
             {
                 yPos += HEX_HEIGHT * 0.5f * _zoomFactor;
@@ -45,7 +44,7 @@ namespace Archistrateia
             float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * _zoomFactor + HEX_WIDTH * 0.25f * _zoomFactor;
             float mapTotalHeight = mapHeight * HEX_HEIGHT * _zoomFactor + HEX_HEIGHT * 0.5f * _zoomFactor;
             float centerX = (viewportSize.X - mapTotalWidth) / 2;
-            float centerY = (viewportSize.Y - mapTotalHeight) / 2 + HEX_HEIGHT * 0.5f * _zoomFactor;
+            float centerY = (viewportSize.Y - mapTotalHeight) / 2;
             
             // Apply scroll offset (inverted to match expected edge scrolling behavior)
             return new Vector2(basePosition.X + centerX - _scrollOffset.X, basePosition.Y + centerY - _scrollOffset.Y);

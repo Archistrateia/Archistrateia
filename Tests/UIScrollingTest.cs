@@ -93,9 +93,9 @@ namespace Archistrateia.Tests
             GD.Print("- Uses PAN_SCROLL_MULTIPLIER (4.0f) for fast responsive scrolling");
             GD.Print("- Applies scroll bounds to keep grid on screen");
             
-            // Verify that two-finger scroll support is implemented
-            Assert.IsNotNull(typeof(Main).GetMethod("HandleTwoFingerScroll", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance), 
+            // Verify that two-finger scroll support is implemented via ViewportController
+            Assert.IsNotNull(typeof(ViewportController).GetMethod("HandlePanGesture", 
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance), 
                 "Two-finger scroll support should be implemented");
         }
         
@@ -104,19 +104,19 @@ namespace Archistrateia.Tests
         {
             GD.Print("=== VERIFYING TWO-FINGER SCROLL LOGIC ===");
             
-            // Test the specific two-finger scroll logic
-            GD.Print("The HandleTwoFingerScroll method:");
+            // Test the specific two-finger scroll logic (now in ViewportController)
+            GD.Print("The ViewportController.HandlePanGesture method:");
             GD.Print("1. Checks if scrolling is needed (grid extends beyond viewport)");
             GD.Print("2. Checks if mouse is over UI controls (prevents scroll)");
             GD.Print("3. Converts pan gesture delta to scroll delta");
             GD.Print("4. Applies scroll bounds to keep grid on screen");
             GD.Print("5. Uses PAN_SCROLL_MULTIPLIER (4.0f) for fast responsive scrolling");
             
-            GD.Print("✅ Two-finger scroll logic is properly implemented");
+            GD.Print("✅ Two-finger scroll logic is properly implemented via ViewportController");
             
-            // Verify that two-finger scroll logic is comprehensive
-            Assert.IsNotNull(typeof(Main).GetMethod("HandleTwoFingerScroll", 
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance), 
+            // Verify that two-finger scroll logic is comprehensive via ViewportController
+            Assert.IsNotNull(typeof(ViewportController).GetMethod("HandlePanGesture", 
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance), 
                 "Two-finger scroll logic should be comprehensive");
         }
         

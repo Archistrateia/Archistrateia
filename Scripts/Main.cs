@@ -1,5 +1,6 @@
 using Godot;
 using System.Collections.Generic;
+using System.Linq;
 using Archistrateia;
 
 namespace Archistrateia
@@ -23,6 +24,9 @@ namespace Archistrateia
         private Dictionary<TerrainType, Color> _terrainColors;
         private int _currentPlayerIndex = 0;
         
+        // Modern UI Manager
+        private ModernUIManager _uiManager;
+        
         // Zoom control UI elements
         private HSlider _zoomSlider;
         private Label _zoomLabel;
@@ -44,11 +48,23 @@ namespace Archistrateia
         // Map dimensions come from centralized configuration
         private static int MAP_WIDTH => MapConfiguration.MAP_WIDTH;
         private static int MAP_HEIGHT => MapConfiguration.MAP_HEIGHT;
+        
+        // Centralized services
+        private VisualPositionManager _positionManager;
+        private ViewportController _viewportController;
+        private TileUnitCoordinator _tileUnitCoordinator;
+        
+        // Centralized viewport size calculation to ensure consistency between tiles and units
+        private Vector2 GetGameAreaSize()
+        {
+            var gameAreaSize = GetViewport().GetVisibleRect().Size;
+            gameAreaSize.X -= 200; // Subtract sidebar width
+            GD.Print($"🔧 VIEWPORT: Full={GetViewport().GetVisibleRect().Size.X}x{GetViewport().GetVisibleRect().Size.Y}, Game={gameAreaSize.X}x{gameAreaSize.Y}");
+            return gameAreaSize;
+        }
 
-        // Scrolling variables
-        private Vector2 _scrollOffset = Vector2.Zero;
-        private const float SCROLL_SPEED = 300.0f; // pixels per second
         private const float EDGE_SCROLL_THRESHOLD = 50.0f; // pixels from edge to trigger scrolling
+        private const float SCROLL_SPEED = 300.0f; // pixels per second
 
         public override void _Ready()
         {
@@ -71,50 +87,54 @@ namespace Archistrateia
 
         private void InitializeUI()
         {
-            GD.Print("🚀 Starting UI initialization...");
+            GD.Print("🚀 Starting modern UI initialization...");
             
-            // Create title label if it doesn't exist  
-            if (TitleLabel == null)
-            {
-                GD.Print("📝 Title label is null, creating it...");
-                CreateTitleLabel();
-            }
-            else
-            {
-                GD.Print($"📝 Title label already exists: {TitleLabel.Text}");
-                // Update the existing title label position and properties
-                var viewportSize = GetViewport().GetVisibleRect().Size;
-                TitleLabel.Text = "Archistrateia";
-                TitleLabel.Position = new Vector2(viewportSize.X / 2 - 150, 20);
-                TitleLabel.Size = new Vector2(300, 60);
-                TitleLabel.AddThemeFontSizeOverride("font_size", 48);
-                TitleLabel.HorizontalAlignment = HorizontalAlignment.Center;
-                TitleLabel.ZIndex = 1000;
-                TitleLabel.Visible = true;
-                GD.Print($"📝 Updated title label position to: {TitleLabel.Position}");
-            }
-
-            // Create start button if it doesn't exist
-            if (StartButton == null)
-            {
-                GD.Print("🔘 Start button is null, creating it...");
-                CreateStartButton();
-            }
-            else
-            {
-                GD.Print("🔘 Start button already exists");
-            }
-
-            CreateZoomControls();
-            CreateMapGenerationControls();
+            // Create the modern UI manager
+            _uiManager = new ModernUIManager();
+            _uiManager.Name = "ModernUIManager";
+            AddChild(_uiManager);
             
-            // Generate preview map before game starts
-            GeneratePreviewMap();
+            // Get references to UI elements from the modern UI
+            _nextPhaseButton = _uiManager.GetNextPhaseButton();
+            _mapTypeSelector = _uiManager.GetMapTypeSelector();
+            _regenerateMapButton = _uiManager.GetRegenerateMapButton();
+            StartButton = _uiManager.GetStartGameButton();
+            _zoomSlider = _uiManager.GetZoomSlider();
+            _zoomLabel = _uiManager.GetZoomLabel();
             
-            // Update UI positions after everything is initialized
-            UpdateUIPositions();
+            // Initialize centralized services
+            InitializeCentralizedServices();
             
-            GD.Print("✨ UI initialization complete");
+            // Connect signals for the new UI
+            if (_nextPhaseButton != null)
+            {
+                _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
+            }
+            
+            if (_mapTypeSelector != null)
+            {
+                _mapTypeSelector.ItemSelected += OnMapTypeSelected;
+            }
+            
+            if (_regenerateMapButton != null)
+            {
+                _regenerateMapButton.Pressed += OnRegenerateMapPressed;
+            }
+            
+            if (_zoomSlider != null)
+            {
+                _zoomSlider.ValueChanged += OnZoomSliderChanged;
+            }
+            
+            if (StartButton != null)
+            {
+                StartButton.Pressed += OnStartButtonPressed;
+            }
+            
+            // Generate initial map before game starts
+            GenerateMap();
+            
+            GD.Print("✨ Modern UI initialization complete");
         }
 
         private void CreateStartButton()
@@ -152,6 +172,42 @@ namespace Archistrateia
                 { TerrainType.Mountain, new Color(0.5f, 0.4f, 0.4f) },
                 { TerrainType.Water, new Color(0.1f, 0.4f, 0.8f) }
             };
+        }
+
+        private void InitializeCentralizedServices()
+        {
+            GD.Print("🔧 Initializing centralized services...");
+            
+            // Initialize position manager with game area size
+            var gameAreaSize = GetGameAreaSize();
+            _positionManager = new VisualPositionManager(gameAreaSize, MAP_WIDTH, MAP_HEIGHT);
+            
+            // Initialize viewport controller with callback to update positions when view changes
+            _viewportController = new ViewportController(MAP_WIDTH, MAP_HEIGHT, OnViewChanged);
+            
+            // Initialize tile-unit coordinator
+            _tileUnitCoordinator = new TileUnitCoordinator();
+            
+            GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
+        }
+
+        private void OnViewChanged()
+        {
+            // Update game area size in position manager
+            _positionManager.UpdateGameAreaSize(GetGameAreaSize());
+            
+            // Update all visual positions
+            if (_mapContainer != null && _mapRenderer != null)
+            {
+                _positionManager.UpdateAllPositions(_mapContainer, _mapRenderer.GetVisualUnits(), _gameManager?.GameMap, _tileUnitCoordinator);
+            }
+            
+            // Update zoom UI
+            if (_zoomSlider != null)
+            {
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                UpdateZoomLabel();
+            }
         }
 
         private void CreateMapGenerationControls()
@@ -278,10 +334,8 @@ namespace Archistrateia
 
         private void OnZoomSliderChanged(double value)
         {
-            HexGridCalculator.SetZoom((float)value);
-            RegenerateMapWithCurrentZoom();
+            _viewportController?.SetZoom((float)value);
             UpdateTitleLabel();
-            UpdateZoomLabel();
             UpdateUIPositions(); // Update UI positions when zoom changes
         }
         
@@ -325,16 +379,12 @@ namespace Archistrateia
         {
             var viewportSize = GetViewport().GetVisibleRect().Size;
             
-            // Update Next Phase button position
-            if (_nextPhaseButton != null)
-            {
-                _nextPhaseButton.Position = new Vector2(10, viewportSize.Y - 50);
-            }
+            // Note: Next Phase button is now handled by modern UI (doesn't need positioning)
             
             // Update Debug Adjacent button position
             if (_debugAdjacentButton != null)
             {
-                _debugAdjacentButton.Position = new Vector2(140, viewportSize.Y - 50);
+                _debugAdjacentButton.Position = new Vector2(10, viewportSize.Y - 50); // Move to left since Next Phase button is gone
             }
             
             // Update zoom controls position
@@ -362,13 +412,12 @@ namespace Archistrateia
         {
             _gameStarted = true;
             
-            // Try to find StartButton if reference is null
-            if (StartButton == null)
+            // Hide start button using modern UI manager
+            if (_uiManager != null)
             {
-                StartButton = GetNodeOrNull<Button>("UI/StartButton");
+                _uiManager.HideStartButton();
             }
-
-            if (StartButton != null)
+            else if (StartButton != null)
             {
                 StartButton.Visible = false;
             }
@@ -398,43 +447,42 @@ namespace Archistrateia
             _gameStatusLabel.ZIndex = 1000; // Ensure UI is always on top
             statusBackgroundPanel.AddChild(_gameStatusLabel);
 
-            // Calculate and set optimal zoom based on viewport and grid size
-            var viewportSize = GetViewport().GetVisibleRect().Size;
-            var optimalZoom = HexGridCalculator.CalculateOptimalZoom(viewportSize, MAP_WIDTH, MAP_HEIGHT);
-            HexGridCalculator.SetZoom(optimalZoom);
+            // Keep the current zoom level (1.0 from preview) - don't change it
+            // The map is already at the right size from the preview
             
-            // Update zoom slider to reflect the optimal zoom
+            // Update zoom slider to reflect the current zoom
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = optimalZoom;
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
             }
             
             // Update zoom label to reflect the optimal zoom
             UpdateZoomLabel();
 
-            // Use the existing preview map as the game map (don't regenerate)
-            GD.Print("🎮 Using preview map as game map - no regeneration needed");
+            // Use the existing map as the game map (no regeneration needed)
+            GD.Print("🎮 Starting game with current map - no regeneration needed");
             InitializeGameManager();
+            
+            // Ensure zoom stays at 1.0 after game initialization
+            HexGridCalculator.SetZoom(1.0f);
+            if (_zoomSlider != null)
+            {
+                _zoomSlider.Value = 1.0f;
+            }
+            UpdateZoomLabel();
+            
+            // Regenerate map visuals with correct zoom
+            RegenerateMapWithCurrentZoom();
             
             // Update UI positions after everything is initialized
             UpdateUIPositions();
 
-            // Create Next Phase button using Godot's viewport system
-            _nextPhaseButton = new Button();
-            _nextPhaseButton.Text = "Next Phase";
-            _nextPhaseButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
-            _nextPhaseButton.Size = new Vector2(120, 40); // Set explicit size
-            _nextPhaseButton.AddThemeFontSizeOverride("font_size", 20);
-            _nextPhaseButton.ZIndex = 1000; // Ensure UI is always on top
-            _nextPhaseButton.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure button receives mouse events
-            _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
-            // _nextPhaseButton.GuiInput += OnNextPhaseButtonInput; // Add input event handler
-            AddChild(_nextPhaseButton);
+            // Note: Next Phase button is now handled by the modern UI (no need to create here)
             
             // Create Debug Adjacent Tiles button
             _debugAdjacentButton = new Button();
             _debugAdjacentButton.Text = "Debug Adjacent";
-            _debugAdjacentButton.Position = new Vector2(140, GetViewport().GetVisibleRect().Size.Y - 50);
+            _debugAdjacentButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
             _debugAdjacentButton.Size = new Vector2(120, 40); // Set explicit size
             _debugAdjacentButton.AddThemeFontSizeOverride("font_size", 16);
             _debugAdjacentButton.ZIndex = 1000; // Ensure UI is always on top
@@ -446,21 +494,40 @@ namespace Archistrateia
             DebugUIElements();
         }
 
-        private void GeneratePreviewMap()
+        // Centralized map generation method - handles both preview and game map needs
+        private void GenerateMap()
         {
             if (_mapContainer != null)
             {
                 _mapContainer.QueueFree();
             }
 
+            // Set map to full size (zoom 1.0) for consistent generation
+            HexGridCalculator.SetZoom(1.0f);
+            
+            // Update zoom slider to match
+            if (_zoomSlider != null)
+            {
+                _zoomSlider.Value = 1.0f;
+            }
+            UpdateZoomLabel();
+            
             // Reset scroll offset when generating new map
-            _scrollOffset = Vector2.Zero;
-            HexGridCalculator.SetScrollOffset(_scrollOffset);
+            _viewportController?.ResetScroll();
 
             _mapContainer = new Node2D();
             _mapContainer.Name = "MapContainer";
             _mapContainer.ZIndex = 0; // Ensure map is below UI elements
-            AddChild(_mapContainer);
+            
+            // Add to the game area if modern UI is available, otherwise to main
+            if (_uiManager != null && _uiManager.GetGameArea() != null)
+            {
+                _uiManager.GetGameArea().AddChild(_mapContainer);
+            }
+            else
+            {
+                AddChild(_mapContainer);
+            }
 
             var gameMap = MapGenerator.GenerateMap(MAP_WIDTH, MAP_HEIGHT, _currentMapType);
             int tilesCreated = 0;
@@ -471,7 +538,9 @@ namespace Archistrateia
                 var tile = kvp.Value;
                 var terrainType = tile.TerrainType;
                 
-                var worldPosition = HexGridCalculator.CalculateHexPositionCentered(gridPosition.X, gridPosition.Y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
+                // Use centralized position manager for consistent positioning
+                var worldPosition = _positionManager.CalculateWorldPosition(gridPosition);
+                GD.Print($"🗺️ MAP GEN: Grid({gridPosition.X},{gridPosition.Y}) -> World({worldPosition.X:F1},{worldPosition.Y:F1}) | Type({terrainType})");
                 
                 var visualTile = new VisualHexTile();
                 visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
@@ -480,46 +549,9 @@ namespace Archistrateia
                 tilesCreated++;
             }
 
-            GD.Print($"Generated preview map with {tilesCreated} tiles");
+            GD.Print($"🗺️ Generated map with {tilesCreated} tiles of type {_currentMapType}");
         }
 
-        private void GenerateGameMap()
-        {
-            // This method generates the actual game map when the game starts
-            if (_mapContainer != null)
-            {
-                _mapContainer.QueueFree();
-            }
-
-            // Reset scroll offset when generating new map
-            _scrollOffset = Vector2.Zero;
-            HexGridCalculator.SetScrollOffset(_scrollOffset);
-
-            _mapContainer = new Node2D();
-            _mapContainer.Name = "MapContainer";
-            _mapContainer.ZIndex = 0; // Ensure map is below UI elements
-            AddChild(_mapContainer);
-
-            var gameMap = MapGenerator.GenerateMap(MAP_WIDTH, MAP_HEIGHT, _currentMapType);
-            int tilesCreated = 0;
-            
-            foreach (var kvp in gameMap)
-            {
-                var gridPosition = kvp.Key;
-                var tile = kvp.Value;
-                var terrainType = tile.TerrainType;
-                
-                var worldPosition = HexGridCalculator.CalculateHexPositionCentered(gridPosition.X, gridPosition.Y, GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-                
-                var visualTile = new VisualHexTile();
-                visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
-                _mapContainer.AddChild(visualTile);
-                
-                tilesCreated++;
-            }
-
-            GD.Print($"Generated game map with {tilesCreated} tiles");
-        }
 
         private void OnMapTypeSelected(long index)
         {
@@ -537,8 +569,8 @@ namespace Archistrateia
                 _mapTypeDescriptionLabel.Text = config.Description;
                 GD.Print($"🗺️ Selected map type: {config.Name}");
                 
-                // Regenerate preview map with new type
-                GeneratePreviewMap();
+                // Regenerate map with new type
+                GenerateMap();
             }
         }
         
@@ -578,59 +610,17 @@ namespace Archistrateia
                 return;
             }
             
-            GD.Print($"🔄 Regenerating preview map as {_currentMapType}");
-            GeneratePreviewMap();
+            GD.Print($"🔄 Regenerating map as {_currentMapType}");
+            GenerateMap();
         }
+
+
+
 
         private void RegenerateMapWithCurrentZoom()
         {
-            if (_mapContainer != null)
-            {
-                // Update all existing tiles' visual components
-                foreach (Node child in _mapContainer.GetChildren())
-                {
-                    if (child is VisualHexTile visualTile)
-                    {
-                        // Update the tile's position with new zoom and scroll offset
-                        var worldPosition = HexGridCalculator.CalculateHexPositionCentered(
-                            visualTile.GridPosition.X, 
-                            visualTile.GridPosition.Y, 
-                            GetViewport().GetVisibleRect().Size, 
-                            MAP_WIDTH, 
-                            MAP_HEIGHT
-                        );
-                        visualTile.Position = worldPosition;
-                        
-                        // Update the visual components (hex shape, outline, collision)
-                        visualTile.UpdateVisualComponents();
-                    }
-                }
-                
-                // Update visual units' positions and visual components
-                if (_mapRenderer != null)
-                {
-                    foreach (var visualUnit in _mapRenderer.GetVisualUnits())
-                    {
-                        // Find the logical tile this unit occupies
-                        var logicalTile = FindLogicalTileWithUnit(visualUnit.LogicalUnit);
-                        if (logicalTile != null)
-                        {
-                            // Calculate new position with current zoom and scroll offset
-                            var newWorldPosition = HexGridCalculator.CalculateHexPositionCentered(
-                                logicalTile.Position.X, 
-                                logicalTile.Position.Y, 
-                                GetViewport().GetVisibleRect().Size, 
-                                MAP_WIDTH, 
-                                MAP_HEIGHT
-                            );
-                            
-                            // Update unit position and visual components
-                            visualUnit.UpdatePosition(newWorldPosition);
-                            visualUnit.UpdateVisualComponents();
-                        }
-                    }
-                }
-            }
+            // Delegate to centralized position manager
+            _positionManager?.UpdateAllPositions(_mapContainer, _mapRenderer?.GetVisualUnits() ?? new List<VisualUnit>(), _gameManager?.GameMap, _tileUnitCoordinator);
         }
 
 
@@ -640,13 +630,13 @@ namespace Archistrateia
             _gameManager = new GameManager();
             AddChild(_gameManager);
             
-            // Convert the preview map to a logical game map
-            var previewGameMap = ConvertVisualMapToGameMap();
+            // Convert the visual map to a logical game map
+            var logicalGameMap = ConvertVisualMapToGameMap();
             
             // Set the game map before initialization
-            _gameManager.SetGameMap(previewGameMap);
+            _gameManager.SetGameMap(logicalGameMap);
             
-            // Now initialize the game with the preview map
+            // Now initialize the game with the logical map
             _gameManager.InitializeGame();
             
             // Use CallDeferred to connect TurnManager after GameManager's _Ready is called
@@ -669,7 +659,7 @@ namespace Archistrateia
                 }
             }
             
-            GD.Print($"🔄 Converted preview map to logical game map with {gameMap.Count} tiles");
+            GD.Print($"🔄 Converted visual map to logical game map with {gameMap.Count} tiles");
             return gameMap;
         }
 
@@ -687,7 +677,7 @@ namespace Archistrateia
             _mapRenderer = new MapRenderer();
             _mapRenderer.Name = "MapRenderer";
             AddChild(_mapRenderer);
-            _mapRenderer.Initialize(_gameManager);
+            _mapRenderer.Initialize(_gameManager, _tileUnitCoordinator, _mapContainer);
             
             // Connect MapRenderer to GameManager for phase change notifications
             _gameManager.SetMapRenderer(_mapRenderer);
@@ -731,42 +721,16 @@ namespace Archistrateia
 
         private void CreateVisualUnitsForPlayers()
         {
-            if (_gameManager == null || _mapRenderer == null) return;
-
-            foreach (var player in _gameManager.Players)
-            {
-                var playerColor = player.Name == "Pharaoh" ? new Color(0.8f, 0.2f, 0.2f) : new Color(0.2f, 0.2f, 0.8f);
-                
-                foreach (var unit in player.Units)
-                {
-                    var logicalTile = FindLogicalTileWithUnit(unit);
-                    if (logicalTile != null)
-                    {
-                        var worldPosition = HexGridCalculator.CalculateHexPositionCentered(
-                            logicalTile.Position.X, 
-                            logicalTile.Position.Y, 
-                            GetViewport().GetVisibleRect().Size, 
-                            MAP_WIDTH, 
-                            MAP_HEIGHT
-                        );
-                        
-                        _mapRenderer.CreateVisualUnit(unit, worldPosition, playerColor);
-                    }
-                }
-            }
+            // Delegate to centralized tile-unit coordinator
+            _tileUnitCoordinator?.CreateVisualUnitsForPlayers(
+                _gameManager?.Players,
+                _gameManager?.GameMap,
+                _mapRenderer,
+                _positionManager,
+                _mapContainer
+            );
         }
 
-        private HexTile FindLogicalTileWithUnit(Unit unit)
-        {
-            foreach (var kvp in _gameManager.GameMap)
-            {
-                if (kvp.Value.OccupyingUnit == unit)
-                {
-                    return kvp.Value;
-                }
-            }
-            return null;
-        }
 
         private void OnNextPhaseButtonPressed()
         {
@@ -871,20 +835,28 @@ namespace Archistrateia
 
         private void UpdateTitleLabel()
         {
-            // During gameplay, update the game status label instead of title label
-            if (_gameStatusLabel != null && TurnManager != null)
+            if (TurnManager == null) return;
+            
+            var currentPlayerName = "Unknown";
+            if (_gameManager?.Players.Count > 0 && _currentPlayerIndex < _gameManager.Players.Count)
             {
-                var currentPlayerName = "Unknown";
-                if (_gameManager?.Players.Count > 0 && _currentPlayerIndex < _gameManager.Players.Count)
-                {
-                    currentPlayerName = _gameManager.Players[_currentPlayerIndex].Name;
-                }
-                
+                currentPlayerName = _gameManager.Players[_currentPlayerIndex].Name;
+            }
+            
+            // Update modern UI if available
+            if (_uiManager != null)
+            {
+                _uiManager.UpdatePlayerInfo(currentPlayerName, TurnManager.CurrentPhase.ToString());
+            }
+            
+            // During gameplay, update the game status label instead of title label
+            if (_gameStatusLabel != null)
+            {
                 var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName}";
                 _gameStatusLabel.Text = newText;
             }
             // On title screen, update the title label
-            else if (TitleLabel != null && TurnManager != null)
+            else if (TitleLabel != null)
             {
                 var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
                 TitleLabel.Text = newText;
@@ -900,28 +872,16 @@ namespace Archistrateia
                 HandleDebugAdjacentHover(mousePosition);
             }
             
-            // Handle zoom controls
-            if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
+            // Handle zoom controls through ViewportController
+            if (@event is InputEventMouseButton mouseEvent)
             {
-                if (mouseEvent.ButtonIndex == MouseButton.WheelUp)
+                var handled = _viewportController?.HandleMouseInput(mouseEvent, GetViewport().GetVisibleRect().Size) ?? false;
+                
+                if (handled)
                 {
-                    HexGridCalculator.ZoomIn();
-                    _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-                    RegenerateMapWithCurrentZoom();
-                    UpdateTitleLabel();
-                    UpdateZoomLabel();
                     GetViewport().SetInputAsHandled();
                 }
-                else if (mouseEvent.ButtonIndex == MouseButton.WheelDown)
-                {
-                    HexGridCalculator.ZoomOut();
-                    _zoomSlider.Value = HexGridCalculator.ZoomFactor;
-                    RegenerateMapWithCurrentZoom();
-                    UpdateTitleLabel();
-                    UpdateZoomLabel();
-                    GetViewport().SetInputAsHandled();
-                }
-                else if (mouseEvent.ButtonIndex == MouseButton.Left)
+                else if (mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
                 {
                     // Debug mouse clicks to see if UI controls are being detected
                     var mousePosition = GetViewport().GetMousePosition();
@@ -931,10 +891,10 @@ namespace Archistrateia
                 }
             }
             
-            // Handle two-finger scroll for Mac trackpad
+            // Handle two-finger scroll for Mac trackpad through ViewportController
             if (@event is InputEventPanGesture panGesture)
             {
-                HandleTwoFingerScroll(panGesture);
+                _viewportController?.HandlePanGesture(panGesture, GetViewport().GetVisibleRect().Size, IsMouseOverUIControls);
                 GetViewport().SetInputAsHandled();
             }
             
@@ -952,7 +912,7 @@ namespace Archistrateia
             var viewportSize = GetViewport().GetVisibleRect().Size;
             
             // Only activate scrolling if the grid extends beyond the viewport
-            if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
+            if (_viewportController == null || !_viewportController.IsScrollingNeeded(viewportSize))
             {
                 return;
             }
@@ -987,21 +947,7 @@ namespace Archistrateia
             // Apply scroll delta if any
             if (scrollDelta != Vector2.Zero)
             {
-                _scrollOffset += scrollDelta;
-                
-                // Calculate dynamic scroll bounds based on current zoom and viewport
-                var currentViewportSize = GetViewport().GetVisibleRect().Size;
-                var scrollBounds = HexGridCalculator.CalculateScrollBounds(currentViewportSize, MAP_WIDTH, MAP_HEIGHT);
-                
-                // Clamp scroll offset to keep grid on screen
-                _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
-                _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
-                
-                // Update HexGridCalculator scroll offset
-                HexGridCalculator.SetScrollOffset(_scrollOffset);
-                
-                // Regenerate map with new scroll offset
-                RegenerateMapWithCurrentZoom();
+                _viewportController.ApplyScrollDelta(scrollDelta, viewportSize);
             }
         }
 
@@ -1031,81 +977,26 @@ namespace Archistrateia
 
         private bool HandleZoomInput(InputEventKey keyEvent)
         {
-            bool handled = false;
+            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetViewport().GetVisibleRect().Size) ?? false;
             
-            if (keyEvent.Keycode == Key.Equal || keyEvent.Keycode == Key.KpAdd)
-            {
-                HexGridCalculator.ZoomIn();
-                handled = true;
-            }
-            else if (keyEvent.Keycode == Key.Minus || keyEvent.Keycode == Key.KpSubtract)
-            {
-                HexGridCalculator.ZoomOut();
-                handled = true;
-            }
-            else if (keyEvent.Keycode == Key.Key0)
-            {
-                HexGridCalculator.SetZoom(1.0f);
-                handled = true;
-            }
-
             if (handled)
             {
-                UpdateZoomUI();
                 GetViewport().SetInputAsHandled();
             }
-
+            
             return handled;
         }
 
         private bool HandleScrollInput(InputEventKey keyEvent)
         {
-            var viewportSize = GetViewport().GetVisibleRect().Size;
+            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetViewport().GetVisibleRect().Size) ?? false;
             
-            // Handle Home key regardless of whether scrolling is needed
-            if (keyEvent.Keycode == Key.Home)
+            if (handled)
             {
-                _scrollOffset = Vector2.Zero;
-                HexGridCalculator.SetScrollOffset(_scrollOffset);
-                RegenerateMapWithCurrentZoom();
                 GetViewport().SetInputAsHandled();
-                return true;
             }
             
-            // Only allow directional scrolling if the grid extends beyond the viewport
-            if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
-            {
-                return false;
-            }
-            
-            var scrollDelta = Vector2.Zero;
-            const float ScrollStep = 50.0f;
-
-            if (keyEvent.Keycode == Key.W || keyEvent.Keycode == Key.Up)
-            {
-                scrollDelta.Y = -ScrollStep;
-            }
-            else if (keyEvent.Keycode == Key.S || keyEvent.Keycode == Key.Down)
-            {
-                scrollDelta.Y = ScrollStep;
-            }
-            else if (keyEvent.Keycode == Key.A || keyEvent.Keycode == Key.Left)
-            {
-                scrollDelta.X = -ScrollStep;
-            }
-            else if (keyEvent.Keycode == Key.D || keyEvent.Keycode == Key.Right)
-            {
-                scrollDelta.X = ScrollStep;
-            }
-
-            if (scrollDelta != Vector2.Zero)
-            {
-                ApplyScrollDelta(scrollDelta);
-                GetViewport().SetInputAsHandled();
-                return true;
-            }
-
-            return false;
+            return handled;
         }
 
         private void UpdateZoomUI()
@@ -1118,42 +1009,9 @@ namespace Archistrateia
 
         private void ApplyScrollDelta(Vector2 scrollDelta)
         {
-            _scrollOffset += scrollDelta;
-            var scrollBounds = HexGridCalculator.CalculateScrollBounds(GetViewport().GetVisibleRect().Size, MAP_WIDTH, MAP_HEIGHT);
-            _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
-            _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
-            HexGridCalculator.SetScrollOffset(_scrollOffset);
-            RegenerateMapWithCurrentZoom();
+            _viewportController?.ApplyScrollDelta(scrollDelta, GetViewport().GetVisibleRect().Size);
         }
         
-        private void HandleTwoFingerScroll(InputEventPanGesture panGesture)
-        {
-            var viewportSize = GetViewport().GetVisibleRect().Size;
-            
-            // Only allow scrolling if the grid extends beyond the viewport
-            if (!HexGridCalculator.IsScrollingNeeded(viewportSize, MAP_WIDTH, MAP_HEIGHT))
-            {
-                return;
-            }
-            
-            // Check if mouse is hovering over UI controls - if so, don't scroll
-            var mousePosition = GetViewport().GetMousePosition();
-            if (IsMouseOverUIControls(mousePosition))
-            {
-                return;
-            }
-            
-            // Convert pan gesture delta to scroll delta
-            // Pan gesture delta is typically smaller, so we scale it up for responsive scrolling
-            const float PAN_SCROLL_MULTIPLIER = 4.0f;
-            var scrollDelta = new Vector2(
-                panGesture.Delta.X * PAN_SCROLL_MULTIPLIER,
-                panGesture.Delta.Y * PAN_SCROLL_MULTIPLIER
-            );
-            
-            // Apply the scroll delta
-            ApplyScrollDelta(scrollDelta);
-        }
         
         public bool IsMouseOverUIControls(Vector2 mousePosition)
         {

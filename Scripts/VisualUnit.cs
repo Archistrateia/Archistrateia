@@ -72,6 +72,9 @@ public partial class VisualUnit : Area2D
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
+            GD.Print($"🎯 UNIT CLICK DEBUG: Unit({LogicalUnit.Name}) at World({Position.X:F1},{Position.Y:F1}) clicked");
+            GD.Print($"   Mouse Global: ({mouseEvent.GlobalPosition.X:F1},{mouseEvent.GlobalPosition.Y:F1})");
+            GD.Print($"   Mouse Local: ({ToLocal(mouseEvent.GlobalPosition).X:F1},{ToLocal(mouseEvent.GlobalPosition).Y:F1})");
             EmitSignal(SignalName.UnitClicked, this);
         }
     }

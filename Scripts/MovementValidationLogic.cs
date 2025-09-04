@@ -26,8 +26,7 @@ namespace Archistrateia
             }
             
             // Check if the destination is actually adjacent (single-step movement only)
-            var adjacentPositions = GetAdjacentPositions(fromTile.Position);
-            if (!adjacentPositions.ToList().Contains(toTile.Position))
+            if (!HexAdjacencyCalculator.ArePositionsAdjacent(fromTile.Position, toTile.Position))
             {
                 return false;
             }
@@ -37,34 +36,8 @@ namespace Archistrateia
 
         public static Vector2I[] GetAdjacentPositions(Vector2I position)
         {
-            // FIXED: Proper hex grid adjacency for pointy-top orientation using offset coordinates
-            // Based on actual Godot hex grid layout where odd columns are offset downward
-            
-            var adjacents = new List<Vector2I>();
-            
-            // For pointy-top hex grid with offset coordinates, adjacency depends on even/odd columns
-            if (position.X % 2 == 0) // Even column (like column 4)
-            {
-                // Even columns: diagonals go up-left and down-left relative to neighbors
-                adjacents.Add(new Vector2I(position.X - 1, position.Y - 1)); // northwest
-                adjacents.Add(new Vector2I(position.X - 1, position.Y));     // west
-                adjacents.Add(new Vector2I(position.X, position.Y + 1));     // southwest  
-                adjacents.Add(new Vector2I(position.X + 1, position.Y));     // southeast
-                adjacents.Add(new Vector2I(position.X + 1, position.Y - 1)); // northeast
-                adjacents.Add(new Vector2I(position.X, position.Y - 1));     // north
-            }
-            else // Odd column  
-            {
-                // Odd columns: diagonals go up-right and down-right relative to neighbors
-                adjacents.Add(new Vector2I(position.X - 1, position.Y));     // northwest
-                adjacents.Add(new Vector2I(position.X - 1, position.Y + 1)); // west
-                adjacents.Add(new Vector2I(position.X, position.Y + 1));     // southwest
-                adjacents.Add(new Vector2I(position.X + 1, position.Y + 1)); // southeast  
-                adjacents.Add(new Vector2I(position.X + 1, position.Y));     // northeast
-                adjacents.Add(new Vector2I(position.X, position.Y - 1));     // north
-            }
-            
-            return adjacents.ToArray();
+            // Delegate to centralized hex adjacency calculator
+            return HexAdjacencyCalculator.GetAdjacentPositions(position);
         }
 
         public static List<Vector2I> GetValidMovementDestinations(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
