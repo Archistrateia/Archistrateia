@@ -19,7 +19,6 @@ namespace Archistrateia
         private GameManager _gameManager;
         private Button _nextPhaseButton;
         private Node2D _mapContainer;
-        private Label _gameStatusLabel;
         private MapRenderer _mapRenderer;
         private Dictionary<TerrainType, Color> _terrainColors;
         private int _currentPlayerIndex = 0;
@@ -397,15 +396,7 @@ namespace Archistrateia
                 }
             }
             
-            // Update status panel position
-            if (_gameStatusLabel != null)
-            {
-                var statusPanel = _gameStatusLabel.GetParent() as Panel;
-                if (statusPanel != null)
-                {
-                    statusPanel.Position = new Vector2(10, 10);
-                }
-            }
+            // Status panel is now handled by ModernUIManager
         }
 
         public void OnStartButtonPressed()
@@ -431,21 +422,7 @@ namespace Archistrateia
             // Hide map generation controls when game starts
             HideMapGenerationControls();
 
-            // Create background panel for game status
-            var statusBackgroundPanel = new Panel();
-            statusBackgroundPanel.Position = new Vector2(10, 10);
-            statusBackgroundPanel.Size = new Vector2(400, 40);
-            statusBackgroundPanel.ZIndex = 1000; // Ensure UI is always on top
-            statusBackgroundPanel.MouseFilter = Control.MouseFilterEnum.Ignore; // Don't block mouse events
-            AddChild(statusBackgroundPanel);
-
-            // Create dedicated game status label
-            _gameStatusLabel = new Label();
-            _gameStatusLabel.Position = new Vector2(5, 5); // Small margin from panel edges
-            _gameStatusLabel.Size = new Vector2(390, 30);
-            _gameStatusLabel.AddThemeFontSizeOverride("font_size", 24);
-            _gameStatusLabel.ZIndex = 1000; // Ensure UI is always on top
-            statusBackgroundPanel.AddChild(_gameStatusLabel);
+            // Game status is now handled by ModernUIManager in the top bar
 
             // Keep the current zoom level (1.0 from preview) - don't change it
             // The map is already at the right size from the preview
@@ -846,17 +823,11 @@ namespace Archistrateia
             // Update modern UI if available
             if (_uiManager != null)
             {
-                _uiManager.UpdatePlayerInfo(currentPlayerName, TurnManager.CurrentPhase.ToString());
+                _uiManager.UpdatePlayerInfo(currentPlayerName, TurnManager.CurrentPhase.ToString(), TurnManager.CurrentTurn);
             }
             
-            // During gameplay, update the game status label instead of title label
-            if (_gameStatusLabel != null)
-            {
-                var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase} - {currentPlayerName}";
-                _gameStatusLabel.Text = newText;
-            }
             // On title screen, update the title label
-            else if (TitleLabel != null)
+            if (TitleLabel != null)
             {
                 var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
                 TitleLabel.Text = newText;
@@ -1049,19 +1020,7 @@ namespace Archistrateia
                 }
             }
             
-            // Check if mouse is over game status panel
-            if (_gameStatusLabel != null)
-            {
-                var statusPanel = _gameStatusLabel.GetParent() as Panel;
-                if (statusPanel != null)
-                {
-                    var panelRect = new Rect2(statusPanel.GlobalPosition, statusPanel.Size);
-                    if (panelRect.HasPoint(mousePosition))
-                    {
-                        return true;
-                    }
-                }
-            }
+            // Game status panel is now handled by ModernUIManager
             
             return false;
         }
@@ -1089,16 +1048,7 @@ namespace Archistrateia
                 }
             }
             
-            if (_gameStatusLabel != null)
-            {
-                var statusPanel = _gameStatusLabel.GetParent() as Panel;
-                if (statusPanel != null)
-                {
-                    var panelRect = new Rect2(statusPanel.GlobalPosition, statusPanel.Size);
-                    bool overStatus = panelRect.HasPoint(mousePosition);
-                    GD.Print($"Status Panel: GlobalPos={statusPanel.GlobalPosition}, Size={statusPanel.Size}, Over={overStatus}");
-                }
-            }
+            // Game status panel is now handled by ModernUIManager
         }
         
         // Debug method to help troubleshoot UI issues
@@ -1129,18 +1079,7 @@ namespace Archistrateia
                 GD.Print("Zoom Slider: NULL");
             }
             
-            if (_gameStatusLabel != null)
-            {
-                var statusPanel = _gameStatusLabel.GetParent() as Panel;
-                if (statusPanel != null)
-                {
-                    GD.Print($"Status Panel: Position={statusPanel.GlobalPosition}, Size={statusPanel.Size}, Visible={statusPanel.Visible}");
-                }
-            }
-            else
-            {
-                GD.Print("Game Status Label: NULL");
-            }
+            // Game status panel is now handled by ModernUIManager
         }
         
         private void OnDebugAdjacentButtonPressed()

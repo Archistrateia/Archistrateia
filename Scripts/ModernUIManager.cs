@@ -11,6 +11,7 @@ namespace Archistrateia
         private Control _gameArea;
         
         private Label _titleLabel;
+        private Label _currentTurnLabel;
         private Label _currentPlayerLabel;
         private Label _currentPhaseLabel;
         private Button _nextPhaseButton;
@@ -75,7 +76,7 @@ namespace Archistrateia
             _topBar.AddChild(topBarContainer);
 
             var leftSection = new HBoxContainer();
-            leftSection.AddThemeConstantOverride("separation", 15);
+            leftSection.AddThemeConstantOverride("separation", 20);
             topBarContainer.AddChild(leftSection);
 
             _titleLabel = new Label();
@@ -83,24 +84,53 @@ namespace Archistrateia
             _titleLabel.AddThemeFontSizeOverride("font_size", 24);
             _titleLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 1.0f));
             _titleLabel.VerticalAlignment = VerticalAlignment.Center;
+            _titleLabel.CustomMinimumSize = new Vector2(200, 0); // Increased width for title
+            _titleLabel.HorizontalAlignment = HorizontalAlignment.Center; // Center the text within its container
             leftSection.AddChild(_titleLabel);
 
-            var separator = new VSeparator();
-            separator.AddThemeColorOverride("separator", new Color(0.3f, 0.3f, 0.4f));
-            leftSection.AddChild(separator);
+            var separator1 = new VSeparator();
+            separator1.AddThemeColorOverride("separator", new Color(0.3f, 0.3f, 0.4f));
+            leftSection.AddChild(separator1);
+
+            _currentTurnLabel = new Label();
+            _currentTurnLabel.Text = "Turn: 1";
+            _currentTurnLabel.AddThemeFontSizeOverride("font_size", 16);
+            _currentTurnLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.9f));
+            _currentTurnLabel.VerticalAlignment = VerticalAlignment.Center;
+            _currentTurnLabel.CustomMinimumSize = new Vector2(100, 0); // Increased width for turn
+            _currentTurnLabel.HorizontalAlignment = HorizontalAlignment.Left;
+            _currentTurnLabel.AddThemeConstantOverride("margin_left", 15); // Left padding
+            _currentTurnLabel.AddThemeConstantOverride("margin_right", 15); // Right padding
+            leftSection.AddChild(_currentTurnLabel);
+
+            var separator2 = new VSeparator();
+            separator2.AddThemeColorOverride("separator", new Color(0.3f, 0.3f, 0.4f));
+            leftSection.AddChild(separator2);
 
             _currentPlayerLabel = new Label();
             _currentPlayerLabel.Text = "Player: -";
-            _currentPlayerLabel.AddThemeFontSizeOverride("font_size", 14);
+            _currentPlayerLabel.AddThemeFontSizeOverride("font_size", 16);
             _currentPlayerLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.9f));
             _currentPlayerLabel.VerticalAlignment = VerticalAlignment.Center;
+            _currentPlayerLabel.CustomMinimumSize = new Vector2(150, 0); // Increased width for player
+            _currentPlayerLabel.HorizontalAlignment = HorizontalAlignment.Left;
+            _currentPlayerLabel.AddThemeConstantOverride("margin_left", 15); // Left padding
+            _currentPlayerLabel.AddThemeConstantOverride("margin_right", 15); // Right padding
             leftSection.AddChild(_currentPlayerLabel);
+
+            var separator3 = new VSeparator();
+            separator3.AddThemeColorOverride("separator", new Color(0.3f, 0.3f, 0.4f));
+            leftSection.AddChild(separator3);
 
             _currentPhaseLabel = new Label();
             _currentPhaseLabel.Text = "Phase: -";
-            _currentPhaseLabel.AddThemeFontSizeOverride("font_size", 14);
+            _currentPhaseLabel.AddThemeFontSizeOverride("font_size", 16);
             _currentPhaseLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.9f));
             _currentPhaseLabel.VerticalAlignment = VerticalAlignment.Center;
+            _currentPhaseLabel.CustomMinimumSize = new Vector2(130, 0); // Increased width for phase
+            _currentPhaseLabel.HorizontalAlignment = HorizontalAlignment.Left;
+            _currentPhaseLabel.AddThemeConstantOverride("margin_left", 15); // Left padding
+            _currentPhaseLabel.AddThemeConstantOverride("margin_right", 15); // Right padding
             leftSection.AddChild(_currentPhaseLabel);
 
             topBarContainer.AddChild(new Control()); // Spacer
@@ -337,8 +367,10 @@ namespace Archistrateia
             AddChild(_gameArea);
         }
 
-        public void UpdatePlayerInfo(string playerName, string phase)
+        public void UpdatePlayerInfo(string playerName, string phase, int turn = 1)
         {
+            if (_currentTurnLabel != null)
+                _currentTurnLabel.Text = $"Turn: {turn}";
             if (_currentPlayerLabel != null)
                 _currentPlayerLabel.Text = $"Player: {playerName}";
             if (_currentPhaseLabel != null)
