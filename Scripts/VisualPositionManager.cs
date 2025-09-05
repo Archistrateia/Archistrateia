@@ -35,7 +35,6 @@ namespace Archistrateia
         public void UpdateTilePosition(VisualHexTile tile)
         {
             var worldPosition = CalculateWorldPosition(tile.GridPosition);
-            GD.Print($"🔄 TILE POS UPDATE: Grid({tile.GridPosition.X},{tile.GridPosition.Y}) -> World({worldPosition.X:F1},{worldPosition.Y:F1}) | GameArea({_gameAreaSize.X}x{_gameAreaSize.Y})");
             tile.Position = worldPosition;
         }
 

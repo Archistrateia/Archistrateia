@@ -21,6 +21,7 @@ namespace Archistrateia
             GameManager = gameManager;
             _tileUnitCoordinator = tileUnitCoordinator ?? new TileUnitCoordinator();
             _mapContainer = mapContainer;
+            ZIndex = 5; // Ensure MapRenderer is above tiles but below units
             CreateInformationPanel();
         }
 

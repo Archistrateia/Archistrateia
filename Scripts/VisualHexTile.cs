@@ -34,6 +34,7 @@ public partial class VisualHexTile : Area2D
         _baseTerrainColor = color; // Store the passed color
         Position = worldPosition;
         Name = $"VisualHexTile_{gridPosition.X}_{gridPosition.Y}";
+        ZIndex = 1; // Ensure tiles are above the map container but below units
         
         CreateVisualComponents(color);
         SetupClickDetection();
@@ -213,6 +214,13 @@ public partial class VisualHexTile : Area2D
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
+            // Check if click is within game area bounds before processing
+            if (!IsClickWithinGameArea(mouseEvent.GlobalPosition))
+            {
+                GD.Print($"🚫 TILE CLICK BLOCKED: Tile Grid({GridPosition.X},{GridPosition.Y}) click outside game area");
+                return;
+            }
+            
             GD.Print($"🎯 TILE CLICK DEBUG: Tile Grid({GridPosition.X},{GridPosition.Y}) at World({Position.X:F1},{Position.Y:F1}) clicked");
             GD.Print($"   Mouse Global: ({mouseEvent.GlobalPosition.X:F1},{mouseEvent.GlobalPosition.Y:F1})");
             GD.Print($"   Mouse Local: ({ToLocal(mouseEvent.GlobalPosition).X:F1},{ToLocal(mouseEvent.GlobalPosition).Y:F1})");
@@ -226,6 +234,12 @@ public partial class VisualHexTile : Area2D
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
+            // Check if click is within game area bounds before processing
+            if (!IsClickWithinGameArea(mouseEvent.GlobalPosition))
+            {
+                return;
+            }
+            
             // Convert global mouse position to local coordinates
             var localPos = ToLocal(mouseEvent.Position);
             
@@ -335,5 +349,18 @@ public partial class VisualHexTile : Area2D
     private void OnMouseExited()
     {
         EmitSignal(SignalName.TileUnhovered, this);
+    }
+
+    private bool IsClickWithinGameArea(Vector2 globalMousePosition)
+    {
+        // Find the Main scene to access the centralized constraint checking
+        var mainScene = GetTree().CurrentScene as Main;
+        if (mainScene != null)
+        {
+            return mainScene.IsMouseWithinGameArea(globalMousePosition);
+        }
+        
+        // Fallback: allow click if Main scene not found
+        return true;
     }
 } 

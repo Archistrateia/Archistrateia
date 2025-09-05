@@ -57,6 +57,8 @@ namespace Archistrateia
             _topBar.AnchorRight = 1;
             _topBar.AnchorBottom = 0;
             _topBar.Size = new Vector2(0, 60);
+            _topBar.ZIndex = 10000; // Ensure top bar is always on top, even when zoomed
+            _topBar.MouseFilter = Control.MouseFilterEnum.Pass; // Allow mouse events to pass through to children
             
             var topBarStyle = new StyleBoxFlat();
             topBarStyle.BgColor = new Color(0.08f, 0.08f, 0.12f, 0.95f);
@@ -73,10 +75,12 @@ namespace Archistrateia
             topBarContainer.AnchorRight = 1;
             topBarContainer.AnchorBottom = 1;
             topBarContainer.AddThemeConstantOverride("separation", 20);
+            topBarContainer.MouseFilter = Control.MouseFilterEnum.Pass; // Allow mouse events to pass through to children
             _topBar.AddChild(topBarContainer);
 
             var leftSection = new HBoxContainer();
             leftSection.AddThemeConstantOverride("separation", 20);
+            leftSection.MouseFilter = Control.MouseFilterEnum.Pass; // Allow mouse events to pass through to children
             topBarContainer.AddChild(leftSection);
 
             _titleLabel = new Label();
@@ -137,12 +141,16 @@ namespace Archistrateia
 
             var rightSection = new HBoxContainer();
             rightSection.AddThemeConstantOverride("separation", 10);
+            rightSection.MouseFilter = Control.MouseFilterEnum.Pass; // Allow mouse events to pass through to children
             topBarContainer.AddChild(rightSection);
 
             _nextPhaseButton = new Button();
             _nextPhaseButton.Text = "Next Phase";
             _nextPhaseButton.AddThemeFontSizeOverride("font_size", 12);
             _nextPhaseButton.CustomMinimumSize = new Vector2(100, 40);
+            _nextPhaseButton.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure button receives mouse events
+            _nextPhaseButton.ZIndex = 10000; // Ensure button is always on top, even when zoomed
+            _nextPhaseButton.ForceUpdateTransform(); // Ensure transform is updated
             
             var buttonStyle = new StyleBoxFlat();
             buttonStyle.BgColor = new Color(0.2f, 0.4f, 0.6f);
@@ -364,6 +372,21 @@ namespace Archistrateia
             _gameArea.OffsetBottom = -40;
             _gameArea.OffsetRight = -200;
             _gameArea.MouseFilter = Control.MouseFilterEnum.Ignore;
+            _gameArea.ClipContents = true; // Ensure content is clipped to bounds
+            _gameArea.ZIndex = 0; // Ensure game area is below UI but above background
+            _gameArea.ForceUpdateTransform(); // Ensure transform is updated for proper clipping
+            
+            // Add a background to the game area to ensure proper layering
+            var background = new ColorRect();
+            background.Name = "GameAreaBackground";
+            background.Color = new Color(0.1f, 0.1f, 0.1f, 0.8f); // Dark semi-transparent background
+            background.AnchorLeft = 0;
+            background.AnchorTop = 0;
+            background.AnchorRight = 1;
+            background.AnchorBottom = 1;
+            background.ZIndex = -1; // Background should be behind everything
+            _gameArea.AddChild(background);
+            
             AddChild(_gameArea);
         }
 

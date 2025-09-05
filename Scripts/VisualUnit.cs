@@ -57,6 +57,12 @@ public partial class VisualUnit : Area2D
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
+            // Check if click is within game area bounds before processing
+            if (!IsClickWithinGameArea(mouseEvent.GlobalPosition))
+            {
+                return;
+            }
+            
             var localPos = ToLocal(mouseEvent.Position);
             if (localPos.Length() <= 20.0f * HexGridCalculator.ZoomFactor)
             {
@@ -72,6 +78,13 @@ public partial class VisualUnit : Area2D
             mouseEvent.Pressed && 
             mouseEvent.ButtonIndex == MouseButton.Left)
         {
+            // Check if click is within game area bounds before processing
+            if (!IsClickWithinGameArea(mouseEvent.GlobalPosition))
+            {
+                GD.Print($"🚫 UNIT CLICK BLOCKED: Unit({LogicalUnit.Name}) click outside game area");
+                return;
+            }
+            
             GD.Print($"🎯 UNIT CLICK DEBUG: Unit({LogicalUnit.Name}) at World({Position.X:F1},{Position.Y:F1}) clicked");
             GD.Print($"   Mouse Global: ({mouseEvent.GlobalPosition.X:F1},{mouseEvent.GlobalPosition.Y:F1})");
             GD.Print($"   Mouse Local: ({ToLocal(mouseEvent.GlobalPosition).X:F1},{ToLocal(mouseEvent.GlobalPosition).Y:F1})");
@@ -395,5 +408,18 @@ public partial class VisualUnit : Area2D
         _animationTween.TweenProperty(movementDisplay, "modulate:a", 1.0f, 0.3f)
             .SetEase(Tween.EaseType.Out)
             .SetTrans(Tween.TransitionType.Quad);
+    }
+
+    private bool IsClickWithinGameArea(Vector2 globalMousePosition)
+    {
+        // Find the Main scene to access the centralized constraint checking
+        var mainScene = GetTree().CurrentScene as Main;
+        if (mainScene != null)
+        {
+            return mainScene.IsMouseWithinGameArea(globalMousePosition);
+        }
+        
+        // Fallback: allow click if Main scene not found
+        return true;
     }
 } 

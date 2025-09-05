@@ -192,19 +192,40 @@ namespace Archistrateia
 
         private void OnViewChanged()
         {
+            GD.Print($"🔍 VIEW CHANGED: Current zoom = {HexGridCalculator.ZoomFactor:F2}x, Slider = {_zoomSlider?.Value:F2}x");
             // Update game area size in position manager
             _positionManager.UpdateGameAreaSize(GetGameAreaSize());
             
             // Update all visual positions
-            if (_mapContainer != null && _mapRenderer != null)
+            if (_mapContainer != null)
             {
-                _positionManager.UpdateAllPositions(_mapContainer, _mapRenderer.GetVisualUnits(), _gameManager?.GameMap, _tileUnitCoordinator);
+                if (_mapRenderer != null)
+                {
+                    // Game phase: use MapRenderer for full functionality
+                    _positionManager.UpdateAllPositions(_mapContainer, _mapRenderer.GetVisualUnits(), _gameManager?.GameMap, _tileUnitCoordinator);
+                }
+                else
+                {
+                    // Preview phase: update map tiles directly without units
+                    _positionManager.UpdateAllPositions(_mapContainer, new List<VisualUnit>(), _gameManager?.GameMap, _tileUnitCoordinator);
+                }
             }
             
-            // Update zoom UI
+            // Update zoom UI - but only if the slider value doesn't match the current zoom
+            // This prevents circular dependency when user changes zoom
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                var currentSliderValue = (float)_zoomSlider.Value;
+                var currentZoom = HexGridCalculator.ZoomFactor;
+                if (Mathf.Abs(currentSliderValue - currentZoom) > 0.001f)
+                {
+                    GD.Print($"🔍 VIEW CHANGED: Setting slider from {currentSliderValue:F2}x to {currentZoom:F2}x");
+                    _zoomSlider.Value = currentZoom;
+                }
+                else
+                {
+                    GD.Print($"🔍 VIEW CHANGED: Slider already matches zoom ({currentZoom:F2}x)");
+                }
                 UpdateZoomLabel();
             }
         }
@@ -333,6 +354,7 @@ namespace Archistrateia
 
         private void OnZoomSliderChanged(double value)
         {
+            GD.Print($"🔍 SLIDER CHANGED: {value:F2}x");
             _viewportController?.SetZoom((float)value);
             UpdateTitleLabel();
             UpdateUIPositions(); // Update UI positions when zoom changes
@@ -376,6 +398,7 @@ namespace Archistrateia
         
         private void UpdateUIPositions()
         {
+            GD.Print($"🔍 UPDATE UI POSITIONS: Called with zoom {HexGridCalculator.ZoomFactor:F2}x, slider {_zoomSlider?.Value:F2}x");
             var viewportSize = GetViewport().GetVisibleRect().Size;
             
             // Note: Next Phase button is now handled by modern UI (doesn't need positioning)
@@ -386,21 +409,16 @@ namespace Archistrateia
                 _debugAdjacentButton.Position = new Vector2(10, viewportSize.Y - 50); // Move to left since Next Phase button is gone
             }
             
-            // Update zoom controls position
-            if (_zoomSlider != null)
-            {
-                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
-                if (zoomPanel != null)
-                {
-                    zoomPanel.Position = new Vector2(viewportSize.X - 150, 10);
-                }
-            }
+            // Note: Zoom controls are now handled by modern UI (don't need manual positioning)
             
             // Status panel is now handled by ModernUIManager
         }
 
         public void OnStartButtonPressed()
         {
+            GD.Print("🎮🎮🎮 START BUTTON PRESSED! 🎮🎮🎮");
+            GD.Print($"🔍 BUTTON PRESS: Initial zoom state - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            
             _gameStarted = true;
             
             // Hide start button using modern UI manager
@@ -438,18 +456,38 @@ namespace Archistrateia
 
             // Use the existing map as the game map (no regeneration needed)
             GD.Print("🎮 Starting game with current map - no regeneration needed");
+            
+            // Debug: Log zoom state before game start
+            GD.Print($"🔍 GAME START DEBUG: Before InitializeGameManager - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            
             InitializeGameManager();
             
-            // Ensure zoom stays at 1.0 after game initialization
-            HexGridCalculator.SetZoom(1.0f);
+            // Debug: Log zoom state after game start
+            GD.Print($"🔍 GAME START DEBUG: After InitializeGameManager - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            
+            // Preserve the current zoom level instead of forcing it to 1.0
+            // The zoom level should remain as the user set it during preview
+            var currentZoom = HexGridCalculator.ZoomFactor;
+            GD.Print($"🔍 Preserving zoom level: {currentZoom:F2}x");
+            
+            // Update zoom slider to reflect the current zoom (should already be correct)
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = 1.0f;
+                _zoomSlider.Value = currentZoom;
             }
             UpdateZoomLabel();
             
+            // Debug: Log zoom state before regeneration
+            GD.Print($"🔍 GAME START DEBUG: Before RegenerateMapWithCurrentZoom - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            
             // Regenerate map visuals with correct zoom
             RegenerateMapWithCurrentZoom();
+            
+            // Debug: Log zoom state after regeneration
+            GD.Print($"🔍 GAME START DEBUG: After RegenerateMapWithCurrentZoom - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            
+            // Final debug: Log final zoom state
+            GD.Print($"🔍 GAME START FINAL: Final zoom state - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Update UI positions after everything is initialized
             UpdateUIPositions();
@@ -479,13 +517,19 @@ namespace Archistrateia
                 _mapContainer.QueueFree();
             }
 
-            // Set map to full size (zoom 1.0) for consistent generation
-            HexGridCalculator.SetZoom(1.0f);
+            // Preserve current zoom level instead of forcing it to 1.0
+            // Only set to 1.0 if this is the very first generation (no zoom has been set yet)
+            var currentZoom = HexGridCalculator.ZoomFactor;
+            if (Mathf.Abs(currentZoom - 0.0f) < 0.001f) // Default uninitialized value
+            {
+                HexGridCalculator.SetZoom(1.0f);
+                currentZoom = 1.0f;
+            }
             
-            // Update zoom slider to match
+            // Update zoom slider to match current zoom
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = 1.0f;
+                _zoomSlider.Value = currentZoom;
             }
             UpdateZoomLabel();
             
@@ -494,7 +538,8 @@ namespace Archistrateia
 
             _mapContainer = new Node2D();
             _mapContainer.Name = "MapContainer";
-            _mapContainer.ZIndex = 0; // Ensure map is below UI elements
+            _mapContainer.ZIndex = 1; // Ensure map container is above background but below UI
+            _mapContainer.Position = Vector2.Zero; // Ensure map container starts at origin
             
             // Add to the game area if modern UI is available, otherwise to main
             if (_uiManager != null && _uiManager.GetGameArea() != null)
@@ -553,24 +598,49 @@ namespace Archistrateia
         
         private void HideMapGenerationControls()
         {
-            // Find and hide the map generation control panel
-            foreach (Node child in GetChildren())
+            // Hide map generation controls using the modern UI manager
+            if (_uiManager != null)
             {
-                if (child is Panel panel && panel.GetChildCount() > 0)
+                // Hide the regenerate map button specifically
+                var regenerateButton = _uiManager.GetRegenerateMapButton();
+                if (regenerateButton != null)
                 {
-                    // Check if this panel contains map generation controls
-                    var container = panel.GetChild(0);
-                    if (container is VBoxContainer vbox)
+                    regenerateButton.Visible = false;
+                    GD.Print("🙈 Hidden regenerate map button");
+                }
+                
+                // Hide the map type selector
+                var mapTypeSelector = _uiManager.GetMapTypeSelector();
+                if (mapTypeSelector != null)
+                {
+                    mapTypeSelector.Visible = false;
+                    GD.Print("🙈 Hidden map type selector");
+                }
+                
+                // Note: Zoom controls should remain visible during gameplay
+                GD.Print("✅ Zoom controls remain visible during gameplay");
+            }
+            else
+            {
+                // Fallback: Find and hide the map generation control panel
+                foreach (Node child in GetChildren())
+                {
+                    if (child is Panel panel && panel.GetChildCount() > 0)
                     {
-                        // Look for the map type selector
-                        foreach (Node vboxChild in vbox.GetChildren())
+                        // Check if this panel contains map generation controls
+                        var container = panel.GetChild(0);
+                        if (container is VBoxContainer vbox)
                         {
-                            if (vboxChild is OptionButton)
+                            // Look for the map type selector
+                            foreach (Node vboxChild in vbox.GetChildren())
                             {
-                                // This is the map generation panel
-                                panel.Visible = false;
-                                GD.Print("🙈 Hidden map generation controls");
-                                return;
+                                if (vboxChild is OptionButton)
+                                {
+                                    // This is the map generation panel
+                                    panel.Visible = false;
+                                    GD.Print("🙈 Hidden map generation controls (fallback)");
+                                    return;
+                                }
                             }
                         }
                     }
@@ -596,8 +666,12 @@ namespace Archistrateia
 
         private void RegenerateMapWithCurrentZoom()
         {
+            GD.Print($"🔍 REGENERATE DEBUG: Before UpdateAllPositions - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            
             // Delegate to centralized position manager
             _positionManager?.UpdateAllPositions(_mapContainer, _mapRenderer?.GetVisualUnits() ?? new List<VisualUnit>(), _gameManager?.GameMap, _tileUnitCoordinator);
+            
+            GD.Print($"🔍 REGENERATE DEBUG: After UpdateAllPositions - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
         }
 
 
@@ -846,16 +920,22 @@ namespace Archistrateia
             // Handle zoom controls through ViewportController
             if (@event is InputEventMouseButton mouseEvent)
             {
-                var handled = _viewportController?.HandleMouseInput(mouseEvent, GetViewport().GetVisibleRect().Size) ?? false;
+                var mousePosition = GetViewport().GetMousePosition();
                 
-                if (handled)
+                // Only handle zoom events when mouse is NOT over UI controls
+                if (!IsMouseOverUIControls(mousePosition))
                 {
-                    GetViewport().SetInputAsHandled();
+                    var handled = _viewportController?.HandleMouseInput(mouseEvent, GetViewport().GetVisibleRect().Size) ?? false;
+                    
+                    if (handled)
+                    {
+                        GetViewport().SetInputAsHandled();
+                    }
                 }
-                else if (mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
+                
+                if (mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
                 {
                     // Debug mouse clicks to see if UI controls are being detected
-                    var mousePosition = GetViewport().GetMousePosition();
                     DebugMousePosition(mousePosition);
                     
                     // Don't mark left clicks as handled to allow UI controls to receive them
@@ -865,7 +945,8 @@ namespace Archistrateia
             // Handle two-finger scroll for Mac trackpad through ViewportController
             if (@event is InputEventPanGesture panGesture)
             {
-                _viewportController?.HandlePanGesture(panGesture, GetViewport().GetVisibleRect().Size, IsMouseOverUIControls);
+                // Handle pan gestures - ViewportController will check UI controls
+                _viewportController?.HandlePanGesture(panGesture, GetViewport().GetVisibleRect().Size, IsMouseOverUIControls, IsMouseOverGameArea);
                 GetViewport().SetInputAsHandled();
             }
             
@@ -984,8 +1065,21 @@ namespace Archistrateia
         }
         
         
+        public bool IsMouseOverGameArea(Vector2 mousePosition)
+        {
+            // Instead of checking if mouse is over game area (which ignores mouse events),
+            // check if mouse is NOT over UI controls - this allows panning everywhere except over UI
+            return !IsMouseOverUIControls(mousePosition);
+        }
+
         public bool IsMouseOverUIControls(Vector2 mousePosition)
         {
+            // Debug: Log mouse position and UI element positions when zoomed
+            if (HexGridCalculator.ZoomFactor > 1.5f)
+            {
+                GD.Print($"🔍 MOUSE DEBUG: Position({mousePosition.X:F1},{mousePosition.Y:F1}) Zoom({HexGridCalculator.ZoomFactor:F2}x)");
+            }
+            
             // Check if mouse is over zoom controls (top-right panel)
             if (_zoomSlider != null)
             {
@@ -995,6 +1089,10 @@ namespace Archistrateia
                     var panelRect = new Rect2(zoomPanel.GlobalPosition, zoomPanel.Size);
                     if (panelRect.HasPoint(mousePosition))
                     {
+                        if (HexGridCalculator.ZoomFactor > 1.5f)
+                        {
+                            GD.Print($"🔍 MOUSE DEBUG: Over zoom panel at {panelRect}");
+                        }
                         return true;
                     }
                 }
@@ -1006,7 +1104,15 @@ namespace Archistrateia
                 var buttonRect = new Rect2(_nextPhaseButton.GlobalPosition, _nextPhaseButton.Size);
                 if (buttonRect.HasPoint(mousePosition))
                 {
+                    if (HexGridCalculator.ZoomFactor > 1.5f)
+                    {
+                        GD.Print($"🔍 MOUSE DEBUG: Over Next Phase button at {buttonRect}");
+                    }
                     return true;
+                }
+                else if (HexGridCalculator.ZoomFactor > 1.5f)
+                {
+                    GD.Print($"🔍 MOUSE DEBUG: Next Phase button at {buttonRect}, mouse at {mousePosition}");
                 }
             }
             
@@ -1023,6 +1129,25 @@ namespace Archistrateia
             // Game status panel is now handled by ModernUIManager
             
             return false;
+        }
+
+        public bool IsMouseWithinGameArea(Vector2 mousePosition)
+        {
+            if (_uiManager?.GetGameArea() == null)
+            {
+                return true; // If no game area, allow all clicks (fallback)
+            }
+            
+            var gameArea = _uiManager.GetGameArea();
+            var gameAreaRect = new Rect2(gameArea.GlobalPosition, gameArea.Size);
+            bool withinBounds = gameAreaRect.HasPoint(mousePosition);
+            
+            if (!withinBounds)
+            {
+                GD.Print($"🚫 CLICK BLOCKED: Mouse at {mousePosition} is outside game area bounds {gameAreaRect}");
+            }
+            
+            return withinBounds;
         }
         
         // Enhanced debug method to help troubleshoot UI issues with mouse coordinates

@@ -166,7 +166,7 @@ namespace Archistrateia
             return handled;
         }
 
-        public void HandlePanGesture(InputEventPanGesture panGesture, Vector2 viewportSize, Func<Vector2, bool> isMouseOverUIControls)
+        public void HandlePanGesture(InputEventPanGesture panGesture, Vector2 viewportSize, Func<Vector2, bool> isMouseOverUIControls, Func<Vector2, bool> isMouseOverGameArea = null)
         {
             // Only allow scrolling if the grid extends beyond the viewport
             if (!IsScrollingNeeded(viewportSize))
@@ -174,8 +174,9 @@ namespace Archistrateia
                 return;
             }
             
-            // Check if mouse is hovering over UI controls - if so, don't scroll
             var mousePosition = panGesture.Position;
+            
+            // Check if mouse is hovering over UI controls - if so, don't scroll
             if (isMouseOverUIControls != null && isMouseOverUIControls(mousePosition))
             {
                 return;
