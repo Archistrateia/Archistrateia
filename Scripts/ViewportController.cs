@@ -23,11 +23,25 @@ namespace Archistrateia
             HexGridCalculator.SetScrollOffset(_scrollOffset);
         }
 
+        private void ApplyZoomChange(float oldZoom, float newZoom, string operation)
+        {
+            GD.Print($"🔍 {operation}: {oldZoom:F2}x -> {newZoom:F2}x");
+            
+            // Center the map when zooming out for better user experience
+            if (newZoom < oldZoom)
+            {
+                ResetScroll();
+            }
+            
+            NotifyViewChanged();
+        }
+
         public void SetZoom(float zoomFactor)
         {
+            var oldZoom = HexGridCalculator.ZoomFactor;
             HexGridCalculator.SetZoom(zoomFactor);
-            GD.Print($"🔍 ZOOM SET: {zoomFactor:F2}x");
-            NotifyViewChanged();
+            var newZoom = HexGridCalculator.ZoomFactor;
+            ApplyZoomChange(oldZoom, newZoom, "ZOOM SET");
         }
 
         public void ZoomIn()
@@ -35,8 +49,7 @@ namespace Archistrateia
             var oldZoom = HexGridCalculator.ZoomFactor;
             HexGridCalculator.ZoomIn();
             var newZoom = HexGridCalculator.ZoomFactor;
-            GD.Print($"🔍 ZOOM IN: {oldZoom:F2}x -> {newZoom:F2}x");
-            NotifyViewChanged();
+            ApplyZoomChange(oldZoom, newZoom, "ZOOM IN");
         }
 
         public void ZoomOut()
@@ -44,8 +57,7 @@ namespace Archistrateia
             var oldZoom = HexGridCalculator.ZoomFactor;
             HexGridCalculator.ZoomOut();
             var newZoom = HexGridCalculator.ZoomFactor;
-            GD.Print($"🔍 ZOOM OUT: {oldZoom:F2}x -> {newZoom:F2}x");
-            NotifyViewChanged();
+            ApplyZoomChange(oldZoom, newZoom, "ZOOM OUT");
         }
 
         public void ApplyScrollDelta(Vector2 scrollDelta, Vector2 gameAreaSize)
