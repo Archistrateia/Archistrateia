@@ -52,13 +52,14 @@ namespace Archistrateia
         private VisualPositionManager _positionManager;
         private ViewportController _viewportController;
         private TileUnitCoordinator _tileUnitCoordinator;
+        private int _viewChangedDebugCounter = 0;
+        private int _sliderDebugCounter = 0;
         
         // Centralized viewport size calculation to ensure consistency between tiles and units
         private Vector2 GetGameAreaSize()
         {
             var gameAreaSize = GetViewport().GetVisibleRect().Size;
             gameAreaSize.X -= 200; // Subtract sidebar width
-            GD.Print($"🔧 VIEWPORT: Full={GetViewport().GetVisibleRect().Size.X}x{GetViewport().GetVisibleRect().Size.Y}, Game={gameAreaSize.X}x{gameAreaSize.Y}");
             return gameAreaSize;
         }
 
@@ -192,7 +193,13 @@ namespace Archistrateia
 
         private void OnViewChanged()
         {
-            GD.Print($"🔍 VIEW CHANGED: Current zoom = {HexGridCalculator.ZoomFactor:F2}x, Slider = {_zoomSlider?.Value:F2}x");
+            // Sample debug output to avoid spam
+            _viewChangedDebugCounter++;
+            if (_viewChangedDebugCounter % 60 == 0) // Show every 60 calls (about once per second at 60fps)
+            {
+                GD.Print($"🔍 VIEW CHANGED (Sample {_viewChangedDebugCounter}): Current zoom = {HexGridCalculator.ZoomFactor:F2}x, Slider = {_zoomSlider?.Value:F2}x");
+            }
+            
             // Update game area size in position manager
             _positionManager.UpdateGameAreaSize(GetGameAreaSize());
             
@@ -219,12 +226,22 @@ namespace Archistrateia
                 var currentZoom = HexGridCalculator.ZoomFactor;
                 if (Mathf.Abs(currentSliderValue - currentZoom) > 0.001f)
                 {
-                    GD.Print($"🔍 VIEW CHANGED: Setting slider from {currentSliderValue:F2}x to {currentZoom:F2}x");
+                    // Sample slider changes
+                    _sliderDebugCounter++;
+                    if (_sliderDebugCounter % 60 == 0) // Show every 60 calls
+                    {
+                        GD.Print($"🔍 VIEW CHANGED: Setting slider from {currentSliderValue:F2}x to {currentZoom:F2}x (Sample {_sliderDebugCounter})");
+                    }
                     _zoomSlider.Value = currentZoom;
                 }
                 else
                 {
-                    GD.Print($"🔍 VIEW CHANGED: Slider already matches zoom ({currentZoom:F2}x)");
+                    // Sample slider matches
+                    _sliderDebugCounter++;
+                    if (_sliderDebugCounter % 60 == 0) // Show every 60 calls
+                    {
+                        GD.Print($"🔍 VIEW CHANGED: Slider already matches zoom ({currentZoom:F2}x) (Sample {_sliderDebugCounter})");
+                    }
                 }
                 UpdateZoomLabel();
             }
@@ -925,7 +942,7 @@ namespace Archistrateia
                 // Only handle zoom events when mouse is NOT over UI controls
                 if (!IsMouseOverUIControls(mousePosition))
                 {
-                    var handled = _viewportController?.HandleMouseInput(mouseEvent, GetViewport().GetVisibleRect().Size) ?? false;
+                    var handled = _viewportController?.HandleMouseInput(mouseEvent, GetGameAreaSize()) ?? false;
                     
                     if (handled)
                     {
@@ -946,7 +963,7 @@ namespace Archistrateia
             if (@event is InputEventPanGesture panGesture)
             {
                 // Handle pan gestures - ViewportController will check UI controls
-                _viewportController?.HandlePanGesture(panGesture, GetViewport().GetVisibleRect().Size, IsMouseOverUIControls, IsMouseOverGameArea);
+                _viewportController?.HandlePanGesture(panGesture, GetGameAreaSize(), IsMouseOverUIControls, IsMouseOverGameArea);
                 GetViewport().SetInputAsHandled();
             }
             
@@ -961,10 +978,10 @@ namespace Archistrateia
         private void HandleEdgeScrolling(double delta)
         {
             var mousePosition = GetViewport().GetMousePosition();
-            var viewportSize = GetViewport().GetVisibleRect().Size;
+            var gameAreaSize = GetGameAreaSize();
             
-            // Only activate scrolling if the grid extends beyond the viewport
-            if (_viewportController == null || !_viewportController.IsScrollingNeeded(viewportSize))
+            // Only activate scrolling if the grid extends beyond the game area
+            if (_viewportController == null || !_viewportController.IsScrollingNeeded(gameAreaSize))
             {
                 return;
             }
@@ -977,12 +994,12 @@ namespace Archistrateia
             
             var scrollDelta = Vector2.Zero;
             
-            // Check if mouse is near edges
+            // Check if mouse is near edges of the game area
             if (mousePosition.X < EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.X = -SCROLL_SPEED * (float)delta;
             }
-            else if (mousePosition.X > viewportSize.X - EDGE_SCROLL_THRESHOLD)
+            else if (mousePosition.X > gameAreaSize.X - EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.X = SCROLL_SPEED * (float)delta;
             }
@@ -991,7 +1008,7 @@ namespace Archistrateia
             {
                 scrollDelta.Y = -SCROLL_SPEED * (float)delta;
             }
-            else if (mousePosition.Y > viewportSize.Y - EDGE_SCROLL_THRESHOLD)
+            else if (mousePosition.Y > gameAreaSize.Y - EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.Y = SCROLL_SPEED * (float)delta;
             }
@@ -999,7 +1016,7 @@ namespace Archistrateia
             // Apply scroll delta if any
             if (scrollDelta != Vector2.Zero)
             {
-                _viewportController.ApplyScrollDelta(scrollDelta, viewportSize);
+                _viewportController.ApplyScrollDelta(scrollDelta, gameAreaSize);
             }
         }
 
@@ -1029,7 +1046,7 @@ namespace Archistrateia
 
         private bool HandleZoomInput(InputEventKey keyEvent)
         {
-            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetViewport().GetVisibleRect().Size) ?? false;
+            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize()) ?? false;
             
             if (handled)
             {
@@ -1041,7 +1058,7 @@ namespace Archistrateia
 
         private bool HandleScrollInput(InputEventKey keyEvent)
         {
-            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetViewport().GetVisibleRect().Size) ?? false;
+            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize()) ?? false;
             
             if (handled)
             {

@@ -9,6 +9,7 @@ namespace Archistrateia
         private int _mapWidth;
         private int _mapHeight;
         private readonly Action _onViewChanged;
+        private int _debugCounter = 0;
 
         public Vector2 ScrollOffset => _scrollOffset;
 
@@ -47,22 +48,28 @@ namespace Archistrateia
             NotifyViewChanged();
         }
 
-        public void ApplyScrollDelta(Vector2 scrollDelta, Vector2 viewportSize)
+        public void ApplyScrollDelta(Vector2 scrollDelta, Vector2 gameAreaSize)
         {
             var oldOffset = _scrollOffset;
             _scrollOffset += scrollDelta;
             
-            // Calculate dynamic scroll bounds based on current zoom and viewport
-            var scrollBounds = HexGridCalculator.CalculateScrollBounds(viewportSize, _mapWidth, _mapHeight);
+            // Calculate smart scroll bounds - stop when map edges are visible in game area
+            var scrollLimits = CalculateSmartScrollLimits(gameAreaSize);
             
-            // Clamp scroll offset to keep grid on screen
-            _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, -scrollBounds.X, scrollBounds.X);
-            _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, -scrollBounds.Y, scrollBounds.Y);
+            // Clamp scroll offset to keep map edges visible but not scroll beyond them
+            // The scroll limits are the actual min/max values for each direction
+            _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, scrollLimits.X, scrollLimits.Y);
+            _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, scrollLimits.Z, scrollLimits.W);
             
             // Update HexGridCalculator scroll offset
             HexGridCalculator.SetScrollOffset(_scrollOffset);
             
-            GD.Print($"📜 SCROLL: Delta({scrollDelta.X:F1},{scrollDelta.Y:F1}) | Old({oldOffset.X:F1},{oldOffset.Y:F1}) -> New({_scrollOffset.X:F1},{_scrollOffset.Y:F1}) | Bounds(±{scrollBounds.X:F1},±{scrollBounds.Y:F1})");
+            // Sample debug output to avoid spam
+            _debugCounter++;
+            if (_debugCounter % 60 == 0) // Show every 60 calls (about once per second at 60fps)
+            {
+                GD.Print($"📜 SCROLL (Sample {_debugCounter}): Delta({scrollDelta.X:F1},{scrollDelta.Y:F1}) | Old({oldOffset.X:F1},{oldOffset.Y:F1}) -> New({_scrollOffset.X:F1},{_scrollOffset.Y:F1}) | GameArea({gameAreaSize.X:F0}x{gameAreaSize.Y:F0}) | Limits({scrollLimits.X:F1} to {scrollLimits.Y:F1}, {scrollLimits.Z:F1} to {scrollLimits.W:F1})");
+            }
             
             NotifyViewChanged();
         }
@@ -76,12 +83,13 @@ namespace Archistrateia
             NotifyViewChanged();
         }
 
-        public bool IsScrollingNeeded(Vector2 viewportSize)
+        public bool IsScrollingNeeded(Vector2 gameAreaSize)
         {
-            return HexGridCalculator.IsScrollingNeeded(viewportSize, _mapWidth, _mapHeight);
+            // Only allow scrolling if the map is actually larger than the game area
+            return HexGridCalculator.IsScrollingNeeded(gameAreaSize, _mapWidth, _mapHeight);
         }
 
-        public bool HandleKeyboardInput(InputEventKey keyEvent, Vector2 viewportSize)
+        public bool HandleKeyboardInput(InputEventKey keyEvent, Vector2 gameAreaSize)
         {
             bool handled = false;
             
@@ -110,7 +118,7 @@ namespace Archistrateia
             }
             
             // Handle directional scrolling (only if scrolling is needed)
-            if (IsScrollingNeeded(viewportSize))
+            if (IsScrollingNeeded(gameAreaSize))
             {
                 var scrollDelta = Vector2.Zero;
                 const float ScrollStep = 50.0f;
@@ -138,14 +146,14 @@ namespace Archistrateia
 
                 if (scrollDelta != Vector2.Zero)
                 {
-                    ApplyScrollDelta(scrollDelta, viewportSize);
+                    ApplyScrollDelta(scrollDelta, gameAreaSize);
                 }
             }
             
             return handled;
         }
 
-        public bool HandleMouseInput(InputEventMouseButton mouseEvent, Vector2 viewportSize)
+        public bool HandleMouseInput(InputEventMouseButton mouseEvent, Vector2 gameAreaSize)
         {
             bool handled = false;
             
@@ -166,10 +174,10 @@ namespace Archistrateia
             return handled;
         }
 
-        public void HandlePanGesture(InputEventPanGesture panGesture, Vector2 viewportSize, Func<Vector2, bool> isMouseOverUIControls, Func<Vector2, bool> isMouseOverGameArea = null)
+        public void HandlePanGesture(InputEventPanGesture panGesture, Vector2 gameAreaSize, Func<Vector2, bool> isMouseOverUIControls, Func<Vector2, bool> isMouseOverGameArea = null)
         {
-            // Only allow scrolling if the grid extends beyond the viewport
-            if (!IsScrollingNeeded(viewportSize))
+            // Only allow panning if scrolling is needed
+            if (!IsScrollingNeeded(gameAreaSize))
             {
                 return;
             }
@@ -190,12 +198,79 @@ namespace Archistrateia
                 panGesture.Delta.Y * PAN_SCROLL_MULTIPLIER
             );
             
-            ApplyScrollDelta(scrollDelta, viewportSize);
+            ApplyScrollDelta(scrollDelta, gameAreaSize);
         }
 
         public float CalculateOptimalZoom(Vector2 viewportSize)
         {
             return HexGridCalculator.CalculateOptimalZoom(viewportSize, _mapWidth, _mapHeight);
+        }
+
+        private Vector4 CalculateSmartScrollLimits(Vector2 gameAreaSize)
+        {
+            // Calculate the map dimensions at current zoom level (same as in CalculateHexPositionCentered)
+            float mapTotalWidth = _mapWidth * HexGridCalculator.HEX_WIDTH * 0.75f * HexGridCalculator.ZoomFactor + HexGridCalculator.HEX_WIDTH * 0.25f * HexGridCalculator.ZoomFactor;
+            float mapTotalHeight = _mapHeight * HexGridCalculator.HEX_HEIGHT * HexGridCalculator.ZoomFactor + HexGridCalculator.HEX_HEIGHT * 0.5f * HexGridCalculator.ZoomFactor;
+            
+            // Calculate the centering offset (same as in CalculateHexPositionCentered)
+            float centerX = (gameAreaSize.X - mapTotalWidth) / 2;
+            float centerY = (gameAreaSize.Y - mapTotalHeight) / 2;
+            
+            // Calculate the actual boundaries of the map including hex tile radius
+            float hexSize = HexGridCalculator.HEX_SIZE * HexGridCalculator.ZoomFactor;
+            
+            // The map extends from the leftmost tile position to the rightmost tile position
+            // Leftmost tile is at centerX, rightmost tile is at centerX + mapTotalWidth
+            // But tiles extend beyond their center positions by hexSize
+            float leftEdge = centerX - hexSize;
+            float rightEdge = centerX + mapTotalWidth + hexSize;
+            float topEdge = centerY - hexSize;
+            float bottomEdge = centerY + mapTotalHeight + hexSize;
+            
+            // Allow scrolling beyond the map edges to show complete tile boundaries
+            // Add extra space (half a hex width/height) to show black space beyond the map
+            float extraSpace = hexSize * 1.0f; // Full hex radius beyond map edges
+            
+            // Calculate the actual scroll limits for each direction
+            // Since scroll offset is subtracted from position in CalculateHexPositionCentered:
+            // - Positive scroll offset moves the map left (scroll right)
+            // - Negative scroll offset moves the map right (scroll left)
+            
+            // The scroll offset is applied to the centered map, so we need to calculate
+            // how much we can scroll from the centered position (scroll offset 0,0)
+            
+            // To show the left edge at the left side of the game area:
+            // We need scrollOffset = leftEdge - extraSpace
+            float minScrollX = leftEdge - extraSpace;
+            
+            // To show the right edge at the right side of the game area:
+            // We need scrollOffset = rightEdge + extraSpace - gameAreaSize.X
+            float maxScrollX = rightEdge + extraSpace - gameAreaSize.X;
+            
+            // To show the top edge at the top side of the game area:
+            // We need scrollOffset = topEdge - extraSpace
+            float minScrollY = topEdge - extraSpace;
+            
+            // To show the bottom edge at the bottom side of the game area:
+            // We need scrollOffset = bottomEdge + extraSpace - gameAreaSize.Y
+            float maxScrollY = bottomEdge + extraSpace - gameAreaSize.Y;
+            
+            // Debug output to see what's happening (sampled to avoid spam)
+            _debugCounter++;
+            if (_debugCounter % 300 == 0) // Show every 300 calls (about every 5 seconds at 60fps)
+            {
+                GD.Print($"🔍 SCROLL LIMITS DEBUG (Sample {_debugCounter}):");
+                GD.Print($"  Map: {_mapWidth}x{_mapHeight}, Zoom: {HexGridCalculator.ZoomFactor:F2}x");
+                GD.Print($"  MapTotal: {mapTotalWidth:F1}x{mapTotalHeight:F1}");
+                GD.Print($"  Center: ({centerX:F1},{centerY:F1})");
+                GD.Print($"  Edges: L{leftEdge:F1} R{rightEdge:F1} T{topEdge:F1} B{bottomEdge:F1}");
+                GD.Print($"  ExtraSpace: {extraSpace:F1}");
+                GD.Print($"  ScrollLimits: X({minScrollX:F1} to {maxScrollX:F1}) Y({minScrollY:F1} to {maxScrollY:F1})");
+                GD.Print($"  CurrentScroll: ({_scrollOffset.X:F1},{_scrollOffset.Y:F1})");
+            }
+            
+            // Return as Vector4: (minX, maxX, minY, maxY)
+            return new Vector4(minScrollX, maxScrollX, minScrollY, maxScrollY);
         }
 
         private void NotifyViewChanged()

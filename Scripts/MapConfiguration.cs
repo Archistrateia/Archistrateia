@@ -11,12 +11,12 @@ namespace Archistrateia
         /// <summary>
         /// Number of hex tiles horizontally across the map
         /// </summary>
-        public const int MAP_WIDTH = 20;
+        public const int MAP_WIDTH = 50;
         
         /// <summary>
         /// Number of hex tiles vertically down the map  
         /// </summary>
-        public const int MAP_HEIGHT = 10;
+        public const int MAP_HEIGHT = 30;
         
         /// <summary>
         /// Total number of tiles in the map
@@ -28,7 +28,7 @@ namespace Archistrateia
         /// </summary>
         public static bool IsValidMapSize()
         {
-            return MAP_WIDTH > 0 && MAP_HEIGHT > 0 && TOTAL_TILES <= 1000;
+            return MAP_WIDTH > 0 && MAP_HEIGHT > 0 && TOTAL_TILES <= 5000;
         }
     }
 } 

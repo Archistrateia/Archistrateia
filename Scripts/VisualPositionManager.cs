@@ -8,6 +8,7 @@ namespace Archistrateia
         private Vector2 _gameAreaSize;
         private readonly int _mapWidth;
         private readonly int _mapHeight;
+        private int _updatePositionsDebugCounter = 0;
 
         public VisualPositionManager(Vector2 gameAreaSize, int mapWidth, int mapHeight)
         {
@@ -74,7 +75,13 @@ namespace Archistrateia
 
         public void UpdateAllPositions(Node2D mapContainer, IEnumerable<VisualUnit> visualUnits, Dictionary<Vector2I, HexTile> gameMap, TileUnitCoordinator coordinator)
         {
-            GD.Print($"🔄 UPDATING ALL POSITIONS: GameArea({_gameAreaSize.X}x{_gameAreaSize.Y})");
+            // Sample debug output to avoid spam
+            _updatePositionsDebugCounter++;
+            if (_updatePositionsDebugCounter % 60 == 0) // Show every 60 calls (about once per second at 60fps)
+            {
+                GD.Print($"🔄 UPDATING ALL POSITIONS (Sample {_updatePositionsDebugCounter}): GameArea({_gameAreaSize.X}x{_gameAreaSize.Y})");
+            }
+            
             UpdateAllTilePositions(mapContainer);
             UpdateAllUnitPositions(visualUnits, gameMap, coordinator);
         }
