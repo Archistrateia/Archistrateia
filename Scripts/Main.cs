@@ -1074,11 +1074,6 @@ namespace Archistrateia
 
         public bool IsMouseOverUIControls(Vector2 mousePosition)
         {
-            // Debug: Log mouse position and UI element positions when zoomed
-            if (HexGridCalculator.ZoomFactor > 1.5f)
-            {
-                GD.Print($"🔍 MOUSE DEBUG: Position({mousePosition.X:F1},{mousePosition.Y:F1}) Zoom({HexGridCalculator.ZoomFactor:F2}x)");
-            }
             
             // Check if mouse is over zoom controls (top-right panel)
             if (_zoomSlider != null)
@@ -1089,10 +1084,6 @@ namespace Archistrateia
                     var panelRect = new Rect2(zoomPanel.GlobalPosition, zoomPanel.Size);
                     if (panelRect.HasPoint(mousePosition))
                     {
-                        if (HexGridCalculator.ZoomFactor > 1.5f)
-                        {
-                            GD.Print($"🔍 MOUSE DEBUG: Over zoom panel at {panelRect}");
-                        }
                         return true;
                     }
                 }
@@ -1104,15 +1095,7 @@ namespace Archistrateia
                 var buttonRect = new Rect2(_nextPhaseButton.GlobalPosition, _nextPhaseButton.Size);
                 if (buttonRect.HasPoint(mousePosition))
                 {
-                    if (HexGridCalculator.ZoomFactor > 1.5f)
-                    {
-                        GD.Print($"🔍 MOUSE DEBUG: Over Next Phase button at {buttonRect}");
-                    }
                     return true;
-                }
-                else if (HexGridCalculator.ZoomFactor > 1.5f)
-                {
-                    GD.Print($"🔍 MOUSE DEBUG: Next Phase button at {buttonRect}, mouse at {mousePosition}");
                 }
             }
             
@@ -1141,11 +1124,6 @@ namespace Archistrateia
             var gameArea = _uiManager.GetGameArea();
             var gameAreaRect = new Rect2(gameArea.GlobalPosition, gameArea.Size);
             bool withinBounds = gameAreaRect.HasPoint(mousePosition);
-            
-            if (!withinBounds)
-            {
-                GD.Print($"🚫 CLICK BLOCKED: Mouse at {mousePosition} is outside game area bounds {gameAreaRect}");
-            }
             
             return withinBounds;
         }
