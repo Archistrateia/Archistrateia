@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-08-31
+## [0.1.0] - 2025-01-14
 
-### 🚀 Major Release - Complete Movement System Modernization
+### 🚧 Early Development - Complete Movement System Modernization
 
 #### ✨ Added
 - **GodotMovementSystem** - New Godot-native movement system using AStar2D
@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.1.0] - 2025-08-31 (Pre-Refactor)
+## [0.0.1] - 2024-12-01 (Pre-Refactor)
 
 ### 🎯 Initial Release
 - **Core Game Systems** - Turn management, unit management, resource system
@@ -61,16 +61,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
-- **1.0.0** - Complete movement system modernization with Godot integration
-- **0.1.0** - Initial release with core game systems
+- **0.1.0** - Current version with complete movement system modernization and Godot integration
+- **0.0.1** - Initial release with core game systems
 
 ---
 
 ## Migration Guide
 
-### From 0.1.0 to 1.0.0
+### From 0.0.1 to 0.1.0
 
-The refactoring from 0.1.0 to 1.0.0 represents a complete modernization of the movement and rendering systems. All existing functionality has been preserved while significantly improving performance and maintainability.
+The refactoring from 0.0.1 to 0.1.0 represents a complete modernization of the movement and rendering systems. All existing functionality has been preserved while significantly improving performance and maintainability.
 
 #### Breaking Changes
 - None - All existing APIs and functionality maintained

@@ -1,6 +1,6 @@
 # Archistrateia
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/Archistrateia/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/yourusername/Archistrateia/releases/tag/v0.1.0)
 [![Godot](https://img.shields.io/badge/Godot-4.4+-green.svg)](https://godotengine.org/)
 [![C#](https://img.shields.io/badge/C%23-.NET%208.0-purple.svg)](https://dotnet.microsoft.com/)
 [![Tests](https://img.shields.io/badge/tests-230%20total%20(3%20phases)-brightgreen.svg)](https://github.com/yourusername/Archistrateia/actions)
@@ -8,7 +8,7 @@
 
 A strategic war simulation game built with Godot Engine and C#.
 
-> **🎉 Version 0.2.0 Released!** Complete movement system modernization with Godot integration.
+> **🚧 Version 0.1.0 - Early Development** Complete movement system modernization with Godot integration.
 
 ## Overview
 
@@ -130,12 +130,12 @@ Orchestrates all game systems and provides high-level game control.
 
 ## Version Information
 
-### Current Version: 1.0.0 🚀
+### Current Version: 0.1.0 🚧
 
-**Release Date**: August 31, 2025  
-**Status**: Major Release - Complete Movement System Modernization
+**Release Date**: January 2025  
+**Status**: Early Development - Complete Movement System Modernization
 
-#### What's New in 1.0.0
+#### What's New in 0.1.0
 - ✨ **Godot-Native Movement System** - Replaced custom pathfinding with Godot's AStar2D
 - 🎬 **Enhanced Animations** - Hardware-accelerated movement with Tween system
 - 🎨 **Modern Visual Rendering** - Full integration with Godot's rendering primitives
@@ -144,8 +144,8 @@ Orchestrates all game systems and provides high-level game control.
 - 🐛 **Advanced Debugging Features** - `--show-failures-only` mode for focused troubleshooting
 - 🚀 **Performance Improvements** - 2-3x faster pathfinding, reduced memory usage
 
-#### Previous Versions
-- **0.1.0** - Initial release with core game systems and custom implementations
+#### Development History
+- **0.1.0** - Current version with core game systems and Godot integration
 
 For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 

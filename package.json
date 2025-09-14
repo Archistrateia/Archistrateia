@@ -1,6 +1,6 @@
 {
   "name": "archistrateia",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A strategic war simulation game built with Godot Engine and C#",
   "main": "index.js",
   "scripts": {
