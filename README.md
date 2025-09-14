@@ -3,12 +3,12 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/Archistrateia/releases/tag/v1.0.0)
 [![Godot](https://img.shields.io/badge/Godot-4.4+-green.svg)](https://godotengine.org/)
 [![C#](https://img.shields.io/badge/C%23-.NET%208.0-purple.svg)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-104%20passed-brightgreen.svg)](https://github.com/yourusername/Archistrateia/actions)
+[![Tests](https://img.shields.io/badge/tests-230%20total%20(3%20phases)-brightgreen.svg)](https://github.com/yourusername/Archistrateia/actions)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 A strategic war simulation game built with Godot Engine and C#.
 
-> **🎉 Version 1.0.0 Released!** Complete movement system modernization with Godot integration.
+> **🎉 Version 0.2.0 Released!** Complete movement system modernization with Godot integration.
 
 ## Overview
 
@@ -47,14 +47,37 @@ Archistrateia is a turn-based strategic war simulation that focuses on tactical 
 ### Getting Started
 
 1. Open the project in Godot Editor
-2. Build the C# solution
+2. Build the C# solution: `dotnet build`
 3. Run the project
+
+### Running Tests
+
+The project includes a comprehensive three-phase testing suite:
+
+```bash
+# Run all tests
+./run_tests.sh
+
+# Run specific test phases
+./run_tests.sh nunit   # Unit tests (game logic & calculations)
+./run_tests.sh scenes  # Scene tests (actual scene functionality)
+./run_tests.sh ui      # UI tests (UI components & interactions)
+
+# AI-optimized output for automated systems
+./run_tests.sh --ai-output
+```
+
+For detailed testing information, see [TESTING.md](TESTING.md).
 
 ### Project Structure
 
 ```
 Archistrateia/
 ├── Scenes/          # Godot scene files
+│   ├── Main.tscn    # Main game scene
+│   ├── NUnitTestScene.tscn # NUnit unit test scene
+│   ├── GodotSceneTestScene.tscn # Godot scene test scene
+│   └── UITestScene.tscn # UI integration test scene
 ├── Scripts/         # C# scripts
 │   ├── Main.cs      # Main game controller
 │   ├── GameManager.cs # Core game orchestration
@@ -64,6 +87,11 @@ Archistrateia/
 │   ├── City.cs      # City and production system
 │   ├── HexTile.cs   # Terrain and tile management
 │   └── GameExample.cs # System demonstration
+├── Tests/           # Test files and runners
+│   ├── TestRunner.cs # NUnit test runner
+│   ├── UITestRunner.cs # UI test runner
+│   ├── GodotSceneTestRunner.cs # Scene test runner
+│   └── [test classes] # Individual test classes
 ├── Assets/          # Game assets
 │   ├── Textures/    # Texture files
 │   ├── Models/      # 3D models
@@ -71,7 +99,10 @@ Archistrateia/
 │   └── UI/          # UI assets
 ├── project.godot    # Main project configuration
 ├── Archistrateia.csproj # C# project file
-└── Archistrateia.sln   # C# solution file
+├── Archistrateia.sln   # C# solution file
+├── run_tests.sh     # Comprehensive test execution script
+├── TESTING.md       # Testing documentation
+└── README.md        # This file
 ```
 
 ### Core Classes
@@ -105,7 +136,8 @@ Orchestrates all game systems and provides high-level game control.
 - ✨ **Godot-Native Movement System** - Replaced custom pathfinding with Godot's AStar2D
 - 🎬 **Enhanced Animations** - Hardware-accelerated movement with Tween system
 - 🎨 **Modern Visual Rendering** - Full integration with Godot's rendering primitives
-- 🧪 **100% Test Coverage** - All 104 tests passing successfully
+- 🧪 **Comprehensive Testing Suite** - Three-phase testing approach covering logic, scenes, and UI
+- 🤖 **AI-Optimized Test Output** - Machine-readable test results for automated systems
 - 🚀 **Performance Improvements** - 2-3x faster pathfinding, reduced memory usage
 
 #### Previous Versions
@@ -129,7 +161,12 @@ For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 - Godot-native pathfinding with AStar2D
 - Hardware-accelerated animations
 - Modern visual rendering system
-- Comprehensive test coverage
+
+✅ **Comprehensive Testing Framework** - Multi-phase testing approach
+- **Phase 1**: NUnit unit tests for game logic and calculations
+- **Phase 2**: Godot scene tests for actual scene functionality
+- **Phase 3**: UI integration tests for UI components and interactions
+- AI-optimized output format for automated systems
 
 🚧 **Next Steps** - UI integration and gameplay expansion
 - Visual representation of units and terrain

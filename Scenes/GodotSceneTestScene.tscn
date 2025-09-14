@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8x7yh6p8a6o2"]
+
+[ext_resource type="Script" path="res://Tests/GodotSceneTestRunner.cs" id="1_0x0x0"]
+
+[node name="GodotSceneTestScene" type="Node"]
+
+[node name="GodotSceneTestRunner" type="Node" parent="."]
+script = ExtResource("1_0x0x0")
