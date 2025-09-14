@@ -52,7 +52,7 @@ namespace Archistrateia
         private VisualPositionManager _positionManager;
         private ViewportController _viewportController;
         private TileUnitCoordinator _tileUnitCoordinator;
-        private DebugScrollOverlay _debugScrollOverlay;
+        private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
         private int _viewChangedDebugCounter = 0;
         private int _sliderDebugCounter = 0;
         
@@ -119,7 +119,7 @@ namespace Archistrateia
             AddChild(_uiManager);
             
             // Create debug scroll overlay
-            _debugScrollOverlay = new DebugScrollOverlay();
+            _debugScrollOverlay = new Archistrateia.Debug.DebugScrollOverlay();
             _debugScrollOverlay.Name = "DebugScrollOverlay";
             AddChild(_debugScrollOverlay);
             
@@ -166,7 +166,7 @@ namespace Archistrateia
             GD.Print("✨ Modern UI initialization complete");
         }
 
-        private void CreateStartButton()
+        private static void CreateStartButton()
         {
             // Don't create the start button here - it will be added to the map controls panel
             GD.Print("✨ Start button will be created in map controls");
@@ -1101,7 +1101,7 @@ namespace Archistrateia
             return false;
         }
 
-        private bool HandleZoomInput(InputEventKey keyEvent)
+        private bool HandleViewportInput(InputEventKey keyEvent)
         {
             var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize()) ?? false;
             
@@ -1113,16 +1113,14 @@ namespace Archistrateia
             return handled;
         }
 
+        private bool HandleZoomInput(InputEventKey keyEvent)
+        {
+            return HandleViewportInput(keyEvent);
+        }
+
         private bool HandleScrollInput(InputEventKey keyEvent)
         {
-            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize()) ?? false;
-            
-            if (handled)
-            {
-                GetViewport().SetInputAsHandled();
-            }
-            
-            return handled;
+            return HandleViewportInput(keyEvent);
         }
 
         private void UpdateZoomUI()
@@ -1299,7 +1297,7 @@ namespace Archistrateia
                 if (child is VisualHexTile visualTile)
                 {
                     var localPos = visualTile.ToLocal(mousePosition);
-                    if (IsPointInHexagon(localPos, visualTile))
+                    if (IsPointInHexagon(localPos))
                     {
                         hoveredTile = visualTile;
                         break;
@@ -1338,7 +1336,7 @@ namespace Archistrateia
             }
         }
         
-        private bool IsPointInHexagon(Vector2 point, VisualHexTile tile)
+        private static bool IsPointInHexagon(Vector2 point)
         {
             // Get the exact hex vertices used for rendering
             var vertices = HexGridCalculator.CreateHexagonVertices();

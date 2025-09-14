@@ -103,66 +103,75 @@ namespace Archistrateia
 
         public bool HandleKeyboardInput(InputEventKey keyEvent, Vector2 gameAreaSize)
         {
-            bool handled = false;
-            
-            // Handle zoom input
+            return HandleZoomInput(keyEvent) || 
+                   HandleScrollInput(keyEvent, gameAreaSize);
+        }
+
+        public bool HandleZoomInput(InputEventKey keyEvent)
+        {
             if (keyEvent.Keycode == Key.Equal || keyEvent.Keycode == Key.Plus)
             {
                 ZoomIn();
-                handled = true;
+                return true;
             }
             else if (keyEvent.Keycode == Key.Minus)
             {
                 ZoomOut();
-                handled = true;
+                return true;
             }
             else if (keyEvent.Keycode == Key.Key0)
             {
                 SetZoom(1.0f);
-                handled = true;
+                return true;
             }
             
-            // Handle Home key (reset scroll)
+            return false;
+        }
+
+        public bool HandleScrollInput(InputEventKey keyEvent, Vector2 gameAreaSize)
+        {
             if (keyEvent.Keycode == Key.Home)
             {
                 ResetScroll();
-                handled = true;
+                return true;
             }
             
-            // Handle directional scrolling (only if scrolling is needed)
-            if (IsScrollingNeeded(gameAreaSize))
+            if (!IsScrollingNeeded(gameAreaSize))
             {
-                var scrollDelta = Vector2.Zero;
-                const float ScrollStep = 50.0f;
+                return false;
+            }
 
-                if (keyEvent.Keycode == Key.W || keyEvent.Keycode == Key.Up)
-                {
-                    scrollDelta.Y = -ScrollStep;
-                    handled = true;
-                }
-                else if (keyEvent.Keycode == Key.S || keyEvent.Keycode == Key.Down)
-                {
-                    scrollDelta.Y = ScrollStep;
-                    handled = true;
-                }
-                else if (keyEvent.Keycode == Key.A || keyEvent.Keycode == Key.Left)
-                {
-                    scrollDelta.X = -ScrollStep;
-                    handled = true;
-                }
-                else if (keyEvent.Keycode == Key.D || keyEvent.Keycode == Key.Right)
-                {
-                    scrollDelta.X = ScrollStep;
-                    handled = true;
-                }
-
-                if (scrollDelta != Vector2.Zero)
-                {
-                    ApplyScrollDelta(scrollDelta, gameAreaSize);
-                }
+            var scrollDelta = GetScrollDeltaForKey(keyEvent);
+            if (scrollDelta != Vector2.Zero)
+            {
+                ApplyScrollDelta(scrollDelta, gameAreaSize);
+                return true;
             }
             
-            return handled;
+            return false;
+        }
+
+        private Vector2 GetScrollDeltaForKey(InputEventKey keyEvent)
+        {
+            const float ScrollStep = 50.0f;
+
+            switch (keyEvent.Keycode)
+            {
+                case Key.W:
+                case Key.Up:
+                    return new Vector2(0, -ScrollStep);
+                case Key.S:
+                case Key.Down:
+                    return new Vector2(0, ScrollStep);
+                case Key.A:
+                case Key.Left:
+                    return new Vector2(-ScrollStep, 0);
+                case Key.D:
+                case Key.Right:
+                    return new Vector2(ScrollStep, 0);
+                default:
+                    return Vector2.Zero;
+            }
         }
 
         public bool HandleMouseInput(InputEventMouseButton mouseEvent, Vector2 gameAreaSize)

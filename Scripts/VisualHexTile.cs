@@ -249,7 +249,7 @@ public partial class VisualHexTile : Area2D
         }
     }
 
-    private bool IsPointInHexagon(Vector2 point)
+    private static bool IsPointInHexagon(Vector2 point)
     {
         // Get the exact hex vertices used for rendering
         var vertices = HexGridCalculator.CreateHexagonVertices();

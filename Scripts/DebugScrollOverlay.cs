@@ -1,12 +1,14 @@
 using Godot;
 using System.Linq;
 
-/// <summary>
-/// Debug overlay that visualizes the scroll areas where mouse hover triggers map scrolling.
-/// Shows translucent red rectangles at the edges of the game area where scrolling is active.
-/// Press F3 to toggle visibility.
-/// </summary>
-public partial class DebugScrollOverlay : Control
+namespace Archistrateia.Debug
+{
+    /// <summary>
+    /// Debug overlay that visualizes the scroll areas where mouse hover triggers map scrolling.
+    /// Shows translucent red rectangles at the edges of the game area where scrolling is active.
+    /// Press F3 to toggle visibility.
+    /// </summary>
+    public partial class DebugScrollOverlay : Control
 {
     private bool _isVisible = false;
     private Color _scrollAreaColor = new Color(1.0f, 0.0f, 0.0f, 0.3f); // Semi-transparent red
@@ -108,5 +110,6 @@ public partial class DebugScrollOverlay : Control
     {
         IsVisible = !IsVisible;
         GD.Print($"🔍 Debug scroll overlay {(IsVisible ? "enabled" : "disabled")}");
+    }
     }
 }
