@@ -52,15 +52,39 @@ namespace Archistrateia
         private VisualPositionManager _positionManager;
         private ViewportController _viewportController;
         private TileUnitCoordinator _tileUnitCoordinator;
+        private DebugScrollOverlay _debugScrollOverlay;
         private int _viewChangedDebugCounter = 0;
         private int _sliderDebugCounter = 0;
         
         // Centralized viewport size calculation to ensure consistency between tiles and units
+        // Returns the actual game grid area (excluding top bar, bottom bar, and sidebar)
         private Vector2 GetGameAreaSize()
         {
-            var gameAreaSize = GetViewport().GetVisibleRect().Size;
-            gameAreaSize.X -= 200; // Subtract sidebar width
-            return gameAreaSize;
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            const float TOP_BAR_HEIGHT = 60.0f;
+            const float BOTTOM_BAR_HEIGHT = 40.0f;
+            const float SIDEBAR_WIDTH = 200.0f;
+            
+            return new Vector2(
+                viewportSize.X - SIDEBAR_WIDTH, // width: remaining width after sidebar
+                viewportSize.Y - TOP_BAR_HEIGHT - BOTTOM_BAR_HEIGHT // height: remaining height after top and bottom bars
+            );
+        }
+
+        // Get the game grid area position and size as a Rect2
+        private Rect2 GetGameGridRect()
+        {
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            const float TOP_BAR_HEIGHT = 60.0f;
+            const float BOTTOM_BAR_HEIGHT = 40.0f;
+            const float SIDEBAR_WIDTH = 200.0f;
+            
+            return new Rect2(
+                0, // x: start at left edge (sidebar is on the right)
+                TOP_BAR_HEIGHT, // y: start after top bar
+                viewportSize.X - SIDEBAR_WIDTH, // width: remaining width after sidebar
+                viewportSize.Y - TOP_BAR_HEIGHT - BOTTOM_BAR_HEIGHT // height: remaining height after top and bottom bars
+            );
         }
 
         private const float EDGE_SCROLL_THRESHOLD = 50.0f; // pixels from edge to trigger scrolling
@@ -93,6 +117,11 @@ namespace Archistrateia
             _uiManager = new ModernUIManager();
             _uiManager.Name = "ModernUIManager";
             AddChild(_uiManager);
+            
+            // Create debug scroll overlay
+            _debugScrollOverlay = new DebugScrollOverlay();
+            _debugScrollOverlay.Name = "DebugScrollOverlay";
+            AddChild(_debugScrollOverlay);
             
             // Get references to UI elements from the modern UI
             _nextPhaseButton = _uiManager.GetNextPhaseButton();
@@ -978,37 +1007,53 @@ namespace Archistrateia
         private void HandleEdgeScrolling(double delta)
         {
             var mousePosition = GetViewport().GetMousePosition();
+            var gameGridRect = GetGameGridRect();
             var gameAreaSize = GetGameAreaSize();
+            var isScrollingNeeded = _viewportController != null && _viewportController.IsScrollingNeeded(gameAreaSize);
+            var isOverUIControls = IsMouseOverUIControls(mousePosition);
+            
+            // Update debug overlay to show scroll areas within the game grid area
+            _debugScrollOverlay?.UpdateScrollAreas(gameGridRect.Size, EDGE_SCROLL_THRESHOLD, isScrollingNeeded, gameGridRect.Position);
+            _debugScrollOverlay?.UpdateUIExclusions(mousePosition, isOverUIControls);
             
             // Only activate scrolling if the grid extends beyond the game area
-            if (_viewportController == null || !_viewportController.IsScrollingNeeded(gameAreaSize))
+            if (_viewportController == null || !isScrollingNeeded)
             {
                 return;
             }
             
             // Check if mouse is hovering over UI controls - if so, don't scroll
-            if (IsMouseOverUIControls(mousePosition))
+            if (isOverUIControls)
+            {
+                return;
+            }
+            
+            // Check if mouse is within the game grid area
+            if (!gameGridRect.HasPoint(mousePosition))
             {
                 return;
             }
             
             var scrollDelta = Vector2.Zero;
             
-            // Check if mouse is near edges of the game area
-            if (mousePosition.X < EDGE_SCROLL_THRESHOLD)
+            // Convert mouse position to game grid area coordinates
+            var localMousePos = mousePosition - gameGridRect.Position;
+            
+            // Check if mouse is near edges of the game grid area
+            if (localMousePos.X < EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.X = -SCROLL_SPEED * (float)delta;
             }
-            else if (mousePosition.X > gameAreaSize.X - EDGE_SCROLL_THRESHOLD)
+            else if (localMousePos.X > gameGridRect.Size.X - EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.X = SCROLL_SPEED * (float)delta;
             }
             
-            if (mousePosition.Y < EDGE_SCROLL_THRESHOLD)
+            if (localMousePos.Y < EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.Y = -SCROLL_SPEED * (float)delta;
             }
-            else if (mousePosition.Y > gameAreaSize.Y - EDGE_SCROLL_THRESHOLD)
+            else if (localMousePos.Y > gameGridRect.Size.Y - EDGE_SCROLL_THRESHOLD)
             {
                 scrollDelta.Y = SCROLL_SPEED * (float)delta;
             }
@@ -1024,10 +1069,22 @@ namespace Archistrateia
         {
             if (@event is InputEventKey keyEvent && keyEvent.Pressed)
             {
+                if (HandleDebugInput(keyEvent)) return;
                 if (HandlePhaseInput(keyEvent)) return;
                 if (HandleZoomInput(keyEvent)) return;
                 HandleScrollInput(keyEvent);
             }
+        }
+
+        private bool HandleDebugInput(InputEventKey keyEvent)
+        {
+            // F3: Toggle debug scroll overlay to visualize scroll areas
+            if (keyEvent.Keycode == Key.F3)
+            {
+                _debugScrollOverlay?.ToggleVisibility();
+                return true;
+            }
+            return false;
         }
 
         private bool HandlePhaseInput(InputEventKey keyEvent)
