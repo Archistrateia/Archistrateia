@@ -174,6 +174,8 @@ namespace Archistrateia.Tests
                 var main = mainInstance as Main;
                 main._Ready();
 
+                // UI initialization is now synchronous in Main._Ready()
+
                 // Find UI manager in the scene
                 ModernUIManager uiManager = null;
                 var children = main.GetChildren();
@@ -188,7 +190,7 @@ namespace Archistrateia.Tests
 
                 if (uiManager == null)
                 {
-                    GD.PrintErr("UI Manager not found in Main scene");
+                    GD.PrintErr("UI Manager not found in Main scene after deferred initialization");
                     mainInstance.QueueFree();
                     return false;
                 }
@@ -235,6 +237,8 @@ namespace Archistrateia.Tests
                 var main = mainInstance as Main;
                 main._Ready();
 
+                // UI initialization is now synchronous in Main._Ready()
+
                 // Find UI manager
                 ModernUIManager uiManager = null;
                 var children = main.GetChildren();
@@ -249,7 +253,7 @@ namespace Archistrateia.Tests
 
                 if (uiManager == null)
                 {
-                    GD.PrintErr("UI Manager not found");
+                    GD.PrintErr("UI Manager not found after deferred initialization");
                     mainInstance.QueueFree();
                     return false;
                 }
@@ -304,6 +308,8 @@ namespace Archistrateia.Tests
 
                 var main = mainInstance as Main;
                 main._Ready();
+
+                // UI initialization is now synchronous in Main._Ready()
 
                 // Test that map generation method exists and can be called
                 var mapGeneratorType = typeof(Main);

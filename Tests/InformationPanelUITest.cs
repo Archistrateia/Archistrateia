@@ -4,7 +4,7 @@ using Godot;
 namespace Archistrateia.Tests
 {
     [TestFixture]
-    public partial class InformationPanelTest : Node
+    public partial class InformationPanelUITest : Node
     {
         private InformationPanel _infoPanel;
 
@@ -14,11 +14,8 @@ namespace Archistrateia.Tests
             _infoPanel = new InformationPanel();
             AddChild(_infoPanel);
             
-            // Wait for the panel to be ready
+            // Ensure proper initialization by calling _Ready after the node is in the tree
             _infoPanel._Ready();
-            
-            // Verify panel is initialized
-            Assert.IsNotNull(_infoPanel, "Information panel should be initialized");
         }
 
         [Test]

@@ -105,8 +105,9 @@ namespace Archistrateia
 
             InitializeTerrainColors();
             
-            // Use CallDeferred to ensure viewport is ready before creating UI
-            CallDeferred(MethodName.InitializeUI);
+            // Initialize UI immediately - it's safe to do so in _Ready
+            // The viewport is guaranteed to be ready when _Ready is called
+            InitializeUI();
         }
 
         private void InitializeUI()

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archistrateia Test Suite
-# Usage: ./run_tests.sh [phase] [--ai-output]
+# Usage: ./run_tests.sh [phase] [--ai-output] [--show-failures-only]
 # 
 # Phases:
 #   all (default) - Run all test phases
@@ -11,17 +11,26 @@
 #
 # Output Modes:
 #   --ai-output - Optimized output for AI interpretation (JSON-like format)
+#   --show-failures-only - Show detailed output only for failing tests
 
 PHASE=${1:-all}
 AI_OUTPUT=false
+SHOW_FAILURES_ONLY=false
 
-# Check for AI output mode
-if [[ "$1" == "--ai-output" ]] || [[ "$2" == "--ai-output" ]]; then
-    AI_OUTPUT=true
-    if [[ "$1" == "--ai-output" ]]; then
-        PHASE=${2:-all}
-    fi
-fi
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --ai-output)
+            AI_OUTPUT=true
+            ;;
+        --show-failures-only)
+            SHOW_FAILURES_ONLY=true
+            ;;
+        nunit|scenes|ui|all)
+            PHASE=$arg
+            ;;
+    esac
+done
 
 if [ "$AI_OUTPUT" = true ]; then
     echo "TEST_SUITE_START"
@@ -77,6 +86,16 @@ run_nunit_tests() {
             echo "PHASE_1_STATUS: FAILED"
         fi
         echo "PHASE_1_END"
+    elif [ "$SHOW_FAILURES_ONLY" = true ] && [ "$NUNIT_FAILED" -gt 0 ]; then
+        echo "=== FAILING TESTS DETAILS ==="
+        echo "$OUTPUT" | grep -E "(FAIL|Failed|Exception|Error|✗)" -A 3 -B 1
+        echo ""
+        echo "=== SUMMARY ==="
+        echo "$OUTPUT" | tail -5
+        echo ""
+    elif [ "$SHOW_FAILURES_ONLY" = true ]; then
+        echo "✅ All NUnit tests passed - no failures to show"
+        echo ""
     else
         echo "$OUTPUT" | tail -10
         echo ""
@@ -95,14 +114,21 @@ run_scene_tests() {
     OUTPUT=$(/Applications/Godot_mono.app/Contents/MacOS/Godot --headless --quit-after 25 --main-scene res://Scenes/GodotSceneTestScene.tscn 2>&1)
     
     # Count test results
-    SCENE_PASSED=$(echo "$OUTPUT" | grep -c "✓ PASS" || echo "0")
-    SCENE_FAILED=$(echo "$OUTPUT" | grep -c "✗ FAIL" || echo "0")
+    SCENE_PASSED=$(echo "$OUTPUT" | grep -c "✓ PASS" 2>/dev/null | head -1 || echo "0")
+    SCENE_FAILED=$(echo "$OUTPUT" | grep -c "✗ FAIL" 2>/dev/null | head -1 || echo "0")
+    # Ensure we have valid numbers
+    SCENE_PASSED=${SCENE_PASSED:-0}
+    SCENE_FAILED=${SCENE_FAILED:-0}
     SCENE_TOTAL=$((SCENE_PASSED + SCENE_FAILED))
     
     # Extract specific issues
-    UI_MANAGER_ISSUE=$(echo "$OUTPUT" | grep -c "UI Manager not found" || echo "0")
-    MAP_GEN_ISSUE=$(echo "$OUTPUT" | grep -c "Map generation failed" || echo "0")
-    SCENE_LOAD_ISSUE=$(echo "$OUTPUT" | grep -c "Main Scene Loads Successfully" || echo "0")
+    UI_MANAGER_ISSUE=$(echo "$OUTPUT" | grep -c "UI Manager not found" 2>/dev/null | head -1 || echo "0")
+    MAP_GEN_ISSUE=$(echo "$OUTPUT" | grep -c "Map generation failed" 2>/dev/null | head -1 || echo "0")
+    SCENE_LOAD_ISSUE=$(echo "$OUTPUT" | grep -c "Main Scene Loads Successfully" 2>/dev/null | head -1 || echo "0")
+    # Ensure we have valid numbers
+    UI_MANAGER_ISSUE=${UI_MANAGER_ISSUE:-0}
+    MAP_GEN_ISSUE=${MAP_GEN_ISSUE:-0}
+    SCENE_LOAD_ISSUE=${SCENE_LOAD_ISSUE:-0}
     
     if [ "$AI_OUTPUT" = true ]; then
         echo "PHASE_2_RESULTS: PASSED=$SCENE_PASSED FAILED=$SCENE_FAILED TOTAL=$SCENE_TOTAL"
@@ -113,6 +139,16 @@ run_scene_tests() {
             echo "PHASE_2_STATUS: SUCCESS"
         fi
         echo "PHASE_2_END"
+    elif [ "$SHOW_FAILURES_ONLY" = true ] && [ "$SCENE_FAILED" -gt 0 ]; then
+        echo "=== FAILING SCENE TESTS DETAILS ==="
+        echo "$OUTPUT" | grep -E "(FAIL|Failed|Exception|Error|✗)" -A 3 -B 1
+        echo ""
+        echo "=== SUMMARY ==="
+        echo "$OUTPUT" | tail -10
+        echo ""
+    elif [ "$SHOW_FAILURES_ONLY" = true ]; then
+        echo "✅ All scene tests passed - no failures to show"
+        echo ""
     else
         echo "$OUTPUT" | tail -20
         echo ""
@@ -141,6 +177,16 @@ run_ui_tests() {
             echo "PHASE_3_STATUS: FAILED"
         fi
         echo "PHASE_3_END"
+    elif [ "$SHOW_FAILURES_ONLY" = true ] && [ "$UI_FAILED" -gt 0 ]; then
+        echo "=== FAILING UI TESTS DETAILS ==="
+        echo "$OUTPUT" | grep -E "(FAIL|Failed|Exception|Error|✗)" -A 3 -B 1
+        echo ""
+        echo "=== SUMMARY ==="
+        echo "$OUTPUT" | tail -10
+        echo ""
+    elif [ "$SHOW_FAILURES_ONLY" = true ]; then
+        echo "✅ All UI tests passed - no failures to show"
+        echo ""
     else
         echo "$OUTPUT" | tail -10
         echo ""
@@ -197,11 +243,12 @@ case $PHASE in
             echo "This comprehensive test suite covers both NUnit-testable logic"
             echo "and Godot-specific scene functionality that requires the engine."
             echo ""
-            echo "To run individual phases:"
-            echo "  ./run_tests.sh nunit   - Run only NUnit tests"
-            echo "  ./run_tests.sh scenes  - Run only Godot scene tests"
-            echo "  ./run_tests.sh ui      - Run only UI integration tests"
-            echo "  ./run_tests.sh --ai-output  - AI-optimized output format"
+                        echo "To run individual phases:"
+                        echo "  ./run_tests.sh nunit   - Run only NUnit tests"
+                        echo "  ./run_tests.sh scenes  - Run only Godot scene tests"
+                        echo "  ./run_tests.sh ui      - Run only UI integration tests"
+                        echo "  ./run_tests.sh --ai-output  - AI-optimized output format"
+                        echo "  ./run_tests.sh --show-failures-only  - Show detailed output only for failing tests"
         fi
         ;;
 esac 

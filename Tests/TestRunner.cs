@@ -24,7 +24,8 @@ namespace Archistrateia.Tests
                 // Get all test classes from the current assembly
                 var assembly = Assembly.GetExecutingAssembly();
                 var testClasses = assembly.GetTypes()
-                    .Where(t => t.GetCustomAttribute<TestFixtureAttribute>() != null)
+                    .Where(t => t.GetCustomAttribute<TestFixtureAttribute>() != null &&
+                               !t.Name.Contains("UI")) // Exclude UI tests - they run in Phase 3
                     .ToList();
 
                 GD.Print($"Found {testClasses.Count} test classes");

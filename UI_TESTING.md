@@ -42,6 +42,17 @@ This will run all test phases including UI tests.
 ./run_tests.sh nunit
 ```
 
+### Debug Mode for UI Tests
+```bash
+# Show only failing UI tests with full details
+./run_tests.sh ui --show-failures-only
+
+# Combine with AI output for automated analysis
+./run_tests.sh ui --show-failures-only --ai-output
+```
+
+The `--show-failures-only` option is particularly useful for UI tests since they often have complex initialization issues that are easier to debug when you can focus on just the failures.
+
 ### Manual UI Test Run
 ```bash
 # Build the project

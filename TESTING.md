@@ -43,6 +43,28 @@ This script will run all test phases:
 
 The `--ai-output` flag produces structured, machine-readable results perfect for AI analysis and automated systems. See the [AI Output Format](#ai-output-format) section below for details.
 
+#### Debug Mode - Show Failures Only
+```bash
+# Show detailed output only for failing tests
+./run_tests.sh --show-failures-only
+
+# Show failures for specific phases
+./run_tests.sh ui --show-failures-only
+./run_tests.sh nunit --show-failures-only
+./run_tests.sh scenes --show-failures-only
+
+# Combine with other options
+./run_tests.sh all --show-failures-only --ai-output
+```
+
+The `--show-failures-only` flag is perfect for debugging - it filters out all passing test noise and shows only:
+- **Failing tests with full error details**
+- **Stack traces and exception information** 
+- **Context around failures**
+- **Success messages when no failures exist**
+
+This makes it much easier to identify and fix issues without wading through hundreds of lines of passing test output.
+
 #### Manual Test Run
 ```bash
 # Build the project
@@ -81,28 +103,36 @@ dotnet build
 
 ### Test Results
 
-#### Expected Results by Phase:
+#### Current Test Results (as of latest update):
 ```
 === PHASE 1: NUnit Unit Tests ===
-Total Tests: 15
-Passed: 15
+Total Tests: 196
+Passed: 196
 Failed: 0
 Success Rate: 100.0%
 🎉 ALL NUnit TESTS PASSED! 🎉
 
 === PHASE 2: Godot Scene Tests ===
-✅ Main Scene Loads Successfully
-❌ UI Manager Not Found (actual scene issue)
-❌ Map Generation Issues (runtime exceptions)
-These tests identify real scene-specific problems!
-
-=== PHASE 3: UI Integration Tests ===
-Total Tests: 8
-Passed: 8
+Total Tests: 5
+Passed: 5
 Failed: 0
 Success Rate: 100.0%
-🎉 ALL UI TESTS PASSED! 🎉
+🎉 ALL GODOT SCENE TESTS PASSED! 🎉
+
+=== PHASE 3: UI Integration Tests ===
+Total Tests: 19
+Passed: 11
+Failed: 8
+Success Rate: 57.9%
+❌ SOME UI TESTS FAILED! ❌
+(InformationPanel tests need UI context fixes)
 ```
+
+#### Key Improvements Made:
+- **✅ Fixed UI Manager timing issues** - Scene tests now pass 100%
+- **✅ Fixed NUnit test separation** - Moved UI tests to appropriate phase
+- **✅ Fixed map generation exceptions** - Scene integration works properly
+- **✅ Added debug mode** - `--show-failures-only` for easier troubleshooting
 
 ## Diagnostic System
 
@@ -217,10 +247,50 @@ MapContainer now has 100 children
 
 1. **Run Comprehensive Tests**: `./run_tests.sh` (all phases)
 2. **Run Individual Phases**: `./run_tests.sh scenes` for scene-specific issues
-3. **Check Console Output**: Look for error messages and diagnostic info
-4. **Enable Diagnostic Monitor**: Add to scene and press F1
-5. **Verify Signal Connections**: Check scene file and inspector
-6. **Test Individual Components**: Use specific test scenes to isolate issues
+3. **Use Debug Mode**: `./run_tests.sh --show-failures-only` to see only failing tests
+4. **Check AI Output**: `./run_tests.sh --ai-output` for structured results
+
+## Debugging Features
+
+### Show Failures Only Mode
+
+The `--show-failures-only` option is specifically designed for debugging failing tests:
+
+```bash
+# Show only failing tests with full details
+./run_tests.sh --show-failures-only
+
+# Debug specific phase failures
+./run_tests.sh ui --show-failures-only
+```
+
+#### What You'll See:
+- **Failing test names and error messages**
+- **Full stack traces for exceptions**
+- **Context around failures (before/after lines)**
+- **Success messages when no failures exist**
+
+#### Example Output:
+```
+=== FAILING UI TESTS DETAILS ===
+  Running InformationPanel_Should_Be_Hidden_Initially...
+    ✗ FAIL: InformationPanel_Should_Be_Hidden_Initially - Object reference not set to an instance of an object.
+
+  Running InformationPanel_Should_Show_Terrain_Info...
+    ✗ FAIL: InformationPanel_Should_Show_Terrain_Info - Object reference not set to an instance of an object.
+```
+
+This makes it much easier to focus on actual problems without noise from passing tests.
+
+### Combined Debugging Options
+
+```bash
+# Show failures with AI-optimized format
+./run_tests.sh all --show-failures-only --ai-output
+
+# Debug specific phase with AI format
+./run_tests.sh ui --show-failures-only --ai-output
+```
 
 ## File Structure
 

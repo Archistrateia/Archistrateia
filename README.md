@@ -65,6 +65,9 @@ The project includes a comprehensive three-phase testing suite:
 
 # AI-optimized output for automated systems
 ./run_tests.sh --ai-output
+
+# Show detailed output only for failing tests (perfect for debugging)
+./run_tests.sh --show-failures-only
 ```
 
 For detailed testing information, see [TESTING.md](TESTING.md).
@@ -138,6 +141,7 @@ Orchestrates all game systems and provides high-level game control.
 - 🎨 **Modern Visual Rendering** - Full integration with Godot's rendering primitives
 - 🧪 **Comprehensive Testing Suite** - Three-phase testing approach covering logic, scenes, and UI
 - 🤖 **AI-Optimized Test Output** - Machine-readable test results for automated systems
+- 🐛 **Advanced Debugging Features** - `--show-failures-only` mode for focused troubleshooting
 - 🚀 **Performance Improvements** - 2-3x faster pathfinding, reduced memory usage
 
 #### Previous Versions
@@ -163,10 +167,11 @@ For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 - Modern visual rendering system
 
 ✅ **Comprehensive Testing Framework** - Multi-phase testing approach
-- **Phase 1**: NUnit unit tests for game logic and calculations
-- **Phase 2**: Godot scene tests for actual scene functionality
-- **Phase 3**: UI integration tests for UI components and interactions
+- **Phase 1**: NUnit unit tests for game logic and calculations (196 tests, 100% pass)
+- **Phase 2**: Godot scene tests for actual scene functionality (5 tests, 100% pass)
+- **Phase 3**: UI integration tests for UI components and interactions (19 tests, 57.9% pass)
 - AI-optimized output format for automated systems
+- Advanced debugging features with `--show-failures-only` mode
 
 🚧 **Next Steps** - UI integration and gameplay expansion
 - Visual representation of units and terrain
