@@ -5,6 +5,13 @@ namespace Archistrateia
 {
     public partial class MapRenderer : Node2D
     {
+        private enum HoverInfoKind
+        {
+            None,
+            Tile,
+            Unit
+        }
+
         public GameManager GameManager { get; private set; }
         private List<VisualUnit> _visualUnits = new List<VisualUnit>();
         private Dictionary<Vector2I, VisualHexTile> _visualTiles = new Dictionary<Vector2I, VisualHexTile>();
@@ -15,6 +22,17 @@ namespace Archistrateia
         private InformationPanel _informationPanel;
         private TileUnitCoordinator _tileUnitCoordinator;
         private Node2D _mapContainer;
+        private const float HOVER_INFO_SHOW_DELAY = 0.0f;
+        private const float HOVER_INFO_HIDE_GRACE = 0.08f;
+        private HoverInfoKind _pendingHoverKind = HoverInfoKind.None;
+        private VisualHexTile _pendingHoverTile;
+        private VisualUnit _pendingHoverUnit;
+        private float _pendingHoverElapsed = 0.0f;
+        private HoverInfoKind _activeHoverKind = HoverInfoKind.None;
+        private VisualHexTile _activeHoverTile;
+        private VisualUnit _activeHoverUnit;
+        private float _hideGraceRemaining = 0.0f;
+        private bool _hoverInfoModeEnabled = false;
 
         public void Initialize(GameManager gameManager, TileUnitCoordinator tileUnitCoordinator = null, Node2D mapContainer = null)
         {
@@ -86,6 +104,14 @@ namespace Archistrateia
                 {
                     visualUnit.UnitClicked -= OnUnitClicked;
                 }
+                if (visualUnit.IsConnected(VisualUnit.SignalName.UnitHovered, new Callable(this, MethodName.OnUnitHovered)))
+                {
+                    visualUnit.UnitHovered -= OnUnitHovered;
+                }
+                if (visualUnit.IsConnected(VisualUnit.SignalName.UnitUnhovered, new Callable(this, MethodName.OnUnitUnhovered)))
+                {
+                    visualUnit.UnitUnhovered -= OnUnitUnhovered;
+                }
                 visualUnit.QueueFree();
             }
             
@@ -126,6 +152,8 @@ namespace Archistrateia
             visualUnit.Initialize(logicalUnit, position, color);
             visualUnit.SetMapRenderer(this); // Set the MapRenderer reference
             visualUnit.UnitClicked += OnUnitClicked;
+            visualUnit.UnitHovered += OnUnitHovered;
+            visualUnit.UnitUnhovered += OnUnitUnhovered;
             
             _visualUnits.Add(visualUnit);
             
@@ -208,6 +236,18 @@ namespace Archistrateia
         {
             if (_visualUnits.Remove(visualUnit))
             {
+                if (visualUnit.IsConnected(VisualUnit.SignalName.UnitClicked, new Callable(this, MethodName.OnUnitClicked)))
+                {
+                    visualUnit.UnitClicked -= OnUnitClicked;
+                }
+                if (visualUnit.IsConnected(VisualUnit.SignalName.UnitHovered, new Callable(this, MethodName.OnUnitHovered)))
+                {
+                    visualUnit.UnitHovered -= OnUnitHovered;
+                }
+                if (visualUnit.IsConnected(VisualUnit.SignalName.UnitUnhovered, new Callable(this, MethodName.OnUnitUnhovered)))
+                {
+                    visualUnit.UnitUnhovered -= OnUnitUnhovered;
+                }
                 visualUnit.QueueFree();
             }
         }
@@ -318,23 +358,290 @@ namespace Archistrateia
 
         private void OnTileHovered(VisualHexTile hoveredTile)
         {
-            if (_informationPanel == null) return;
-
-            var gameMap = GameManager?.GameMap;
-            if (gameMap != null && gameMap.ContainsKey(hoveredTile.GridPosition))
-            {
-                var tile = gameMap[hoveredTile.GridPosition];
-                var mousePos = hoveredTile.GetGlobalMousePosition();
-                _informationPanel.ShowTerrainInfo(tile.TerrainType, tile.MovementCost, mousePos);
-            }
+            if (!_hoverInfoModeEnabled) return;
+            SetPendingHover(hoveredTile);
         }
 
         private void OnTileUnhovered(VisualHexTile unhoveredTile)
         {
-            if (_informationPanel != null)
+            if (!_hoverInfoModeEnabled) return;
+            if (_pendingHoverKind == HoverInfoKind.Tile && _pendingHoverTile == unhoveredTile)
             {
-                _informationPanel.Hide();
+                ClearPendingHover();
+                BeginHideGrace();
             }
+
+            if (_activeHoverKind == HoverInfoKind.Tile && _activeHoverTile == unhoveredTile)
+            {
+                BeginHideGrace();
+            }
+        }
+
+        private void OnUnitHovered(VisualUnit hoveredUnit)
+        {
+            if (!_hoverInfoModeEnabled) return;
+            SetPendingHover(hoveredUnit);
+        }
+
+        private void OnUnitUnhovered(VisualUnit unhoveredUnit)
+        {
+            if (!_hoverInfoModeEnabled) return;
+            if (_pendingHoverKind == HoverInfoKind.Unit && _pendingHoverUnit == unhoveredUnit)
+            {
+                ClearPendingHover();
+                BeginHideGrace();
+            }
+
+            if (_activeHoverKind == HoverInfoKind.Unit && _activeHoverUnit == unhoveredUnit)
+            {
+                BeginHideGrace();
+            }
+        }
+
+        public override void _Process(double delta)
+        {
+            if (_informationPanel == null)
+            {
+                return;
+            }
+
+            if (!_hoverInfoModeEnabled)
+            {
+                ClearPendingHover();
+                _hideGraceRemaining = 0.0f;
+                HideInformationPanel();
+                return;
+            }
+
+            var mousePos = GetViewport().GetMousePosition();
+            if (!ShouldAllowHoverInfo(mousePos))
+            {
+                ClearPendingHover();
+                _hideGraceRemaining = 0.0f;
+                HideInformationPanel();
+                return;
+            }
+
+            // Keep tooltip anchored near the cursor while hovered.
+            if (_activeHoverKind != HoverInfoKind.None && _informationPanel.Visible)
+            {
+                _informationPanel.UpdatePosition(mousePos);
+            }
+
+            if (_pendingHoverKind != HoverInfoKind.None)
+            {
+                _pendingHoverElapsed += (float)delta;
+                if (_pendingHoverElapsed >= HOVER_INFO_SHOW_DELAY)
+                {
+                    ShowPendingHoverInfo();
+                    _hideGraceRemaining = 0.0f;
+                }
+            }
+
+            if (_hideGraceRemaining > 0.0f)
+            {
+                _hideGraceRemaining -= (float)delta;
+                if (_hideGraceRemaining <= 0.0f && _pendingHoverKind == HoverInfoKind.None)
+                {
+                    HideInformationPanel();
+                }
+            }
+        }
+
+        private void SetPendingHover(VisualHexTile tile)
+        {
+            if (_pendingHoverKind == HoverInfoKind.Tile && _pendingHoverTile == tile)
+            {
+                return;
+            }
+
+            _pendingHoverKind = HoverInfoKind.Tile;
+            _pendingHoverTile = tile;
+            _pendingHoverUnit = null;
+            _pendingHoverElapsed = 0.0f;
+            _hideGraceRemaining = 0.0f;
+            ShowPendingHoverInfo();
+        }
+
+        private void SetPendingHover(VisualUnit unit)
+        {
+            if (_pendingHoverKind == HoverInfoKind.Unit && _pendingHoverUnit == unit)
+            {
+                return;
+            }
+
+            _pendingHoverKind = HoverInfoKind.Unit;
+            _pendingHoverUnit = unit;
+            _pendingHoverTile = null;
+            _pendingHoverElapsed = 0.0f;
+            _hideGraceRemaining = 0.0f;
+            ShowPendingHoverInfo();
+        }
+
+        private void ClearPendingHover()
+        {
+            _pendingHoverKind = HoverInfoKind.None;
+            _pendingHoverTile = null;
+            _pendingHoverUnit = null;
+            _pendingHoverElapsed = 0.0f;
+        }
+
+        private void BeginHideGrace()
+        {
+            _hideGraceRemaining = HOVER_INFO_HIDE_GRACE;
+        }
+
+        private void ShowPendingHoverInfo()
+        {
+            var gameMap = GameManager?.GameMap;
+            if (gameMap == null)
+            {
+                ClearPendingHover();
+                HideInformationPanel();
+                return;
+            }
+
+            var mousePos = GetViewport().GetMousePosition();
+
+            if (_pendingHoverKind == HoverInfoKind.Unit && _pendingHoverUnit != null)
+            {
+                var unitPos = FindUnitPosition(_pendingHoverUnit.LogicalUnit);
+                if (unitPos != null && gameMap.ContainsKey(unitPos.Value))
+                {
+                    var tile = gameMap[unitPos.Value];
+                    _informationPanel.ShowUnitInfo(_pendingHoverUnit.LogicalUnit, tile.TerrainType, tile.MovementCost, mousePos);
+                    _activeHoverKind = HoverInfoKind.Unit;
+                    _activeHoverUnit = _pendingHoverUnit;
+                    _activeHoverTile = null;
+                    ClearPendingHover();
+                    return;
+                }
+            }
+
+            if (_pendingHoverKind == HoverInfoKind.Tile && _pendingHoverTile != null && gameMap.ContainsKey(_pendingHoverTile.GridPosition))
+            {
+                var tile = gameMap[_pendingHoverTile.GridPosition];
+                _informationPanel.ShowTerrainInfo(tile.TerrainType, tile.MovementCost, mousePos);
+                _activeHoverKind = HoverInfoKind.Tile;
+                _activeHoverTile = _pendingHoverTile;
+                _activeHoverUnit = null;
+                ClearPendingHover();
+                return;
+            }
+
+            ClearPendingHover();
+            HideInformationPanel();
+        }
+
+        private void HideInformationPanel()
+        {
+            _activeHoverKind = HoverInfoKind.None;
+            _activeHoverTile = null;
+            _activeHoverUnit = null;
+            _informationPanel?.Hide();
+        }
+
+        public override void _Input(InputEvent @event)
+        {
+            if (@event is InputEventMouseMotion mouseMotion)
+            {
+                UpdateHoverTargetFromMouse(mouseMotion.GlobalPosition);
+            }
+        }
+
+        private bool ShouldAllowHoverInfo(Vector2 mousePosition)
+        {
+            if (!_hoverInfoModeEnabled)
+            {
+                return false;
+            }
+
+            var mainScene = GetTree().CurrentScene as Main;
+            if (mainScene == null)
+            {
+                return true;
+            }
+
+            return mainScene.IsMouseWithinGameArea(mousePosition) &&
+                   !mainScene.IsMouseOverUIControls(mousePosition);
+        }
+
+        private void UpdateHoverTargetFromMouse(Vector2 mousePosition)
+        {
+            if (!ShouldAllowHoverInfo(mousePosition))
+            {
+                ClearPendingHover();
+                BeginHideGrace();
+                return;
+            }
+
+            var hoveredUnit = GetHoveredUnitAt(mousePosition);
+            if (hoveredUnit != null)
+            {
+                SetPendingHover(hoveredUnit);
+                return;
+            }
+
+            var hoveredTile = GetHoveredTileAt(mousePosition);
+            if (hoveredTile != null)
+            {
+                SetPendingHover(hoveredTile);
+                return;
+            }
+
+            ClearPendingHover();
+            BeginHideGrace();
+        }
+
+        private VisualUnit GetHoveredUnitAt(Vector2 mousePosition)
+        {
+            // Prefer units over tiles, matching typical turn-based UX.
+            for (int i = _visualUnits.Count - 1; i >= 0; i--)
+            {
+                var unit = _visualUnits[i];
+                if (unit != null && unit.IsInsideTree() && unit.ContainsGlobalPoint(mousePosition))
+                {
+                    return unit;
+                }
+            }
+
+            return null;
+        }
+
+        public bool IsHoverInfoModeEnabled()
+        {
+            return _hoverInfoModeEnabled;
+        }
+
+        public void ToggleHoverInfoMode()
+        {
+            _hoverInfoModeEnabled = !_hoverInfoModeEnabled;
+            ClearPendingHover();
+            _hideGraceRemaining = 0.0f;
+            if (_hoverInfoModeEnabled)
+            {
+                if (IsInsideTree() && GetViewport() != null)
+                {
+                    UpdateHoverTargetFromMouse(GetViewport().GetMousePosition());
+                }
+            }
+            else
+            {
+                HideInformationPanel();
+            }
+        }
+
+        private VisualHexTile GetHoveredTileAt(Vector2 mousePosition)
+        {
+            foreach (var tile in _visualTiles.Values)
+            {
+                if (tile != null && tile.IsInsideTree() && tile.ContainsGlobalPoint(mousePosition))
+                {
+                    return tile;
+                }
+            }
+
+            return null;
         }
 
         private Vector2I? FindUnitPosition(Unit unit)

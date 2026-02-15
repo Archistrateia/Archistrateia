@@ -10,6 +10,7 @@ public partial class InformationPanel : Panel
     public override void _Ready()
     {
         Name = "InformationPanel";
+        MouseFilter = Control.MouseFilterEnum.Ignore;
         
         // Create container
         _container = new VBoxContainer();

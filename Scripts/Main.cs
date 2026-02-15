@@ -1024,6 +1024,7 @@ namespace Archistrateia
             {
                 if (HandleDebugInput(keyEvent)) return;
                 if (HandlePhaseInput(keyEvent)) return;
+                if (HandleHoverInfoModeInput(keyEvent)) return;
                 if (HandleZoomInput(keyEvent)) return;
                 HandleScrollInput(keyEvent);
             }
@@ -1051,6 +1052,20 @@ namespace Archistrateia
                 }
                 return true;
             }
+            return false;
+        }
+
+        private bool HandleHoverInfoModeInput(InputEventKey keyEvent)
+        {
+            if (keyEvent.Keycode == Key.I)
+            {
+                _mapRenderer?.ToggleHoverInfoMode();
+                bool enabled = _mapRenderer?.IsHoverInfoModeEnabled() ?? false;
+                GD.Print($"Hover info mode: {(enabled ? "ON" : "OFF")}");
+                GetViewport().SetInputAsHandled();
+                return true;
+            }
+
             return false;
         }
 

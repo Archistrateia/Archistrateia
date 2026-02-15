@@ -12,6 +12,12 @@ public partial class VisualUnit : Area2D
     [Signal]
     public delegate void UnitClickedEventHandler(VisualUnit visualUnit);
 
+    [Signal]
+    public delegate void UnitHoveredEventHandler(VisualUnit visualUnit);
+
+    [Signal]
+    public delegate void UnitUnhoveredEventHandler(VisualUnit visualUnit);
+
     public VisualUnit() { }
 
     public override void _Ready()
@@ -49,6 +55,8 @@ public partial class VisualUnit : Area2D
         Monitorable = false;
         
         Connect("input_event", new Callable(this, MethodName.OnInputEvent));
+        Connect("mouse_entered", new Callable(this, MethodName.OnMouseEntered));
+        Connect("mouse_exited", new Callable(this, MethodName.OnMouseExited));
     }
 
     public override void _Input(InputEvent @event)
@@ -87,6 +95,22 @@ public partial class VisualUnit : Area2D
             GD.Print($"🎯 UNIT CLICK DEBUG: Unit({LogicalUnit.Name}) at World({Position.X:F1},{Position.Y:F1}) clicked");
             EmitSignal(SignalName.UnitClicked, this);
         }
+    }
+
+    private void OnMouseEntered()
+    {
+        EmitSignal(SignalName.UnitHovered, this);
+    }
+
+    private void OnMouseExited()
+    {
+        EmitSignal(SignalName.UnitUnhovered, this);
+    }
+
+    public bool ContainsGlobalPoint(Vector2 globalPosition)
+    {
+        var localPos = ToLocal(globalPosition);
+        return localPos.Length() <= 20.0f * HexGridCalculator.ZoomFactor;
     }
 
     private void CreateVisualComponents(Color color)

@@ -271,6 +271,11 @@ public partial class VisualHexTile : Area2D
         return inside;
     }
 
+    public bool ContainsGlobalPoint(Vector2 globalPosition)
+    {
+        return IsPointInHexagon(ToLocal(globalPosition));
+    }
+
     public void SetHighlight(bool highlight, Color highlightColor = default)
     {
         _isHighlighted = highlight;
