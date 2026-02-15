@@ -38,6 +38,12 @@ namespace Archistrateia.Tests
                     var testMethods = testClass.GetMethods()
                         .Where(m => m.GetCustomAttribute<TestAttribute>() != null)
                         .ToList();
+                    var setUpMethods = testClass.GetMethods()
+                        .Where(m => m.GetCustomAttribute<SetUpAttribute>() != null)
+                        .ToList();
+                    var tearDownMethods = testClass.GetMethods()
+                        .Where(m => m.GetCustomAttribute<TearDownAttribute>() != null)
+                        .ToList();
 
                     foreach (var testMethod in testMethods)
                     {
@@ -49,8 +55,20 @@ namespace Archistrateia.Tests
                             // Create instance of test class
                             var testInstance = Activator.CreateInstance(testClass);
 
+                            // Run setup methods before each test
+                            foreach (var setUpMethod in setUpMethods)
+                            {
+                                setUpMethod.Invoke(testInstance, null);
+                            }
+
                             // Run the test method
                             testMethod.Invoke(testInstance, null);
+
+                            // Run teardown methods after each test
+                            foreach (var tearDownMethod in tearDownMethods)
+                            {
+                                tearDownMethod.Invoke(testInstance, null);
+                            }
 
                             GD.Print($"    ✓ PASS: {testMethod.Name}");
                             passedTests++;

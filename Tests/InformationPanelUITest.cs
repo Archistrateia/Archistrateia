@@ -51,7 +51,8 @@ namespace Archistrateia.Tests
         [Test]
         public void InformationPanel_Should_Handle_Viewport_Bounds()
         {
-            var viewportSize = GetViewport().GetVisibleRect().Size;
+            var viewport = GetViewport();
+            var viewportSize = viewport?.GetVisibleRect().Size ?? new Vector2(1024, 768);
             var mousePosition = new Vector2(viewportSize.X - 50, viewportSize.Y - 50);
             
             _infoPanel.ShowTerrainInfo(TerrainType.River, 3, mousePosition);
@@ -89,7 +90,7 @@ namespace Archistrateia.Tests
         public void InformationPanel_Should_Be_Panel_Node()
         {
             Assert.IsTrue(_infoPanel is Panel, "InformationPanel should inherit from Panel");
-            Assert.AreEqual("InformationPanel", _infoPanel.Name, "Panel should have correct name");
+            Assert.AreEqual("InformationPanel", _infoPanel.Name.ToString(), "Panel should have correct name");
         }
 
         [Test]

@@ -6,9 +6,16 @@ public partial class InformationPanel : Panel
     private Label _movementCostLabel;
     private Label _unitLabel;
     private VBoxContainer _container;
+    private bool _isInitialized;
 
     public override void _Ready()
     {
+        if (_isInitialized)
+        {
+            return;
+        }
+
+        _isInitialized = true;
         Name = "InformationPanel";
         MouseFilter = Control.MouseFilterEnum.Ignore;
         
@@ -46,6 +53,7 @@ public partial class InformationPanel : Panel
 
     public void ShowTerrainInfo(TerrainType terrainType, int movementCost, Vector2 position)
     {
+        EnsureInitialized();
         _terrainLabel.Text = $"Terrain: {terrainType}";
         _movementCostLabel.Text = $"Movement Cost: {movementCost}";
         _unitLabel.Text = "Unit: None";
@@ -56,6 +64,7 @@ public partial class InformationPanel : Panel
 
     public void ShowUnitInfo(Unit unit, TerrainType terrainType, int movementCost, Vector2 position)
     {
+        EnsureInitialized();
         _terrainLabel.Text = $"Terrain: {terrainType}";
         _movementCostLabel.Text = $"Movement Cost: {movementCost}";
         _unitLabel.Text = $"Unit: {unit.Name}";
@@ -71,8 +80,16 @@ public partial class InformationPanel : Panel
 
     public void UpdatePosition(Vector2 mousePosition)
     {
-        var viewportSize = GetViewport().GetVisibleRect().Size;
+        var viewport = GetViewport();
         Vector2 panelPos = mousePosition + new Vector2(10, 10);
+
+        if (viewport == null)
+        {
+            Position = panelPos;
+            return;
+        }
+
+        var viewportSize = viewport.GetVisibleRect().Size;
         
         // Keep panel within viewport bounds
         if (panelPos.X + Size.X > viewportSize.X)
@@ -81,5 +98,15 @@ public partial class InformationPanel : Panel
             panelPos.Y = mousePosition.Y - Size.Y - 10;
             
         Position = panelPos;
+    }
+
+    private void EnsureInitialized()
+    {
+        if (_isInitialized)
+        {
+            return;
+        }
+
+        _Ready();
     }
 }
