@@ -10,8 +10,16 @@ namespace Archistrateia
         private int _mapHeight;
         private readonly Action _onViewChanged;
         private int _debugCounter = 0;
+        private const float EDGE_SCROLL_THRESHOLD = 50.0f; // pixels from edge to trigger scrolling
+        private const float SCROLL_SPEED = 300.0f; // pixels per second
+        private const float EDGE_SCROLL_START_DELAY = 0.18f; // short delay before edge scrolling starts
+        private const float KEYBOARD_SCROLL_OVERRIDE_DURATION = 0.35f; // arrow-key scrolling temporarily overrides mouse edge scrolling
+        private Vector2 _pendingEdgeScrollDirection = Vector2.Zero;
+        private float _edgeScrollHoverTime = 0.0f;
+        private float _keyboardScrollOverrideRemaining = 0.0f;
 
         public Vector2 ScrollOffset => _scrollOffset;
+        public float EdgeScrollThreshold => EDGE_SCROLL_THRESHOLD;
 
         public ViewportController(int mapWidth, int mapHeight, Action onViewChanged = null)
         {
@@ -103,8 +111,16 @@ namespace Archistrateia
 
         public bool HandleKeyboardInput(InputEventKey keyEvent, Vector2 gameAreaSize)
         {
-            return HandleZoomInput(keyEvent) || 
-                   HandleScrollInput(keyEvent, gameAreaSize);
+            var handled = HandleZoomInput(keyEvent) ||
+                          HandleScrollInput(keyEvent, gameAreaSize);
+
+            if (handled && IsArrowScrollKey(keyEvent))
+            {
+                _keyboardScrollOverrideRemaining = KEYBOARD_SCROLL_OVERRIDE_DURATION;
+                ResetEdgeScrollDelay();
+            }
+
+            return handled;
         }
 
         public bool HandleZoomInput(InputEventKey keyEvent)
@@ -222,9 +238,111 @@ namespace Archistrateia
             ApplyScrollDelta(scrollDelta, gameAreaSize);
         }
 
+        public void Update(double delta)
+        {
+            if (_keyboardScrollOverrideRemaining > 0.0f)
+            {
+                _keyboardScrollOverrideRemaining = Mathf.Max(0.0f, _keyboardScrollOverrideRemaining - (float)delta);
+            }
+        }
+
+        public void HandleEdgeScrolling(Vector2 mousePosition, Rect2 gameGridRect, Vector2 gameAreaSize, bool isOverUIControls, double delta)
+        {
+            // Only activate scrolling if the grid extends beyond the game area
+            if (!IsScrollingNeeded(gameAreaSize))
+            {
+                ResetEdgeScrollDelay();
+                return;
+            }
+
+            if (isOverUIControls)
+            {
+                ResetEdgeScrollDelay();
+                return;
+            }
+
+            // If keyboard scrolling just occurred, suppress edge scrolling briefly.
+            if (_keyboardScrollOverrideRemaining > 0.0f)
+            {
+                ResetEdgeScrollDelay();
+                return;
+            }
+
+            if (!gameGridRect.HasPoint(mousePosition))
+            {
+                ResetEdgeScrollDelay();
+                return;
+            }
+
+            // Convert mouse position to game grid area coordinates
+            var localMousePos = mousePosition - gameGridRect.Position;
+
+            var edgeDirection = GetEdgeScrollDirection(localMousePos, gameGridRect.Size);
+            if (edgeDirection == Vector2.Zero)
+            {
+                ResetEdgeScrollDelay();
+                return;
+            }
+
+            if (edgeDirection != _pendingEdgeScrollDirection)
+            {
+                _pendingEdgeScrollDirection = edgeDirection;
+                _edgeScrollHoverTime = 0.0f;
+                return;
+            }
+
+            _edgeScrollHoverTime += (float)delta;
+            if (_edgeScrollHoverTime < EDGE_SCROLL_START_DELAY)
+            {
+                return;
+            }
+
+            var scrollDelta = edgeDirection * SCROLL_SPEED * (float)delta;
+            ApplyScrollDelta(scrollDelta, gameAreaSize);
+        }
+
         public float CalculateOptimalZoom(Vector2 viewportSize)
         {
             return HexGridCalculator.CalculateOptimalZoom(viewportSize, _mapWidth, _mapHeight);
+        }
+
+        private Vector2 GetEdgeScrollDirection(Vector2 localMousePos, Vector2 gridSize)
+        {
+            var direction = Vector2.Zero;
+
+            if (localMousePos.X < EDGE_SCROLL_THRESHOLD)
+            {
+                direction.X = -1.0f;
+            }
+            else if (localMousePos.X > gridSize.X - EDGE_SCROLL_THRESHOLD)
+            {
+                direction.X = 1.0f;
+            }
+
+            if (localMousePos.Y < EDGE_SCROLL_THRESHOLD)
+            {
+                direction.Y = -1.0f;
+            }
+            else if (localMousePos.Y > gridSize.Y - EDGE_SCROLL_THRESHOLD)
+            {
+                direction.Y = 1.0f;
+            }
+
+            return direction;
+        }
+
+        private void ResetEdgeScrollDelay()
+        {
+            _pendingEdgeScrollDirection = Vector2.Zero;
+            _edgeScrollHoverTime = 0.0f;
+        }
+
+        private static bool IsArrowScrollKey(InputEventKey keyEvent)
+        {
+            return keyEvent.Keycode == Key.Up ||
+                   keyEvent.Keycode == Key.Down ||
+                   keyEvent.Keycode == Key.Left ||
+                   keyEvent.Keycode == Key.Right;
         }
 
         private Vector4 CalculateSmartScrollLimits(Vector2 gameAreaSize)

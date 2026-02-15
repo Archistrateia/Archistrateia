@@ -87,9 +87,6 @@ namespace Archistrateia
             );
         }
 
-        private const float EDGE_SCROLL_THRESHOLD = 50.0f; // pixels from edge to trigger scrolling
-        private const float SCROLL_SPEED = 300.0f; // pixels per second
-
         public override void _Ready()
         {
             // Try to find UI elements if references are null
@@ -1002,6 +999,7 @@ namespace Archistrateia
 
         public override void _Process(double delta)
         {
+            _viewportController?.Update(delta);
             HandleEdgeScrolling(delta);
         }
 
@@ -1014,56 +1012,10 @@ namespace Archistrateia
             var isOverUIControls = IsMouseOverUIControls(mousePosition);
             
             // Update debug overlay to show scroll areas within the game grid area
-            _debugScrollOverlay?.UpdateScrollAreas(gameGridRect.Size, EDGE_SCROLL_THRESHOLD, isScrollingNeeded, gameGridRect.Position);
+            var edgeScrollThreshold = _viewportController?.EdgeScrollThreshold ?? 50.0f;
+            _debugScrollOverlay?.UpdateScrollAreas(gameGridRect.Size, edgeScrollThreshold, isScrollingNeeded, gameGridRect.Position);
             _debugScrollOverlay?.UpdateUIExclusions(mousePosition, isOverUIControls);
-            
-            // Only activate scrolling if the grid extends beyond the game area
-            if (_viewportController == null || !isScrollingNeeded)
-            {
-                return;
-            }
-            
-            // Check if mouse is hovering over UI controls - if so, don't scroll
-            if (isOverUIControls)
-            {
-                return;
-            }
-            
-            // Check if mouse is within the game grid area
-            if (!gameGridRect.HasPoint(mousePosition))
-            {
-                return;
-            }
-            
-            var scrollDelta = Vector2.Zero;
-            
-            // Convert mouse position to game grid area coordinates
-            var localMousePos = mousePosition - gameGridRect.Position;
-            
-            // Check if mouse is near edges of the game grid area
-            if (localMousePos.X < EDGE_SCROLL_THRESHOLD)
-            {
-                scrollDelta.X = -SCROLL_SPEED * (float)delta;
-            }
-            else if (localMousePos.X > gameGridRect.Size.X - EDGE_SCROLL_THRESHOLD)
-            {
-                scrollDelta.X = SCROLL_SPEED * (float)delta;
-            }
-            
-            if (localMousePos.Y < EDGE_SCROLL_THRESHOLD)
-            {
-                scrollDelta.Y = -SCROLL_SPEED * (float)delta;
-            }
-            else if (localMousePos.Y > gameGridRect.Size.Y - EDGE_SCROLL_THRESHOLD)
-            {
-                scrollDelta.Y = SCROLL_SPEED * (float)delta;
-            }
-            
-            // Apply scroll delta if any
-            if (scrollDelta != Vector2.Zero)
-            {
-                _viewportController.ApplyScrollDelta(scrollDelta, gameAreaSize);
-            }
+            _viewportController?.HandleEdgeScrolling(mousePosition, gameGridRect, gameAreaSize, isOverUIControls, delta);
         }
 
         public override void _UnhandledInput(InputEvent @event)
