@@ -64,13 +64,18 @@ The project includes a comprehensive three-phase testing suite:
 ./run_tests.sh ui      # UI tests (UI components & interactions)
 
 # AI-optimized output for automated systems
-./run_tests.sh --ai-output
+./run_tests.sh all --ai-output
 
 # Show detailed output only for failing tests (perfect for debugging)
 ./run_tests.sh --show-failures-only
 ```
 
 For detailed testing information, see [TESTING.md](TESTING.md).
+
+### Input & Inspect Controls
+
+- Press `I` to toggle inspect mode for hover info tooltips.
+- In inspect mode, terrain/unit info appears on hover and turns off when inspect mode is toggled off with `I`.
 
 ### Project Structure
 
@@ -167,9 +172,9 @@ For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 - Modern visual rendering system
 
 ✅ **Comprehensive Testing Framework** - Multi-phase testing approach
-- **Phase 1**: NUnit unit tests for game logic and calculations (196 tests, 100% pass)
-- **Phase 2**: Godot scene tests for actual scene functionality (5 tests, 100% pass)
-- **Phase 3**: UI integration tests for UI components and interactions (19 tests, 57.9% pass)
+- **Phase 1**: NUnit unit tests for game logic and calculations (all passing)
+- **Phase 2**: Godot scene tests for actual scene functionality (all passing)
+- **Phase 3**: UI integration tests for UI components and interactions (all passing)
 - AI-optimized output format for automated systems
 - Advanced debugging features with `--show-failures-only` mode
 

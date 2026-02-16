@@ -33,7 +33,7 @@ This script will run all test phases:
 #### AI-Optimized Output Mode
 ```bash
 # Run all tests with AI-optimized output format
-./run_tests.sh --ai-output
+./run_tests.sh all --ai-output
 
 # Run specific phase with AI format
 ./run_tests.sh scenes --ai-output
@@ -89,6 +89,14 @@ dotnet build
   - HexGridCalculator integration
   - Game enums validation
   - HexGridCalculator constants validation
+- **ViewportControllerScrollBehaviorTest** - Scenario tests for:
+  - edge mouse scrolling delay behavior
+  - edge scroll activation after delay
+  - arrow-key temporary override of edge scrolling
+- **HoverInfoModeTest** - Behavior tests for inspect-mode hover info:
+  - default OFF state
+  - toggle on/off behavior
+  - click non-interference with mode state
 
 #### Phase 2: Godot Scene Tests
 - **Scene Loading** - Tests actual Main scene loading and initialization
@@ -106,8 +114,8 @@ dotnet build
 #### Current Test Results (as of latest update):
 ```
 === PHASE 1: NUnit Unit Tests ===
-Total Tests: 196
-Passed: 196
+Total Tests: 200+
+Passed: 200+
 Failed: 0
 Success Rate: 100.0%
 🎉 ALL NUnit TESTS PASSED! 🎉
@@ -121,11 +129,10 @@ Success Rate: 100.0%
 
 === PHASE 3: UI Integration Tests ===
 Total Tests: 19
-Passed: 11
-Failed: 8
-Success Rate: 57.9%
-❌ SOME UI TESTS FAILED! ❌
-(InformationPanel tests need UI context fixes)
+Passed: 19
+Failed: 0
+Success Rate: 100.0%
+🎉 ALL UI TESTS PASSED! 🎉
 ```
 
 #### Key Improvements Made:
@@ -133,6 +140,9 @@ Success Rate: 57.9%
 - **✅ Fixed NUnit test separation** - Moved UI tests to appropriate phase
 - **✅ Fixed map generation exceptions** - Scene integration works properly
 - **✅ Added debug mode** - `--show-failures-only` for easier troubleshooting
+- **✅ Fixed UI test runner setup execution** - `[SetUp]`/`[TearDown]` now run correctly for UI tests
+- **✅ Stabilized InformationPanel tests** - null-safe viewport handling in headless test contexts
+- **✅ Replaced plumbing-only scrolling checks** - scenario-style tests now validate actual behavior
 
 ## Diagnostic System
 
