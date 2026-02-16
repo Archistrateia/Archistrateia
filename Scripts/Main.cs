@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Archistrateia;
@@ -35,6 +36,14 @@ namespace Archistrateia
         private Button _regenerateMapButton;
         private Label _mapTypeDescriptionLabel;
         private MapType _currentMapType = MapType.Continental;
+        private OptionButton _purchaseUnitSelector;
+        private Label _purchaseUnitDetailsLabel;
+        private Label _purchaseGoldLabel;
+        private Label _purchaseStatusLabel;
+        private Button _purchaseBuyButton;
+        private Button _purchaseCancelButton;
+        private readonly PurchaseCoordinator _purchaseCoordinator = new();
+        private readonly SemicircleDeploymentService _deploymentService = new();
         
         // Debug functionality
         private Button _debugAdjacentButton;
@@ -128,6 +137,12 @@ namespace Archistrateia
             StartButton = _uiManager.GetStartGameButton();
             _zoomSlider = _uiManager.GetZoomSlider();
             _zoomLabel = _uiManager.GetZoomLabel();
+            _purchaseUnitSelector = _uiManager.GetPurchaseUnitSelector();
+            _purchaseUnitDetailsLabel = _uiManager.GetPurchaseUnitDetailsLabel();
+            _purchaseGoldLabel = _uiManager.GetPurchaseGoldLabel();
+            _purchaseStatusLabel = _uiManager.GetPurchaseStatusLabel();
+            _purchaseBuyButton = _uiManager.GetPurchaseBuyButton();
+            _purchaseCancelButton = _uiManager.GetPurchaseCancelButton();
             
             // Initialize centralized services
             InitializeCentralizedServices();
@@ -157,9 +172,26 @@ namespace Archistrateia
             {
                 StartButton.Pressed += OnStartButtonPressed;
             }
+
+            if (_purchaseUnitSelector != null)
+            {
+                PopulatePurchaseUnitSelector();
+                _purchaseUnitSelector.ItemSelected += OnPurchaseUnitSelected;
+            }
+
+            if (_purchaseBuyButton != null)
+            {
+                _purchaseBuyButton.Pressed += OnPurchaseBuyPressed;
+            }
+
+            if (_purchaseCancelButton != null)
+            {
+                _purchaseCancelButton.Pressed += OnPurchaseCancelPressed;
+            }
             
             // Generate initial map before game starts
             GenerateMap();
+            SetPurchaseUIVisible(false);
             
             GD.Print("✨ Modern UI initialization complete");
         }
@@ -456,6 +488,225 @@ namespace Archistrateia
             // Note: Zoom controls are now handled by modern UI (don't need manual positioning)
             
             // Status panel is now handled by ModernUIManager
+        }
+
+        private void PopulatePurchaseUnitSelector()
+        {
+            _purchaseUnitSelector?.Clear();
+            if (_purchaseUnitSelector == null)
+            {
+                return;
+            }
+
+            foreach (var blueprint in UnitCatalog.GetAll())
+            {
+                _purchaseUnitSelector.AddItem(blueprint.DisplayName);
+            }
+
+            _purchaseUnitSelector.Selected = 0;
+            UpdateSelectedPurchaseUnitDetails();
+        }
+
+        private Player GetCurrentPlayer()
+        {
+            if (_gameManager == null || _gameManager.Players.Count == 0)
+            {
+                return null;
+            }
+
+            if (_currentPlayerIndex < 0 || _currentPlayerIndex >= _gameManager.Players.Count)
+            {
+                return null;
+            }
+
+            return _gameManager.Players[_currentPlayerIndex];
+        }
+
+        private UnitBlueprint GetSelectedBlueprint()
+        {
+            if (_purchaseUnitSelector == null || _purchaseUnitSelector.Selected < 0)
+            {
+                return null;
+            }
+
+            var selectedIndex = (int)_purchaseUnitSelector.Selected;
+            var all = UnitCatalog.GetAll();
+            if (selectedIndex >= all.Count)
+            {
+                return null;
+            }
+
+            return all[selectedIndex];
+        }
+
+        private void OnPurchaseUnitSelected(long index)
+        {
+            UpdateSelectedPurchaseUnitDetails();
+            RefreshPurchaseUI();
+        }
+
+        private void UpdateSelectedPurchaseUnitDetails()
+        {
+            if (_purchaseUnitDetailsLabel == null)
+            {
+                return;
+            }
+
+            var blueprint = GetSelectedBlueprint();
+            if (blueprint == null)
+            {
+                _purchaseUnitDetailsLabel.Text = "Select a unit";
+                return;
+            }
+
+            int recommendedCost = UnitValuationPolicy.GetRecommendedCost(blueprint.Attack, blueprint.Defense, blueprint.MovementPoints);
+            _purchaseUnitDetailsLabel.Text =
+                $"ATK {blueprint.Attack} | DEF {blueprint.Defense} | MP {blueprint.MovementPoints}\n" +
+                $"Cost {blueprint.Cost} | Value {blueprint.ValueScore:F1} (rec {recommendedCost})";
+        }
+
+        private void SetPurchaseStatus(string message)
+        {
+            if (_purchaseStatusLabel != null)
+            {
+                _purchaseStatusLabel.Text = message;
+            }
+        }
+
+        private void RefreshPurchaseUI()
+        {
+            var currentPlayer = GetCurrentPlayer();
+            if (_purchaseGoldLabel != null)
+            {
+                _purchaseGoldLabel.Text = $"Gold: {currentPlayer?.Gold ?? 0}";
+            }
+
+            var selectedBlueprint = GetSelectedBlueprint();
+            bool canAfford = currentPlayer != null && selectedBlueprint != null && currentPlayer.Gold >= selectedBlueprint.Cost;
+            bool isPurchasePhase = TurnManager != null && TurnManager.CurrentPhase == GamePhase.Purchase;
+            bool hasValidTiles = false;
+            if (_gameManager != null && isPurchasePhase && currentPlayer != null)
+            {
+                hasValidTiles = _deploymentService.GetDeployableTilesForPlayer(
+                    _gameManager.GameMap,
+                    _currentPlayerIndex,
+                    _gameManager.Players.Count
+                ).Count > 0;
+            }
+
+            if (_purchaseBuyButton != null)
+            {
+                _purchaseBuyButton.Disabled = !isPurchasePhase || !canAfford || !hasValidTiles;
+            }
+
+            if (_purchaseCancelButton != null)
+            {
+                _purchaseCancelButton.Disabled = !_purchaseCoordinator.HasPendingPurchase;
+            }
+
+            if (isPurchasePhase && !hasValidTiles && !_purchaseCoordinator.HasPendingPurchase)
+            {
+                SetPurchaseStatus("No valid deployment tiles available.");
+            }
+        }
+
+        private void SetPurchaseUIVisible(bool visible)
+        {
+            _uiManager?.SetPurchasePanelVisible(visible);
+            if (!visible)
+            {
+                _mapRenderer?.ClearPurchasePlacementTiles();
+            }
+        }
+
+        private void OnPurchaseBuyPressed()
+        {
+            if (TurnManager == null || _gameManager == null || TurnManager.CurrentPhase != GamePhase.Purchase)
+            {
+                SetPurchaseStatus("Purchase is only available during the Purchase phase.");
+                return;
+            }
+
+            var currentPlayer = GetCurrentPlayer();
+            var selectedBlueprint = GetSelectedBlueprint();
+            if (currentPlayer == null || selectedBlueprint == null)
+            {
+                SetPurchaseStatus("Unable to start purchase.");
+                return;
+            }
+
+            var selectionResult = _purchaseCoordinator.BeginSelection(
+                currentPlayer,
+                _currentPlayerIndex,
+                selectedBlueprint.UnitType,
+                _gameManager.GameMap,
+                _gameManager.Players.Count
+            );
+
+            if (!selectionResult.Success)
+            {
+                _mapRenderer?.ClearPurchasePlacementTiles();
+                SetPurchaseStatus(selectionResult.ErrorMessage);
+                RefreshPurchaseUI();
+                return;
+            }
+
+            _mapRenderer?.ShowPurchasePlacementTiles(selectionResult.ValidPlacementTiles);
+            SetPurchaseStatus("Select a highlighted deployment tile to place your unit.");
+            RefreshPurchaseUI();
+        }
+
+        private void OnPurchaseCancelPressed()
+        {
+            _purchaseCoordinator.CancelPendingPurchase();
+            _mapRenderer?.ClearPurchasePlacementTiles();
+            SetPurchaseStatus("Purchase cancelled.");
+            RefreshPurchaseUI();
+        }
+
+        private void OnPurchaseTileClicked(Vector2I tilePosition)
+        {
+            if (TurnManager == null || _gameManager == null || TurnManager.CurrentPhase != GamePhase.Purchase)
+            {
+                return;
+            }
+
+            if (!_purchaseCoordinator.HasPendingPurchase)
+            {
+                SetPurchaseStatus("Choose a unit and press Buy + Place first.");
+                return;
+            }
+
+            var currentPlayer = GetCurrentPlayer();
+            if (currentPlayer == null)
+            {
+                SetPurchaseStatus("No active player.");
+                return;
+            }
+
+            var placeResult = _purchaseCoordinator.TryPlacePendingUnit(
+                currentPlayer,
+                _currentPlayerIndex,
+                tilePosition,
+                _gameManager.GameMap,
+                _gameManager.Players.Count
+            );
+
+            if (!placeResult.Success)
+            {
+                SetPurchaseStatus(placeResult.ErrorMessage);
+                RefreshPurchaseUI();
+                return;
+            }
+
+            var playerColor = _tileUnitCoordinator.GetPlayerColor(currentPlayer.Name);
+            var worldPosition = _positionManager.CalculateWorldPosition(tilePosition);
+            _mapRenderer?.CreateVisualUnit(placeResult.PurchasedUnit, worldPosition, playerColor);
+            _mapRenderer?.UpdateTileOccupationStatus();
+            _mapRenderer?.ClearPurchasePlacementTiles();
+
+            SetPurchaseStatus($"Placed {placeResult.PurchasedUnit.Name}.");
+            RefreshPurchaseUI();
         }
 
         public void OnStartButtonPressed()
@@ -773,6 +1024,7 @@ namespace Archistrateia
             _mapRenderer.Name = "MapRenderer";
             AddChild(_mapRenderer);
             _mapRenderer.Initialize(_gameManager, _tileUnitCoordinator, _mapContainer);
+            _mapRenderer.PurchaseTileClicked += OnPurchaseTileClicked;
             
             // Connect MapRenderer to GameManager for phase change notifications
             _gameManager.SetMapRenderer(_mapRenderer);
@@ -799,6 +1051,7 @@ namespace Archistrateia
             
             // Update initial tile occupation status
             _mapRenderer.UpdateTileOccupationStatus();
+            RefreshPurchaseUI();
         }
 
         private void RegisterVisualTilesWithMapRenderer()
@@ -830,21 +1083,24 @@ namespace Archistrateia
         private void OnNextPhaseButtonPressed()
         {
             GD.Print("🔘 Next Phase button pressed");
-            
+            AdvancePhaseWithSideEffects();
+        }
+
+        private void AdvancePhaseWithSideEffects()
+        {
             if (TurnManager == null)
             {
                 GD.PrintErr("❌ TurnManager is null! Cannot advance phase.");
                 return;
             }
-            
+
             GD.Print($"📋 Current phase before advance: {TurnManager.CurrentPhase}");
-            
+
             try
             {
                 TurnManager.AdvancePhase();
                 GD.Print($"📋 New phase after advance: {TurnManager.CurrentPhase}");
-                
-                // Handle phase-specific actions with GameManager
+
                 if (_gameManager != null)
                 {
                     HandlePhaseChange(TurnManager.CurrentPhase);
@@ -853,8 +1109,7 @@ namespace Archistrateia
                 {
                     GD.PrintErr("❌ GameManager is null! Cannot handle phase change.");
                 }
-                
-                // Update MapRenderer with new phase
+
                 if (_mapRenderer != null)
                 {
                     _mapRenderer.OnPhaseChanged(TurnManager.CurrentPhase);
@@ -863,11 +1118,12 @@ namespace Archistrateia
                 {
                     GD.PrintErr("❌ MapRenderer is null! Cannot update phase.");
                 }
-                
+
                 UpdateTitleLabel();
+                RefreshPurchaseUI();
                 GD.Print("✅ Phase advance completed successfully");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 GD.PrintErr($"❌ Error advancing phase: {ex.Message}");
                 GD.PrintErr($"Stack trace: {ex.StackTrace}");
@@ -886,15 +1142,28 @@ namespace Archistrateia
             {
                 case GamePhase.Earn:
                     GD.Print("=== EARN PHASE: Processing city income ===");
+                    _purchaseCoordinator.CancelPendingPurchase();
+                    _mapRenderer?.ClearPurchasePlacementTiles();
+                    SetPurchaseUIVisible(false);
                     _gameManager.ProcessEarnPhase();
                     // Switch to next player at start of new turn
                     SwitchToNextPlayer();
+                    SetPurchaseStatus("Earn phase");
+                    RefreshPurchaseUI();
                     break;
                 case GamePhase.Purchase:
                     GD.Print("=== PURCHASE PHASE: Players can buy units ===");
+                    _purchaseCoordinator.CancelPendingPurchase();
+                    SetPurchaseUIVisible(true);
+                    UpdateSelectedPurchaseUnitDetails();
+                    SetPurchaseStatus("Choose a unit to buy.");
+                    RefreshPurchaseUI();
                     break;
                 case GamePhase.Move:
                     GD.Print("=== MOVE PHASE: Units can move ===");
+                    _purchaseCoordinator.CancelPendingPurchase();
+                    _mapRenderer?.ClearPurchasePlacementTiles();
+                    SetPurchaseUIVisible(false);
                     foreach (var player in _gameManager.Players)
                     {
                         player.ResetUnitMovement();
@@ -904,9 +1173,14 @@ namespace Archistrateia
                     {
                         _mapRenderer.DeselectAll();
                     }
+                    SetPurchaseStatus("Move phase");
                     break;
                 case GamePhase.Combat:
                     GD.Print("=== COMBAT PHASE: Combat resolution ===");
+                    _purchaseCoordinator.CancelPendingPurchase();
+                    _mapRenderer?.ClearPurchasePlacementTiles();
+                    SetPurchaseUIVisible(false);
+                    SetPurchaseStatus("Combat phase");
                     break;
             }
         }
@@ -925,6 +1199,8 @@ namespace Archistrateia
                 {
                     _mapRenderer.SetCurrentPlayer(currentPlayer);
                 }
+
+                RefreshPurchaseUI();
             }
         }
 
@@ -1045,11 +1321,7 @@ namespace Archistrateia
         {
             if (keyEvent.Keycode == Key.Space)
             {
-                if (TurnManager != null)
-                {
-                    TurnManager.AdvancePhase();
-                    UpdateTitleLabel();
-                }
+                AdvancePhaseWithSideEffects();
                 return true;
             }
             return false;
@@ -1144,6 +1416,33 @@ namespace Archistrateia
             {
                 var buttonRect = new Rect2(_debugAdjacentButton.GlobalPosition, _debugAdjacentButton.Size);
                 if (buttonRect.HasPoint(mousePosition))
+                {
+                    return true;
+                }
+            }
+
+            if (_purchaseUnitSelector != null)
+            {
+                var selectorRect = new Rect2(_purchaseUnitSelector.GlobalPosition, _purchaseUnitSelector.Size);
+                if (selectorRect.HasPoint(mousePosition))
+                {
+                    return true;
+                }
+            }
+
+            if (_purchaseBuyButton != null)
+            {
+                var buyRect = new Rect2(_purchaseBuyButton.GlobalPosition, _purchaseBuyButton.Size);
+                if (buyRect.HasPoint(mousePosition))
+                {
+                    return true;
+                }
+            }
+
+            if (_purchaseCancelButton != null)
+            {
+                var cancelRect = new Rect2(_purchaseCancelButton.GlobalPosition, _purchaseCancelButton.Size);
+                if (cancelRect.HasPoint(mousePosition))
                 {
                     return true;
                 }

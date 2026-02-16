@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ Added
+- Purchase-phase gameplay flow:
+  - Unit browsing panel with larger, more readable text
+  - Buy + place interaction on highlighted valid tiles
+  - Multi-buy support in a single Purchase phase
+- Semicircle deployment system:
+  - Edge-anchored, inward-facing semicircle placement zones per player
+- New regression tests for:
+  - Semicircle deployment coverage and overlap behavior
+  - No-initial-units game start behavior
+  - Purchase ownership validation across players
+
+### 🔄 Changed
+- Game start now deploys **no initial units**; armies are created during Purchase phase.
+- Unit costs increased to raise economic pressure in early game.
+- Phase advancement flow unified so button and keyboard use the same side-effect path.
+
+### ✅ Confirmed
+- Global phase model remains in use (`Earn -> Purchase -> Move -> Combat` for each turn).
+
 ## [0.1.0] - 2025-01-14
 
 ### 🚧 Early Development - Complete Movement System Modernization

@@ -33,6 +33,10 @@ namespace Archistrateia
         private VisualUnit _activeHoverUnit;
         private float _hideGraceRemaining = 0.0f;
         private bool _hoverInfoModeEnabled = false;
+        private readonly HashSet<Vector2I> _purchasePlacementTiles = new();
+
+        [Signal]
+        public delegate void PurchaseTileClickedEventHandler(Vector2I tilePosition);
 
         public void Initialize(GameManager gameManager, TileUnitCoordinator tileUnitCoordinator = null, Node2D mapContainer = null)
         {
@@ -277,7 +281,13 @@ namespace Archistrateia
         private void OnTileClicked(VisualHexTile clickedTile)
         {
             GD.Print($"🖱️ CLICK Debug: Tile clicked at Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y}) World({clickedTile.Position.X:F1},{clickedTile.Position.Y:F1})");
-            
+
+            if (_currentPhase == GamePhase.Purchase)
+            {
+                EmitSignal(SignalName.PurchaseTileClicked, clickedTile.GridPosition);
+                return;
+            }
+
             if (_currentPhase != GamePhase.Move)
             {
                 GD.Print($"   ❌ Not in Move phase (current: {_currentPhase})");
@@ -741,6 +751,12 @@ namespace Archistrateia
                 DeselectAll();
                 ClearAllUnitMovementDisplays();
             }
+
+            if (_currentPhase == GamePhase.Purchase && newPhase != GamePhase.Purchase)
+            {
+                _purchasePlacementTiles.Clear();
+                ClearAllHighlights();
+            }
             
             _currentPhase = newPhase;
             
@@ -833,6 +849,43 @@ namespace Archistrateia
         {
             // Delegate to centralized tile-unit coordinator
             _tileUnitCoordinator?.SynchronizeTileOccupation(GameManager.GameMap, _visualTiles);
+        }
+
+        public void ShowPurchasePlacementTiles(IReadOnlyList<Vector2I> tiles)
+        {
+            _purchasePlacementTiles.Clear();
+            ClearAllHighlights();
+
+            if (tiles == null || tiles.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var tile in _visualTiles.Values)
+            {
+                tile.SetUnavailable(true);
+            }
+
+            foreach (var position in tiles)
+            {
+                if (_visualTiles.TryGetValue(position, out var tile))
+                {
+                    _purchasePlacementTiles.Add(position);
+                    tile.SetUnavailable(false);
+                    tile.SetHighlight(true, new Color(1.0f, 0.78f, 0.2f, 0.65f));
+                }
+            }
+        }
+
+        public void ClearPurchasePlacementTiles()
+        {
+            _purchasePlacementTiles.Clear();
+            ClearAllHighlights();
+        }
+
+        public bool IsPurchasePlacementTile(Vector2I position)
+        {
+            return _purchasePlacementTiles.Contains(position);
         }
      }
 } 

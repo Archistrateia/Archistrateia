@@ -138,40 +138,8 @@ public partial class GameManager : Node
 
     private void SetupInitialUnits()
     {
-        var player1 = Players[0];
-        var player2 = Players[1];
-
-        var nakhtu1 = new Nakhtu();
-        var medjay1 = new Medjay();
-        var archer1 = new Archer();
-
-        var nakhtu2 = new Nakhtu();
-        var charioteer2 = new Charioteer();
-
-        player1.AddUnit(nakhtu1);
-        player1.AddUnit(medjay1);
-        player1.AddUnit(archer1);
-
-        player2.AddUnit(nakhtu2);
-        player2.AddUnit(charioteer2);
-
-        // Find suitable starting positions dynamically
-        var suitablePositions = FindSuitableStartingPositions();
-        
-        if (suitablePositions.Count >= 5)
-        {
-            GameMap[suitablePositions[0]].MoveUnitTo(nakhtu1);
-            GameMap[suitablePositions[1]].MoveUnitTo(medjay1);
-            GameMap[suitablePositions[2]].MoveUnitTo(archer1);
-            GameMap[suitablePositions[3]].MoveUnitTo(nakhtu2);
-            GameMap[suitablePositions[4]].MoveUnitTo(charioteer2);
-            
-            GD.Print($"Initial units deployed at positions: {string.Join(", ", suitablePositions.Take(5))}");
-        }
-        else
-        {
-            GD.PrintErr($"Not enough suitable positions found for units! Found {suitablePositions.Count}, need 5");
-        }
+        // Purchase-phase first flow: start with no units on board.
+        GD.Print("Initial unit deployment skipped: players begin with empty armies.");
     }
 
     private List<Vector2I> FindSuitableStartingPositions()

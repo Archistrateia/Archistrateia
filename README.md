@@ -22,6 +22,8 @@ Archistrateia is a turn-based strategic war simulation that focuses on tactical 
 - **Resource system** using gold/drachma for unit purchasing and city management
 - **Terrain system** with 5 terrain types affecting movement and combat
 - **City management** with production values and ownership mechanics
+- **Purchase deployment flow** with edge-anchored semicircle spawn zones per player
+- **Clean start state** with no units deployed at game start (armies are built in Purchase phase)
 
 ### Unit Types
 - **Nakhtu** (3 Attack, 2 Defense, 2 Movement) - Basic infantry
@@ -193,10 +195,13 @@ For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 3. **Move Phase** - Players move units across the map
 4. **Combat Phase** - Units engage in combat (system to be expanded)
 
+The game currently uses a **global phase cycle**: all play follows the same phase order, and turn count advances after `Combat -> Earn`.
+
 ### Resource Management
 - Cities generate gold each turn based on their production value
 - Units have specific costs and must be purchased during the purchase phase
 - Movement is limited by terrain costs and unit movement points
+- Purchased units are placed into player-specific semicircle deployment zones
 
 ### Strategic Elements
 - Terrain affects both movement and combat effectiveness

@@ -23,6 +23,13 @@ namespace Archistrateia
         private Button _startGameButton;
         private HSlider _zoomSlider;
         private Label _zoomLabel;
+        private Panel _purchasePanel;
+        private OptionButton _purchaseUnitSelector;
+        private Label _purchaseUnitDetailsLabel;
+        private Label _purchaseGoldLabel;
+        private Label _purchaseStatusLabel;
+        private Button _purchaseBuyButton;
+        private Button _purchaseCancelButton;
 
         public override void _Ready()
         {
@@ -240,6 +247,7 @@ namespace Archistrateia
             _rightSidebar.AddChild(sidebarContainer);
 
             CreateMapControls(sidebarContainer);
+            CreatePurchaseControls(sidebarContainer);
             CreateZoomControls(sidebarContainer);
         }
 
@@ -359,6 +367,73 @@ namespace Archistrateia
             zoomContainer.AddChild(_zoomSlider);
         }
 
+        private void CreatePurchaseControls(VBoxContainer parent)
+        {
+            _purchasePanel = new Panel();
+            _purchasePanel.CustomMinimumSize = new Vector2(0, 280);
+
+            var purchaseStyle = new StyleBoxFlat();
+            purchaseStyle.BgColor = new Color(0.12f, 0.12f, 0.18f, 0.8f);
+            purchaseStyle.CornerRadiusTopLeft = 6;
+            purchaseStyle.CornerRadiusTopRight = 6;
+            purchaseStyle.CornerRadiusBottomLeft = 6;
+            purchaseStyle.CornerRadiusBottomRight = 6;
+            _purchasePanel.AddThemeStyleboxOverride("panel", purchaseStyle);
+
+            parent.AddChild(_purchasePanel);
+
+            var container = new VBoxContainer();
+            container.Position = new Vector2(10, 10);
+            container.Size = new Vector2(180, 250);
+            container.AddThemeConstantOverride("separation", 6);
+            _purchasePanel.AddChild(container);
+
+            var titleLabel = new Label();
+            titleLabel.Text = "PURCHASE";
+            titleLabel.AddThemeFontSizeOverride("font_size", 16);
+            titleLabel.AddThemeColorOverride("font_color", new Color(0.9f, 0.9f, 0.7f));
+            container.AddChild(titleLabel);
+
+            _purchaseGoldLabel = new Label();
+            _purchaseGoldLabel.Text = "Gold: -";
+            _purchaseGoldLabel.AddThemeFontSizeOverride("font_size", 14);
+            _purchaseGoldLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.8f, 0.9f));
+            container.AddChild(_purchaseGoldLabel);
+
+            _purchaseUnitSelector = new OptionButton();
+            _purchaseUnitSelector.CustomMinimumSize = new Vector2(160, 24);
+            _purchaseUnitSelector.AddThemeFontSizeOverride("font_size", 13);
+            container.AddChild(_purchaseUnitSelector);
+
+            _purchaseUnitDetailsLabel = new Label();
+            _purchaseUnitDetailsLabel.Text = "Select a unit";
+            _purchaseUnitDetailsLabel.AddThemeFontSizeOverride("font_size", 12);
+            _purchaseUnitDetailsLabel.AddThemeColorOverride("font_color", new Color(0.7f, 0.7f, 0.8f));
+            _purchaseUnitDetailsLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            container.AddChild(_purchaseUnitDetailsLabel);
+
+            _purchaseBuyButton = new Button();
+            _purchaseBuyButton.Text = "Buy + Place";
+            _purchaseBuyButton.AddThemeFontSizeOverride("font_size", 13);
+            _purchaseBuyButton.CustomMinimumSize = new Vector2(0, 34);
+            container.AddChild(_purchaseBuyButton);
+
+            _purchaseCancelButton = new Button();
+            _purchaseCancelButton.Text = "Cancel";
+            _purchaseCancelButton.AddThemeFontSizeOverride("font_size", 13);
+            _purchaseCancelButton.CustomMinimumSize = new Vector2(0, 30);
+            container.AddChild(_purchaseCancelButton);
+
+            _purchaseStatusLabel = new Label();
+            _purchaseStatusLabel.Text = "Purchase phase inactive";
+            _purchaseStatusLabel.AddThemeFontSizeOverride("font_size", 11);
+            _purchaseStatusLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.75f));
+            _purchaseStatusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            container.AddChild(_purchaseStatusLabel);
+
+            _purchasePanel.Visible = false;
+        }
+
         private void CreateGameArea()
         {
             _gameArea = new Control();
@@ -407,6 +482,20 @@ namespace Archistrateia
         public HSlider GetZoomSlider() => _zoomSlider;
         public Label GetZoomLabel() => _zoomLabel;
         public Control GetGameArea() => _gameArea;
+        public OptionButton GetPurchaseUnitSelector() => _purchaseUnitSelector;
+        public Label GetPurchaseUnitDetailsLabel() => _purchaseUnitDetailsLabel;
+        public Label GetPurchaseGoldLabel() => _purchaseGoldLabel;
+        public Label GetPurchaseStatusLabel() => _purchaseStatusLabel;
+        public Button GetPurchaseBuyButton() => _purchaseBuyButton;
+        public Button GetPurchaseCancelButton() => _purchaseCancelButton;
+
+        public void SetPurchasePanelVisible(bool visible)
+        {
+            if (_purchasePanel != null)
+            {
+                _purchasePanel.Visible = visible;
+            }
+        }
 
         public void HideStartButton()
         {
