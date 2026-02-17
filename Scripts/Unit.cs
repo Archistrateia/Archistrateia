@@ -10,7 +10,7 @@ public enum UnitType
 
 public partial class Unit : Node
 {
-    public string Name { get; set; }
+    public new string Name { get; set; }
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int MovementPoints { get; set; }

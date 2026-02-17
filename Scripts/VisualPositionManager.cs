@@ -6,15 +6,17 @@ namespace Archistrateia
     public class VisualPositionManager
     {
         private Vector2 _gameAreaSize;
+        private readonly HexGridViewState _viewState;
         private readonly int _mapWidth;
         private readonly int _mapHeight;
         private int _updatePositionsDebugCounter = 0;
 
-        public VisualPositionManager(Vector2 gameAreaSize, int mapWidth, int mapHeight)
+        public VisualPositionManager(Vector2 gameAreaSize, int mapWidth, int mapHeight, HexGridViewState viewState = null)
         {
             _gameAreaSize = gameAreaSize;
             _mapWidth = mapWidth;
             _mapHeight = mapHeight;
+            _viewState = viewState ?? HexGridCalculator.GetGlobalViewState();
         }
 
         public void UpdateGameAreaSize(Vector2 gameAreaSize)
@@ -29,7 +31,8 @@ namespace Archistrateia
                 gridPosition.Y, 
                 _gameAreaSize, 
                 _mapWidth, 
-                _mapHeight
+                _mapHeight,
+                _viewState
             );
         }
 

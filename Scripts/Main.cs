@@ -43,6 +43,7 @@ namespace Archistrateia
         private Button _purchaseBuyButton;
         private Button _purchaseCancelButton;
         private readonly PurchaseCoordinator _purchaseCoordinator = new();
+        private PhaseTransitionCoordinator _phaseTransitionCoordinator;
         private readonly SemicircleDeploymentService _deploymentService = new();
         
         // Debug functionality
@@ -61,6 +62,7 @@ namespace Archistrateia
         private VisualPositionManager _positionManager;
         private ViewportController _viewportController;
         private TileUnitCoordinator _tileUnitCoordinator;
+        private readonly HexGridViewState _hexGridViewState = new();
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
         private int _viewChangedDebugCounter = 0;
         private int _sliderDebugCounter = 0;
@@ -70,13 +72,10 @@ namespace Archistrateia
         private Vector2 GetGameAreaSize()
         {
             var viewportSize = GetViewport().GetVisibleRect().Size;
-            const float TOP_BAR_HEIGHT = 60.0f;
-            const float BOTTOM_BAR_HEIGHT = 40.0f;
-            const float SIDEBAR_WIDTH = 200.0f;
             
             return new Vector2(
-                viewportSize.X - SIDEBAR_WIDTH, // width: remaining width after sidebar
-                viewportSize.Y - TOP_BAR_HEIGHT - BOTTOM_BAR_HEIGHT // height: remaining height after top and bottom bars
+                viewportSize.X - UILayoutMetrics.SidebarWidth, // width: remaining width after sidebar
+                viewportSize.Y - UILayoutMetrics.TopBarHeight - UILayoutMetrics.BottomBarHeight // height: remaining height after top and bottom bars
             );
         }
 
@@ -84,15 +83,12 @@ namespace Archistrateia
         private Rect2 GetGameGridRect()
         {
             var viewportSize = GetViewport().GetVisibleRect().Size;
-            const float TOP_BAR_HEIGHT = 60.0f;
-            const float BOTTOM_BAR_HEIGHT = 40.0f;
-            const float SIDEBAR_WIDTH = 200.0f;
             
             return new Rect2(
                 0, // x: start at left edge (sidebar is on the right)
-                TOP_BAR_HEIGHT, // y: start after top bar
-                viewportSize.X - SIDEBAR_WIDTH, // width: remaining width after sidebar
-                viewportSize.Y - TOP_BAR_HEIGHT - BOTTOM_BAR_HEIGHT // height: remaining height after top and bottom bars
+                UILayoutMetrics.TopBarHeight, // y: start after top bar
+                viewportSize.X - UILayoutMetrics.SidebarWidth, // width: remaining width after sidebar
+                viewportSize.Y - UILayoutMetrics.TopBarHeight - UILayoutMetrics.BottomBarHeight // height: remaining height after top and bottom bars
             );
         }
 
@@ -236,13 +232,14 @@ namespace Archistrateia
         private void InitializeCentralizedServices()
         {
             GD.Print("🔧 Initializing centralized services...");
+            HexGridCalculator.SetGlobalViewState(_hexGridViewState);
             
             // Initialize position manager with game area size
             var gameAreaSize = GetGameAreaSize();
-            _positionManager = new VisualPositionManager(gameAreaSize, MAP_WIDTH, MAP_HEIGHT);
+            _positionManager = new VisualPositionManager(gameAreaSize, MAP_WIDTH, MAP_HEIGHT, _hexGridViewState);
             
             // Initialize viewport controller with callback to update positions when view changes
-            _viewportController = new ViewportController(MAP_WIDTH, MAP_HEIGHT, OnViewChanged);
+            _viewportController = new ViewportController(MAP_WIDTH, MAP_HEIGHT, OnViewChanged, _hexGridViewState);
             
             // Initialize tile-unit coordinator
             _tileUnitCoordinator = new TileUnitCoordinator();
@@ -1013,9 +1010,11 @@ namespace Archistrateia
         {
             // Use the GameManager's TurnManager instead of the exported one
             TurnManager = _gameManager.TurnManager;
+            TurnManager.PhaseChanged += OnTurnManagerPhaseChanged;
             
             // Now initialize MapRenderer with proper TurnManager
             InitializeMapRenderer();
+            InitializePhaseTransitionCoordinator();
         }
 
         private void InitializeMapRenderer()
@@ -1025,9 +1024,6 @@ namespace Archistrateia
             AddChild(_mapRenderer);
             _mapRenderer.Initialize(_gameManager, _tileUnitCoordinator, _mapContainer);
             _mapRenderer.PurchaseTileClicked += OnPurchaseTileClicked;
-            
-            // Connect MapRenderer to GameManager for phase change notifications
-            _gameManager.SetMapRenderer(_mapRenderer);
             
             // Set initial player and phase
             if (_gameManager.Players.Count > 0)
@@ -1052,6 +1048,20 @@ namespace Archistrateia
             // Update initial tile occupation status
             _mapRenderer.UpdateTileOccupationStatus();
             RefreshPurchaseUI();
+        }
+
+        private void InitializePhaseTransitionCoordinator()
+        {
+            _phaseTransitionCoordinator = new PhaseTransitionCoordinator(
+                _gameManager,
+                _purchaseCoordinator,
+                phase => _mapRenderer?.OnPhaseChanged(phase),
+                SetPurchaseUIVisible,
+                UpdateSelectedPurchaseUnitDetails,
+                SetPurchaseStatus,
+                RefreshPurchaseUI,
+                SwitchToNextPlayer,
+                () => _mapRenderer?.DeselectAll());
         }
 
         private void RegisterVisualTilesWithMapRenderer()
@@ -1100,27 +1110,6 @@ namespace Archistrateia
             {
                 TurnManager.AdvancePhase();
                 GD.Print($"📋 New phase after advance: {TurnManager.CurrentPhase}");
-
-                if (_gameManager != null)
-                {
-                    HandlePhaseChange(TurnManager.CurrentPhase);
-                }
-                else
-                {
-                    GD.PrintErr("❌ GameManager is null! Cannot handle phase change.");
-                }
-
-                if (_mapRenderer != null)
-                {
-                    _mapRenderer.OnPhaseChanged(TurnManager.CurrentPhase);
-                }
-                else
-                {
-                    GD.PrintErr("❌ MapRenderer is null! Cannot update phase.");
-                }
-
-                UpdateTitleLabel();
-                RefreshPurchaseUI();
                 GD.Print("✅ Phase advance completed successfully");
             }
             catch (Exception ex)
@@ -1130,59 +1119,19 @@ namespace Archistrateia
             }
         }
 
-        private void HandlePhaseChange(GamePhase phase)
+        private void OnTurnManagerPhaseChanged(int oldPhaseValue, int newPhaseValue)
         {
-            // Update MapRenderer with current phase
-            if (_mapRenderer != null)
+            if (_phaseTransitionCoordinator == null)
             {
-                _mapRenderer.SetCurrentPhase(phase);
+                return;
             }
 
-            switch (phase)
-            {
-                case GamePhase.Earn:
-                    GD.Print("=== EARN PHASE: Processing city income ===");
-                    _purchaseCoordinator.CancelPendingPurchase();
-                    _mapRenderer?.ClearPurchasePlacementTiles();
-                    SetPurchaseUIVisible(false);
-                    _gameManager.ProcessEarnPhase();
-                    // Switch to next player at start of new turn
-                    SwitchToNextPlayer();
-                    SetPurchaseStatus("Earn phase");
-                    RefreshPurchaseUI();
-                    break;
-                case GamePhase.Purchase:
-                    GD.Print("=== PURCHASE PHASE: Players can buy units ===");
-                    _purchaseCoordinator.CancelPendingPurchase();
-                    SetPurchaseUIVisible(true);
-                    UpdateSelectedPurchaseUnitDetails();
-                    SetPurchaseStatus("Choose a unit to buy.");
-                    RefreshPurchaseUI();
-                    break;
-                case GamePhase.Move:
-                    GD.Print("=== MOVE PHASE: Units can move ===");
-                    _purchaseCoordinator.CancelPendingPurchase();
-                    _mapRenderer?.ClearPurchasePlacementTiles();
-                    SetPurchaseUIVisible(false);
-                    foreach (var player in _gameManager.Players)
-                    {
-                        player.ResetUnitMovement();
-                    }
-                    // Deselect any units when entering move phase
-                    if (_mapRenderer != null)
-                    {
-                        _mapRenderer.DeselectAll();
-                    }
-                    SetPurchaseStatus("Move phase");
-                    break;
-                case GamePhase.Combat:
-                    GD.Print("=== COMBAT PHASE: Combat resolution ===");
-                    _purchaseCoordinator.CancelPendingPurchase();
-                    _mapRenderer?.ClearPurchasePlacementTiles();
-                    SetPurchaseUIVisible(false);
-                    SetPurchaseStatus("Combat phase");
-                    break;
-            }
+            var oldPhase = (GamePhase)oldPhaseValue;
+            var newPhase = (GamePhase)newPhaseValue;
+            GD.Print($"🔄 Main.OnTurnManagerPhaseChanged: {oldPhase} → {newPhase}");
+
+            _phaseTransitionCoordinator.ApplyTransition(oldPhase, newPhase);
+            UpdateTitleLabel();
         }
 
         private void SwitchToNextPlayer()

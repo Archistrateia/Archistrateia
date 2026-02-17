@@ -24,6 +24,8 @@ Archistrateia is a turn-based strategic war simulation that focuses on tactical 
 - **City management** with production values and ownership mechanics
 - **Purchase deployment flow** with edge-anchored semicircle spawn zones per player
 - **Clean start state** with no units deployed at game start (armies are built in Purchase phase)
+- **Centralized phase side-effects** via `PhaseTransitionCoordinator` (single transition path)
+- **State-isolated movement & viewport systems** via injected movement/view state services
 
 ### Unit Types
 - **Nakhtu** (3 Attack, 2 Defense, 2 Movement) - Basic infantry
@@ -73,6 +75,13 @@ The project includes a comprehensive three-phase testing suite:
 ```
 
 For detailed testing information, see [TESTING.md](TESTING.md).
+
+### Architecture Notes
+
+- `TurnManager` emits phase changes, and `Main` applies phase side-effects through `PhaseTransitionCoordinator`.
+- Movement validation/pathing no longer uses hidden static engine state; callers provide an explicit movement system where needed.
+- View/zoom/scroll behavior is tracked through `HexGridViewState` and injected into viewport/position services.
+- UI geometry constants are centralized in `UILayoutMetrics`.
 
 ### Input & Inspect Controls
 
@@ -140,7 +149,7 @@ Orchestrates all game systems and provides high-level game control.
 ### Current Version: 0.1.0 🚧
 
 **Release Date**: January 2025  
-**Status**: Early Development - Complete Movement System Modernization
+**Status**: Early Development - Core systems stabilized with architecture hardening
 
 #### What's New in 0.1.0
 - ✨ **Godot-Native Movement System** - Replaced custom pathfinding with Godot's AStar2D
@@ -180,11 +189,10 @@ For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 - AI-optimized output format for automated systems
 - Advanced debugging features with `--show-failures-only` mode
 
-🚧 **Next Steps** - UI integration and gameplay expansion
-- Visual representation of units and terrain
-- User interface for turn management
-- Combat resolution system
-- Map generation and visualization
+🚧 **Next Steps** - gameplay expansion and controller decomposition
+- Combat resolution system expansion
+- Further `Main` decomposition into narrower controllers/services
+- Campaign/scenario content and balancing
 - Multiplayer support
 
 ## Game Mechanics

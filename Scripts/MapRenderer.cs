@@ -43,6 +43,7 @@ namespace Archistrateia
             GameManager = gameManager;
             _tileUnitCoordinator = tileUnitCoordinator ?? new TileUnitCoordinator();
             _mapContainer = mapContainer;
+            _movementCoordinator = new MovementCoordinator(GameManager?.MovementSystem);
             ZIndex = 5; // Ensure MapRenderer is above tiles but below units
             CreateInformationPanel();
         }
@@ -62,23 +63,7 @@ namespace Archistrateia
 
         public void SetCurrentPhase(GamePhase phase)
         {
-            var oldPhase = _currentPhase;
-            _currentPhase = phase;
-            
-            // Update movement phase state for all tiles
-            bool isMovementPhase = (phase == GamePhase.Move);
-            foreach (var tile in _visualTiles.Values)
-            {
-                tile.SetMovementPhase(isMovementPhase);
-            }
-            
-            // Clear movement displays when leaving movement phase
-            if (oldPhase == GamePhase.Move && phase != GamePhase.Move)
-            {
-                ClearAllHighlights();
-                DeselectAll();
-                ClearAllUnitMovementDisplays();
-            }
+            ApplyPhaseChange(phase);
         }
 
         public GamePhase GetCurrentPhase()
@@ -726,6 +711,11 @@ namespace Archistrateia
         }
 
         public void OnPhaseChanged(GamePhase newPhase)
+        {
+            ApplyPhaseChange(newPhase);
+        }
+
+        private void ApplyPhaseChange(GamePhase newPhase)
         {
             // Capture the old phase before changing it
             var oldPhase = _currentPhase;

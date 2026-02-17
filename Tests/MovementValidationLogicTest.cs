@@ -389,7 +389,6 @@ namespace Archistrateia.Tests
             // Set up Godot's built-in movement system for this test map
             var movementSystem = new GodotMovementSystem(forTesting: true);
             movementSystem.InitializeNavigation(gameMap);
-            MovementValidationLogic.SetMovementSystem(movementSystem);
             
             var nakhtu = new Nakhtu();
             var currentPosition = new Vector2I(1, 1);
@@ -398,11 +397,8 @@ namespace Archistrateia.Tests
             nakhtu.CurrentMovementPoints = 0;
 
             // Should find no valid destinations
-            var destinations = MovementValidationLogic.GetValidMovementDestinations(nakhtu, currentPosition, gameMap);
+            var destinations = MovementValidationLogic.GetValidMovementDestinations(nakhtu, currentPosition, gameMap, movementSystem);
             Assert.AreEqual(0, destinations.Count, "Should find no destinations with 0 movement points");
-            
-            // Clean up
-            MovementValidationLogic.SetMovementSystem(null);
         }
 
         [Test]
@@ -421,12 +417,11 @@ namespace Archistrateia.Tests
             // Set up Godot's built-in movement system for this test map
             var movementSystem = new GodotMovementSystem(forTesting: true);
             movementSystem.InitializeNavigation(gameMap);
-            MovementValidationLogic.SetMovementSystem(movementSystem);
             
             var charioteer = new Charioteer(); // 8 MP
             
-            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, new Vector2I(0, 0), gameMap);
-            var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(charioteer, new Vector2I(0, 0), gameMap);
+            var validDestinations = MovementValidationLogic.GetValidMovementDestinations(charioteer, new Vector2I(0, 0), gameMap, movementSystem);
+            var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(charioteer, new Vector2I(0, 0), gameMap, movementSystem);
             
             // The destination at cost 8 should be reachable
             bool canReachExactBudget = validDestinations.Contains(new Vector2I(4, 0));
@@ -436,8 +431,33 @@ namespace Archistrateia.Tests
             Assert.IsTrue(canReachExactBudget, "Units should be able to move to destinations that cost exactly their movement budget");
             Assert.AreEqual(8, pathCostToEnd, "Path cost should exactly match movement budget");
             
-            // Clean up
-            MovementValidationLogic.SetMovementSystem(null);
+        }
+
+        [Test]
+        public void Should_Not_Leak_Movement_System_State_Between_Calls()
+        {
+            var gameMap = CreateTestMap();
+            var nakhtu = new Nakhtu();
+            var currentPosition = new Vector2I(1, 1);
+
+            var explicitSystem = new GodotMovementSystem(forTesting: true);
+            explicitSystem.InitializeNavigation(gameMap);
+
+            var explicitDestinations = MovementValidationLogic.GetValidMovementDestinations(
+                nakhtu,
+                currentPosition,
+                gameMap,
+                explicitSystem);
+
+            var implicitDestinations = MovementValidationLogic.GetValidMovementDestinations(
+                nakhtu,
+                currentPosition,
+                gameMap);
+
+            CollectionAssert.AreEquivalent(
+                explicitDestinations,
+                implicitDestinations,
+                "Per-call movement system injection should not mutate global movement behavior.");
         }
 
         private static Dictionary<Vector2I, HexTile> CreateTestMap()

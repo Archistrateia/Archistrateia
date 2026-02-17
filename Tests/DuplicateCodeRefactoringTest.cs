@@ -1,5 +1,7 @@
+using Godot;
 using NUnit.Framework;
-using System;
+using System.Reflection;
+using Archistrateia;
 
 namespace Archistrateia.Tests
 {
@@ -7,53 +9,40 @@ namespace Archistrateia.Tests
     public class DuplicateCodeRefactoringTest
     {
         [Test]
-        public void TestHandleZoomInput_And_HandleScrollInput_AreIdentical()
+        public void ViewportInputHandlers_Should_Share_Common_Signature()
         {
-            // Test that HandleZoomInput and HandleScrollInput in Main.cs are identical
-            // Both methods should be refactored to eliminate duplication
-            
-            // Both methods currently do:
-            // 1. Call _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize())
-            // 2. Set input as handled if the call returns true
-            // 3. Return the handled result
-            
-            // This is a classic case of duplicate code that should be refactored
-            Assert.IsTrue(true, "HandleZoomInput and HandleScrollInput should be refactored to eliminate duplication");
+            var mainType = typeof(Main);
+            var viewportInput = mainType.GetMethod("HandleViewportInput", BindingFlags.NonPublic | BindingFlags.Instance);
+            var zoomInput = mainType.GetMethod("HandleZoomInput", BindingFlags.NonPublic | BindingFlags.Instance);
+            var scrollInput = mainType.GetMethod("HandleScrollInput", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            Assert.IsNotNull(viewportInput, "Main should have a common HandleViewportInput method.");
+            Assert.IsNotNull(zoomInput, "Main should keep a HandleZoomInput wrapper.");
+            Assert.IsNotNull(scrollInput, "Main should keep a HandleScrollInput wrapper.");
+
+            Assert.AreEqual(typeof(bool), viewportInput.ReturnType);
+            Assert.AreEqual(typeof(bool), zoomInput.ReturnType);
+            Assert.AreEqual(typeof(bool), scrollInput.ReturnType);
+
+            Assert.AreEqual(typeof(InputEventKey), viewportInput.GetParameters()[0].ParameterType);
+            Assert.AreEqual(typeof(InputEventKey), zoomInput.GetParameters()[0].ParameterType);
+            Assert.AreEqual(typeof(InputEventKey), scrollInput.GetParameters()[0].ParameterType);
         }
 
         [Test]
-        public void TestDuplicateCodeRefactoring_ExtractCommonMethod()
+        public void ZoomAndScrollWrappers_Should_Behave_Consistently_WhenViewportUnavailable()
         {
-            // Test that the duplicate code should be extracted into a common method
-            // The common pattern is:
-            // - Call viewport controller with key event and game area size
-            // - Handle the result consistently
-            
-            // This can be extracted into a method like:
-            // private bool HandleViewportInput(InputEventKey keyEvent)
-            Assert.IsTrue(true, "Duplicate code should be extracted into a common method");
-        }
+            var main = new Main();
+            var mainType = typeof(Main);
+            var zoomInput = mainType.GetMethod("HandleZoomInput", BindingFlags.NonPublic | BindingFlags.Instance);
+            var scrollInput = mainType.GetMethod("HandleScrollInput", BindingFlags.NonPublic | BindingFlags.Instance);
+            var key = new InputEventKey { Keycode = Key.Space, Pressed = true };
 
-        [Test]
-        public void TestDuplicateCodeRefactoring_Benefits()
-        {
-            // Test that refactoring duplicate code provides benefits:
-            // 1. Reduces code duplication (DRY principle)
-            // 2. Makes maintenance easier (single point of change)
-            // 3. Reduces chance of bugs (consistent behavior)
-            // 4. Improves readability (clearer intent)
-            
-            Assert.IsTrue(true, "Refactoring duplicate code improves maintainability and reduces bugs");
-        }
+            bool zoomHandled = (bool)zoomInput.Invoke(main, new object[] { key });
+            bool scrollHandled = (bool)scrollInput.Invoke(main, new object[] { key });
 
-        [Test]
-        public void TestDuplicateCodeRefactoring_Consistency()
-        {
-            // Test that the refactored code maintains consistent behavior
-            // Both zoom and scroll input should be handled the same way
-            // The only difference should be in the viewport controller logic
-            
-            Assert.IsTrue(true, "Refactored code should maintain consistent input handling behavior");
+            Assert.AreEqual(zoomHandled, scrollHandled, "Zoom and scroll wrappers should delegate consistently.");
+            Assert.IsFalse(zoomHandled, "Without a viewport/controller, wrappers should safely return false.");
         }
     }
 }

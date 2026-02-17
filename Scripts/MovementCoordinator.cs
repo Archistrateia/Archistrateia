@@ -6,7 +6,16 @@ public class MovementCoordinator
 {
     private Unit _selectedUnit;
     private List<Vector2I> _validDestinations = new List<Vector2I>();
-    private MovementValidationLogic _movementLogic = new MovementValidationLogic();
+    private readonly GodotMovementSystem _movementSystem;
+
+    public MovementCoordinator() : this(null)
+    {
+    }
+
+    public MovementCoordinator(GodotMovementSystem movementSystem)
+    {
+        _movementSystem = movementSystem;
+    }
 
     public void SelectUnitForMovement(Unit unit)
     {
@@ -38,7 +47,7 @@ public class MovementCoordinator
         }
 
         _validDestinations.Clear();
-        _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap);
+        _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap, _movementSystem);
         
         return _validDestinations;
     }
@@ -57,7 +66,7 @@ public class MovementCoordinator
 
         if (_validDestinations.Count == 0)
         {
-            _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, fromPosition, gameMap);
+            _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, fromPosition, gameMap, _movementSystem);
         }
 
         if (!_validDestinations.Contains(toPosition))
@@ -99,7 +108,7 @@ public class MovementCoordinator
     private int GetPathCostToDestination(Vector2I fromPosition, Vector2I toPosition, Dictionary<Vector2I, HexTile> gameMap)
     {
         // Use the new optimal path cost calculation for more accurate results
-        var optimalPathCost = MovementValidationLogic.GetOptimalPathCost(fromPosition, toPosition, gameMap);
+        var optimalPathCost = MovementValidationLogic.GetOptimalPathCost(fromPosition, toPosition, gameMap, _movementSystem);
         
         if (optimalPathCost != int.MaxValue)
         {
@@ -107,7 +116,7 @@ public class MovementCoordinator
         }
         
         // Fallback to the old method if optimal path not found
-        var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(_selectedUnit, fromPosition, gameMap);
+        var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(_selectedUnit, fromPosition, gameMap, _movementSystem);
         
         if (pathCosts.ContainsKey(toPosition))
         {
@@ -150,7 +159,7 @@ public class MovementCoordinator
                 }
             }
             
-            _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap);
+            _validDestinations = MovementValidationLogic.GetValidMovementDestinations(_selectedUnit, currentPosition, gameMap, _movementSystem);
         }
 
         if (_validDestinations.Contains(clickPosition))

@@ -226,8 +226,10 @@ namespace Archistrateia
             
             // Use absolute positioning to ensure it works
             var viewportSize = GetViewport().GetVisibleRect().Size;
-            _rightSidebar.Position = new Vector2(viewportSize.X - 200, 60);
-            _rightSidebar.Size = new Vector2(200, viewportSize.Y - 100); // 60 for top bar + 40 for bottom bar
+            _rightSidebar.Position = new Vector2(viewportSize.X - UILayoutMetrics.SidebarWidth, UILayoutMetrics.TopBarHeight);
+            _rightSidebar.Size = new Vector2(
+                UILayoutMetrics.SidebarWidth,
+                viewportSize.Y - (UILayoutMetrics.TopBarHeight + UILayoutMetrics.BottomBarHeight));
             
             var sidebarStyle = new StyleBoxFlat();
             sidebarStyle.BgColor = new Color(0.1f, 0.1f, 0.15f, 0.9f);
@@ -443,9 +445,9 @@ namespace Archistrateia
             _gameArea.AnchorTop = 0;
             _gameArea.AnchorRight = 1;
             _gameArea.AnchorBottom = 1;
-            _gameArea.OffsetTop = 60;
-            _gameArea.OffsetBottom = -40;
-            _gameArea.OffsetRight = -200;
+            _gameArea.OffsetTop = UILayoutMetrics.TopBarHeight;
+            _gameArea.OffsetBottom = -UILayoutMetrics.BottomBarHeight;
+            _gameArea.OffsetRight = -UILayoutMetrics.SidebarWidth;
             _gameArea.MouseFilter = Control.MouseFilterEnum.Ignore;
             _gameArea.ClipContents = true; // Ensure content is clipped to bounds
             _gameArea.ZIndex = 0; // Ensure game area is below UI but above background

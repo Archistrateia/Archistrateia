@@ -28,7 +28,6 @@ public partial class MapGenerationIntegrationTest : Node
     public void Should_Create_Distinct_Terrain_Patterns_For_Each_Map_Type()
     {
         var mapComparisons = new Dictionary<MapType, Dictionary<TerrainType, float>>();
-        const int testSize = 20 * 15;
         
         // Generate all map types with same seed for fair comparison
         var allMapTypes = System.Enum.GetValues<MapType>();

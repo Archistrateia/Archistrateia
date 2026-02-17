@@ -10,12 +10,6 @@ public partial class MovementCoordinatorTest : Node
     public void Should_Handle_Unit_Selection_For_Movement()
     {
         var coordinator = new MovementCoordinator();
-        var gameMap = CreateTestMap();
-        
-        // Set up Godot's built-in movement system for this test map
-        var movementSystem = new GodotMovementSystem(forTesting: true);
-        movementSystem.InitializeNavigation(gameMap);
-        MovementValidationLogic.SetMovementSystem(movementSystem);
         
         var nakhtu = new Nakhtu();
         
@@ -29,12 +23,6 @@ public partial class MovementCoordinatorTest : Node
     public void Should_Clear_Selection_When_Deselecting()
     {
         var coordinator = new MovementCoordinator();
-        var gameMap = CreateTestMap();
-        
-        // Set up Godot's built-in movement system for this test map
-        var movementSystem = new GodotMovementSystem(forTesting: true);
-        movementSystem.InitializeNavigation(gameMap);
-        MovementValidationLogic.SetMovementSystem(movementSystem);
         
         var nakhtu = new Nakhtu(); // Has 4 movement points (doubled)
         
@@ -214,8 +202,6 @@ public partial class MovementCoordinatorTest : Node
             }
         }
         
-        // Clean up
-        MovementValidationLogic.SetMovementSystem(null);
     }
 
     [Test]
@@ -254,8 +240,6 @@ public partial class MovementCoordinatorTest : Node
         var finalDestinations = coordinator.GetValidDestinations(destinationPosition, gameMap);
         Assert.AreEqual(0, finalDestinations.Count, "Should have no destinations with 0 movement points");
         
-        // Clean up
-        MovementValidationLogic.SetMovementSystem(null);
     }
 
     private Dictionary<Vector2I, HexTile> CreateTestMap()

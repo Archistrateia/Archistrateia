@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public partial class Player : Node
 {
-    public string Name { get; set; }
+    public new string Name { get; set; }
     public List<Unit> Units { get; set; } = new List<Unit>();
     public int Gold { get; set; }
     public List<City> Cities { get; set; } = new List<City>();

@@ -6,14 +6,7 @@ namespace Archistrateia
 {
     public class MovementValidationLogic
     {
-        private static GodotMovementSystem _movementSystem;
-
-        public static void SetMovementSystem(GodotMovementSystem movementSystem)
-        {
-            _movementSystem = movementSystem;
-        }
-
-                public static bool CanUnitMoveTo(Unit unit, HexTile fromTile, HexTile toTile)
+        public static bool CanUnitMoveTo(Unit unit, HexTile fromTile, HexTile toTile)
         {
             if (unit.CurrentMovementPoints < toTile.MovementCost)
             {
@@ -40,11 +33,15 @@ namespace Archistrateia
             return HexAdjacencyCalculator.GetAdjacentPositions(position);
         }
 
-        public static List<Vector2I> GetValidMovementDestinations(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
+        public static List<Vector2I> GetValidMovementDestinations(
+            Unit unit,
+            Vector2I currentPosition,
+            Dictionary<Vector2I, HexTile> gameMap,
+            GodotMovementSystem movementSystem = null)
         {
-            if (_movementSystem != null)
+            if (movementSystem != null)
             {
-                return _movementSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
+                return movementSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
             }
             
             // Auto-create a movement system for testing scenarios
@@ -57,16 +54,20 @@ namespace Archistrateia
             return result;
         }
 
-        public static Dictionary<Vector2I, int> GetPathCostsFromPosition(Unit unit, Vector2I currentPosition, Dictionary<Vector2I, HexTile> gameMap)
+        public static Dictionary<Vector2I, int> GetPathCostsFromPosition(
+            Unit unit,
+            Vector2I currentPosition,
+            Dictionary<Vector2I, HexTile> gameMap,
+            GodotMovementSystem movementSystem = null)
         {
-            if (_movementSystem != null)
+            if (movementSystem != null)
             {
                 var pathCosts = new Dictionary<Vector2I, int>();
-                var reachablePositions = _movementSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
+                var reachablePositions = movementSystem.GetReachablePositions(currentPosition, unit.CurrentMovementPoints, gameMap);
                 
                 foreach (var pos in reachablePositions)
                 {
-                    var cost = (int)_movementSystem.GetPathCost(currentPosition, pos, gameMap);
+                    var cost = (int)movementSystem.GetPathCost(currentPosition, pos, gameMap);
                     pathCosts[pos] = cost;
                 }
                 
@@ -90,11 +91,15 @@ namespace Archistrateia
             return autoPathCosts;
         }
 
-        public static int GetOptimalPathCost(Vector2I from, Vector2I to, Dictionary<Vector2I, HexTile> gameMap)
+        public static int GetOptimalPathCost(
+            Vector2I from,
+            Vector2I to,
+            Dictionary<Vector2I, HexTile> gameMap,
+            GodotMovementSystem movementSystem = null)
         {
-            if (_movementSystem != null)
+            if (movementSystem != null)
             {
-                var cost = (int)_movementSystem.GetPathCost(from, to, gameMap);
+                var cost = (int)movementSystem.GetPathCost(from, to, gameMap);
                 return cost;
             }
             
@@ -107,7 +112,5 @@ namespace Archistrateia
             autoSystem.QueueFree();
             return autoCost;
         }
-        
-
     }
 } 

@@ -7,53 +7,77 @@ namespace Archistrateia
         public const float HEX_SIZE = 35.0f;
         public const float HEX_WIDTH = HEX_SIZE * 2.0f;
         public const float HEX_HEIGHT = HEX_SIZE * 1.732f;
-        
-        private static float _zoomFactor = 1.0f;
+
+        private static HexGridViewState _globalViewState = new HexGridViewState();
+
+        private static HexGridViewState ResolveViewState(HexGridViewState viewState)
+        {
+            return viewState ?? _globalViewState;
+        }
+
+        public static void SetGlobalViewState(HexGridViewState viewState)
+        {
+            _globalViewState = viewState ?? new HexGridViewState();
+        }
+
+        public static HexGridViewState GetGlobalViewState()
+        {
+            return _globalViewState;
+        }
+
         public static float ZoomFactor 
         { 
-            get => _zoomFactor; 
-            set => _zoomFactor = Mathf.Clamp(value, 0.1f, 3.0f); 
+            get => _globalViewState.ZoomFactor;
+            set => _globalViewState.ZoomFactor = value;
         }
 
-        private static Vector2 _scrollOffset = Vector2.Zero;
         public static Vector2 ScrollOffset
         {
-            get => _scrollOffset;
-            set => _scrollOffset = value;
+            get => _globalViewState.ScrollOffset;
+            set => _globalViewState.ScrollOffset = value;
         }
 
-        public static Vector2 CalculateHexPosition(int x, int y)
+        public static Vector2 CalculateHexPosition(int x, int y, HexGridViewState viewState = null)
         {
-            float xPos = x * HEX_WIDTH * 0.75f * _zoomFactor;
-            float yPos = y * HEX_HEIGHT * _zoomFactor;
+            var state = ResolveViewState(viewState);
+            float xPos = x * HEX_WIDTH * 0.75f * state.ZoomFactor;
+            float yPos = y * HEX_HEIGHT * state.ZoomFactor;
             
             // Offset odd columns down by half the hex height (for pointy-top hexes)
             if (x % 2 == 1)
             {
-                yPos += HEX_HEIGHT * 0.5f * _zoomFactor;
+                yPos += HEX_HEIGHT * 0.5f * state.ZoomFactor;
             }
             
             return new Vector2(xPos, yPos);
         }
 
-        public static Vector2 CalculateHexPositionCentered(int x, int y, Vector2 viewportSize, int mapWidth, int mapHeight)
+        public static Vector2 CalculateHexPositionCentered(
+            int x,
+            int y,
+            Vector2 viewportSize,
+            int mapWidth,
+            int mapHeight,
+            HexGridViewState viewState = null)
         {
-            var basePosition = CalculateHexPosition(x, y);
+            var state = ResolveViewState(viewState);
+            var basePosition = CalculateHexPosition(x, y, state);
             
             // Center the map in the viewport with zoom scaling
-            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * _zoomFactor + HEX_WIDTH * 0.25f * _zoomFactor;
-            float mapTotalHeight = mapHeight * HEX_HEIGHT * _zoomFactor + HEX_HEIGHT * 0.5f * _zoomFactor;
+            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * state.ZoomFactor + HEX_WIDTH * 0.25f * state.ZoomFactor;
+            float mapTotalHeight = mapHeight * HEX_HEIGHT * state.ZoomFactor + HEX_HEIGHT * 0.5f * state.ZoomFactor;
             float centerX = (viewportSize.X - mapTotalWidth) / 2;
             float centerY = (viewportSize.Y - mapTotalHeight) / 2;
             
             // Apply scroll offset (inverted to match expected edge scrolling behavior)
-            return new Vector2(basePosition.X + centerX - _scrollOffset.X, basePosition.Y + centerY - _scrollOffset.Y);
+            return new Vector2(basePosition.X + centerX - state.ScrollOffset.X, basePosition.Y + centerY - state.ScrollOffset.Y);
         }
 
-        public static Vector2[] CreateHexagonVertices()
+        public static Vector2[] CreateHexagonVertices(HexGridViewState viewState = null)
         {
+            var state = ResolveViewState(viewState);
             var vertices = new Vector2[6];
-            float scaledHexSize = HEX_SIZE * _zoomFactor;
+            float scaledHexSize = HEX_SIZE * state.ZoomFactor;
             
             for (int i = 0; i < 6; i++)
             {
@@ -66,36 +90,40 @@ namespace Archistrateia
             return vertices;
         }
         
-        public static void SetZoom(float zoomFactor)
+        public static void SetZoom(float zoomFactor, HexGridViewState viewState = null)
         {
-            ZoomFactor = zoomFactor;
+            ResolveViewState(viewState).ZoomFactor = zoomFactor;
         }
         
-        public static void ZoomIn()
+        public static void ZoomIn(HexGridViewState viewState = null)
         {
-            ZoomFactor *= 1.2f;
+            var state = ResolveViewState(viewState);
+            state.ZoomFactor *= 1.2f;
         }
         
-        public static void ZoomOut()
+        public static void ZoomOut(HexGridViewState viewState = null)
         {
-            ZoomFactor /= 1.2f;
+            var state = ResolveViewState(viewState);
+            state.ZoomFactor /= 1.2f;
         }
 
-        public static void SetScrollOffset(Vector2 offset)
+        public static void SetScrollOffset(Vector2 offset, HexGridViewState viewState = null)
         {
-            ScrollOffset = offset;
+            ResolveViewState(viewState).ScrollOffset = offset;
         }
 
-        public static void AddScrollOffset(Vector2 delta)
+        public static void AddScrollOffset(Vector2 delta, HexGridViewState viewState = null)
         {
-            ScrollOffset += delta;
+            var state = ResolveViewState(viewState);
+            state.ScrollOffset += delta;
         }
 
-        public static Vector2 CalculateScrollBounds(Vector2 viewportSize, int mapWidth, int mapHeight)
+        public static Vector2 CalculateScrollBounds(Vector2 viewportSize, int mapWidth, int mapHeight, HexGridViewState viewState = null)
         {
+            var state = ResolveViewState(viewState);
             // Calculate the map dimensions at current zoom level
-            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * _zoomFactor + HEX_WIDTH * 0.25f * _zoomFactor;
-            float mapTotalHeight = mapHeight * HEX_HEIGHT * _zoomFactor + HEX_HEIGHT * 0.5f * _zoomFactor;
+            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * state.ZoomFactor + HEX_WIDTH * 0.25f * state.ZoomFactor;
+            float mapTotalHeight = mapHeight * HEX_HEIGHT * state.ZoomFactor + HEX_HEIGHT * 0.5f * state.ZoomFactor;
             
             // Calculate how much the map extends beyond the viewport
             // This determines the maximum scroll offset needed to show the complete edges
@@ -104,14 +132,14 @@ namespace Archistrateia
             
             // Account for hex tile size to ensure tiles are fully visible
             // Hex tiles extend beyond their calculated positions by the hex size
-            float hexSize = HEX_SIZE * _zoomFactor;
+            float hexSize = HEX_SIZE * state.ZoomFactor;
             maxScrollX += hexSize;
             maxScrollY += hexSize;
             
             return new Vector2(maxScrollX, maxScrollY);
         }
 
-        public static float CalculateOptimalZoom(Vector2 viewportSize, int mapWidth, int mapHeight)
+        public static float CalculateOptimalZoom(Vector2 viewportSize, int mapWidth, int mapHeight, HexGridViewState viewState = null)
         {
             // Calculate the map dimensions at zoom level 1.0
             float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f + HEX_WIDTH * 0.25f;
@@ -135,11 +163,12 @@ namespace Archistrateia
             return Mathf.Max(optimalZoom, 1.0f);
         }
 
-        public static bool IsScrollingNeeded(Vector2 viewportSize, int mapWidth, int mapHeight)
+        public static bool IsScrollingNeeded(Vector2 viewportSize, int mapWidth, int mapHeight, HexGridViewState viewState = null)
         {
+            var state = ResolveViewState(viewState);
             // Calculate the map dimensions at current zoom level
-            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * _zoomFactor + HEX_WIDTH * 0.25f * _zoomFactor;
-            float mapTotalHeight = mapHeight * HEX_HEIGHT * _zoomFactor + HEX_HEIGHT * 0.5f * _zoomFactor;
+            float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f * state.ZoomFactor + HEX_WIDTH * 0.25f * state.ZoomFactor;
+            float mapTotalHeight = mapHeight * HEX_HEIGHT * state.ZoomFactor + HEX_HEIGHT * 0.5f * state.ZoomFactor;
             
             // Check if the map is larger than the viewport in either dimension
             bool needsHorizontalScroll = mapTotalWidth > viewportSize.X;

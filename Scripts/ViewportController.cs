@@ -6,6 +6,7 @@ namespace Archistrateia
     public class ViewportController
     {
         private Vector2 _scrollOffset = Vector2.Zero;
+        private readonly HexGridViewState _viewState;
         private int _mapWidth;
         private int _mapHeight;
         private readonly Action _onViewChanged;
@@ -19,16 +20,18 @@ namespace Archistrateia
         private float _keyboardScrollOverrideRemaining = 0.0f;
 
         public Vector2 ScrollOffset => _scrollOffset;
+        public float ZoomFactor => _viewState.ZoomFactor;
         public float EdgeScrollThreshold => EDGE_SCROLL_THRESHOLD;
 
-        public ViewportController(int mapWidth, int mapHeight, Action onViewChanged = null)
+        public ViewportController(int mapWidth, int mapHeight, Action onViewChanged = null, HexGridViewState viewState = null)
         {
             _mapWidth = mapWidth;
             _mapHeight = mapHeight;
             _onViewChanged = onViewChanged;
+            _viewState = viewState ?? new HexGridViewState();
             
-            // Initialize HexGridCalculator scroll offset
-            HexGridCalculator.SetScrollOffset(_scrollOffset);
+            // Initialize view state from controller state.
+            _viewState.ScrollOffset = _scrollOffset;
         }
 
         private void ApplyZoomChange(float oldZoom, float newZoom, string operation)
@@ -46,25 +49,25 @@ namespace Archistrateia
 
         public void SetZoom(float zoomFactor)
         {
-            var oldZoom = HexGridCalculator.ZoomFactor;
-            HexGridCalculator.SetZoom(zoomFactor);
-            var newZoom = HexGridCalculator.ZoomFactor;
+            var oldZoom = _viewState.ZoomFactor;
+            HexGridCalculator.SetZoom(zoomFactor, _viewState);
+            var newZoom = _viewState.ZoomFactor;
             ApplyZoomChange(oldZoom, newZoom, "ZOOM SET");
         }
 
         public void ZoomIn()
         {
-            var oldZoom = HexGridCalculator.ZoomFactor;
-            HexGridCalculator.ZoomIn();
-            var newZoom = HexGridCalculator.ZoomFactor;
+            var oldZoom = _viewState.ZoomFactor;
+            HexGridCalculator.ZoomIn(_viewState);
+            var newZoom = _viewState.ZoomFactor;
             ApplyZoomChange(oldZoom, newZoom, "ZOOM IN");
         }
 
         public void ZoomOut()
         {
-            var oldZoom = HexGridCalculator.ZoomFactor;
-            HexGridCalculator.ZoomOut();
-            var newZoom = HexGridCalculator.ZoomFactor;
+            var oldZoom = _viewState.ZoomFactor;
+            HexGridCalculator.ZoomOut(_viewState);
+            var newZoom = _viewState.ZoomFactor;
             ApplyZoomChange(oldZoom, newZoom, "ZOOM OUT");
         }
 
@@ -81,8 +84,8 @@ namespace Archistrateia
             _scrollOffset.X = Mathf.Clamp(_scrollOffset.X, scrollLimits.X, scrollLimits.Y);
             _scrollOffset.Y = Mathf.Clamp(_scrollOffset.Y, scrollLimits.Z, scrollLimits.W);
             
-            // Update HexGridCalculator scroll offset
-            HexGridCalculator.SetScrollOffset(_scrollOffset);
+            // Keep injected view state in sync.
+            _viewState.ScrollOffset = _scrollOffset;
             
             // Sample debug output to avoid spam
             _debugCounter++;
@@ -98,7 +101,7 @@ namespace Archistrateia
         {
             var oldOffset = _scrollOffset;
             _scrollOffset = Vector2.Zero;
-            HexGridCalculator.SetScrollOffset(_scrollOffset);
+            _viewState.ScrollOffset = _scrollOffset;
             GD.Print($"📜 SCROLL RESET: ({oldOffset.X:F1},{oldOffset.Y:F1}) -> (0,0)");
             NotifyViewChanged();
         }
@@ -106,7 +109,7 @@ namespace Archistrateia
         public bool IsScrollingNeeded(Vector2 gameAreaSize)
         {
             // Only allow scrolling if the map is actually larger than the game area
-            return HexGridCalculator.IsScrollingNeeded(gameAreaSize, _mapWidth, _mapHeight);
+            return HexGridCalculator.IsScrollingNeeded(gameAreaSize, _mapWidth, _mapHeight, _viewState);
         }
 
         public bool HandleKeyboardInput(InputEventKey keyEvent, Vector2 gameAreaSize)
@@ -303,7 +306,7 @@ namespace Archistrateia
 
         public float CalculateOptimalZoom(Vector2 viewportSize)
         {
-            return HexGridCalculator.CalculateOptimalZoom(viewportSize, _mapWidth, _mapHeight);
+            return HexGridCalculator.CalculateOptimalZoom(viewportSize, _mapWidth, _mapHeight, _viewState);
         }
 
         private Vector2 GetEdgeScrollDirection(Vector2 localMousePos, Vector2 gridSize)
@@ -348,15 +351,15 @@ namespace Archistrateia
         private Vector4 CalculateSmartScrollLimits(Vector2 gameAreaSize)
         {
             // Calculate the map dimensions at current zoom level (same as in CalculateHexPositionCentered)
-            float mapTotalWidth = _mapWidth * HexGridCalculator.HEX_WIDTH * 0.75f * HexGridCalculator.ZoomFactor + HexGridCalculator.HEX_WIDTH * 0.25f * HexGridCalculator.ZoomFactor;
-            float mapTotalHeight = _mapHeight * HexGridCalculator.HEX_HEIGHT * HexGridCalculator.ZoomFactor + HexGridCalculator.HEX_HEIGHT * 0.5f * HexGridCalculator.ZoomFactor;
+            float mapTotalWidth = _mapWidth * HexGridCalculator.HEX_WIDTH * 0.75f * _viewState.ZoomFactor + HexGridCalculator.HEX_WIDTH * 0.25f * _viewState.ZoomFactor;
+            float mapTotalHeight = _mapHeight * HexGridCalculator.HEX_HEIGHT * _viewState.ZoomFactor + HexGridCalculator.HEX_HEIGHT * 0.5f * _viewState.ZoomFactor;
             
             // Calculate the centering offset (same as in CalculateHexPositionCentered)
             float centerX = (gameAreaSize.X - mapTotalWidth) / 2;
             float centerY = (gameAreaSize.Y - mapTotalHeight) / 2;
             
             // Calculate the actual boundaries of the map including hex tile radius
-            float hexSize = HexGridCalculator.HEX_SIZE * HexGridCalculator.ZoomFactor;
+            float hexSize = HexGridCalculator.HEX_SIZE * _viewState.ZoomFactor;
             
             // The map extends from the leftmost tile position to the rightmost tile position
             // Leftmost tile is at centerX, rightmost tile is at centerX + mapTotalWidth
@@ -399,7 +402,7 @@ namespace Archistrateia
             if (_debugCounter % 300 == 0) // Show every 300 calls (about every 5 seconds at 60fps)
             {
                 GD.Print($"🔍 SCROLL LIMITS DEBUG (Sample {_debugCounter}):");
-                GD.Print($"  Map: {_mapWidth}x{_mapHeight}, Zoom: {HexGridCalculator.ZoomFactor:F2}x");
+                GD.Print($"  Map: {_mapWidth}x{_mapHeight}, Zoom: {_viewState.ZoomFactor:F2}x");
                 GD.Print($"  MapTotal: {mapTotalWidth:F1}x{mapTotalHeight:F1}");
                 GD.Print($"  Center: ({centerX:F1},{centerY:F1})");
                 GD.Print($"  Edges: L{leftEdge:F1} R{rightEdge:F1} T{topEdge:F1} B{bottomEdge:F1}");

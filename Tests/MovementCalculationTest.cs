@@ -12,7 +12,6 @@ public class MovementCalculationTest
     public void Should_Recalculate_Correctly_After_Movement()
     {
         var gameMap = new Dictionary<Vector2I, HexTile>();
-        var coordinator = new MovementCoordinator();
         
         // Create a simple path for testing using actual terrain costs
         var start = new Vector2I(0, 0);
@@ -26,7 +25,7 @@ public class MovementCalculationTest
         // Set up Godot's built-in movement system for this test map
         var movementSystem = new GodotMovementSystem(forTesting: true);
         movementSystem.InitializeNavigation(gameMap);
-        MovementValidationLogic.SetMovementSystem(movementSystem);
+        var coordinator = new MovementCoordinator(movementSystem);
         
         var archer = new Archer(); // Use actual unit definition
         gameMap[start].PlaceUnit(archer);
@@ -64,7 +63,7 @@ public class MovementCalculationTest
         var desertCost = gameMap[adjacent2].MovementCost;
         
         // Get actual path cost from pathfinding algorithm
-        var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(archer, adjacent1, gameMap);
+        var pathCosts = MovementValidationLogic.GetPathCostsFromPosition(archer, adjacent1, gameMap, movementSystem);
         if (pathCosts.ContainsKey(adjacent2))
         {
             var calculatedPathCost = pathCosts[adjacent2];
@@ -119,8 +118,6 @@ public class MovementCalculationTest
             }
         }
         
-        // Clean up
-        MovementValidationLogic.SetMovementSystem(null);
     }
 
     // REMOVED: Test had hardcoded hex adjacency expectations from old buggy behavior
@@ -362,8 +359,6 @@ public class MovementCalculationTest
     public void Should_Calculate_Path_Cost_From_Dijkstra_Results()
     {
         // Test that path cost matches what Dijkstra's algorithm calculated
-        var coordinator = new MovementCoordinator();
-        
         GD.Print("=== TESTING PATH COST VS DIJKSTRA RESULTS ===");
         
         var gameMap = new Dictionary<Vector2I, HexTile>();
@@ -375,13 +370,13 @@ public class MovementCalculationTest
         // Set up Godot's built-in movement system for this test map
         var movementSystem = new GodotMovementSystem(forTesting: true);
         movementSystem.InitializeNavigation(gameMap);
-        MovementValidationLogic.SetMovementSystem(movementSystem);
+        var coordinator = new MovementCoordinator(movementSystem);
         
         var archer = new Archer();
         var initialMP = archer.CurrentMovementPoints;
         
         // Get Dijkstra's path costs using Godot's system
-        var dijkstraResults = MovementValidationLogic.GetValidMovementDestinations(archer, new Vector2I(0, 0), gameMap);
+        var dijkstraResults = MovementValidationLogic.GetValidMovementDestinations(archer, new Vector2I(0, 0), gameMap, movementSystem);
         GD.Print("Dijkstra's calculated costs from pathfinding output:");
         
         // Move to (1,1) and verify cost matches Dijkstra's calculation
@@ -398,9 +393,6 @@ public class MovementCalculationTest
             Assert.AreEqual(2, actualDeducted, "Deducted MP should match Dijkstra's calculated path cost");
         }
         
-        // Clean up
-        MovementValidationLogic.SetMovementSystem(null);
-        
         GD.Print("✅ Path cost vs Dijkstra results test completed");
     }
-} 
+}
