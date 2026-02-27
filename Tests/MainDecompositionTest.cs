@@ -20,6 +20,9 @@ namespace Archistrateia.Tests
             Assert.IsNotNull(
                 mainType.GetField("_gameRuntimeController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose runtime bootstrap behavior through GameRuntimeController.");
+            Assert.IsNotNull(
+                mainType.GetField("_mainInputController", BindingFlags.NonPublic | BindingFlags.Instance),
+                "Main should compose raw input routing through MainInputController.");
         }
 
         [Test]

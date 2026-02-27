@@ -65,6 +65,7 @@ namespace Archistrateia
         private readonly HexGridViewState _hexGridViewState = new();
         private MapPreviewController _mapPreviewController;
         private GameRuntimeController _gameRuntimeController;
+        private MainInputController _mainInputController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
         private int _viewChangedDebugCounter = 0;
         private int _sliderDebugCounter = 0;
@@ -247,6 +248,18 @@ namespace Archistrateia
             _tileUnitCoordinator = new TileUnitCoordinator();
             _gameRuntimeController = new GameRuntimeController(this, _tileUnitCoordinator, _positionManager);
             _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors);
+            _mainInputController = new MainInputController(
+                _viewportController,
+                _debugScrollOverlay,
+                () => GetViewport().GetMousePosition(),
+                GetGameAreaSize,
+                GetGameGridRect,
+                IsMouseOverUIControls,
+                IsMouseOverGameArea,
+                DebugMousePosition,
+                () => _debugAdjacentMode,
+                HandleDebugAdjacentHover,
+                () => GetViewport().SetInputAsHandled());
             
             GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
         }
@@ -1001,80 +1014,23 @@ namespace Archistrateia
 
         public override void _Input(InputEvent @event)
         {
-            // Handle debug adjacent hover functionality
-            if (_debugAdjacentMode && @event is InputEventMouseMotion)
-            {
-                var mousePosition = GetViewport().GetMousePosition();
-                HandleDebugAdjacentHover(mousePosition);
-            }
-            
-            // Handle zoom controls through ViewportController
-            if (@event is InputEventMouseButton mouseEvent)
-            {
-                var mousePosition = GetViewport().GetMousePosition();
-                
-                // Only handle zoom events when mouse is NOT over UI controls
-                if (!IsMouseOverUIControls(mousePosition))
-                {
-                    var handled = _viewportController?.HandleMouseInput(mouseEvent, GetGameAreaSize()) ?? false;
-                    
-                    if (handled)
-                    {
-                        GetViewport().SetInputAsHandled();
-                    }
-                }
-                
-                if (mouseEvent.Pressed && mouseEvent.ButtonIndex == MouseButton.Left)
-                {
-                    // Debug mouse clicks to see if UI controls are being detected
-                    DebugMousePosition(mousePosition);
-                    
-                    // Don't mark left clicks as handled to allow UI controls to receive them
-                }
-            }
-            
-            // Handle two-finger scroll for Mac trackpad through ViewportController
-            if (@event is InputEventPanGesture panGesture)
-            {
-                // Handle pan gestures - ViewportController will check UI controls
-                _viewportController?.HandlePanGesture(panGesture, GetGameAreaSize(), IsMouseOverUIControls, IsMouseOverGameArea);
-                GetViewport().SetInputAsHandled();
-            }
-            
-            // Don't handle other input events to allow UI controls to receive them
+            _mainInputController?.HandleInput(@event);
         }
 
         public override void _Process(double delta)
         {
-            _viewportController?.Update(delta);
-            HandleEdgeScrolling(delta);
-        }
-
-        private void HandleEdgeScrolling(double delta)
-        {
-            var mousePosition = GetViewport().GetMousePosition();
-            var gameGridRect = GetGameGridRect();
-            var gameAreaSize = GetGameAreaSize();
-            var isScrollingNeeded = _viewportController != null && _viewportController.IsScrollingNeeded(gameAreaSize);
-            var isOverUIControls = IsMouseOverUIControls(mousePosition);
-            
-            // Update debug overlay to show scroll areas within the game grid area
-            var edgeScrollThreshold = _viewportController?.EdgeScrollThreshold ?? 50.0f;
-            _debugScrollOverlay?.UpdateScrollAreas(gameGridRect.Size, edgeScrollThreshold, isScrollingNeeded, gameGridRect.Position);
-            _debugScrollOverlay?.UpdateUIExclusions(mousePosition, isOverUIControls);
-            _viewportController?.HandleEdgeScrolling(mousePosition, gameGridRect, gameAreaSize, isOverUIControls, delta);
+            _mainInputController?.HandleProcess(delta);
         }
 
         public override void _UnhandledInput(InputEvent @event)
         {
-            if (@event is InputEventKey keyEvent && keyEvent.Pressed)
-            {
-                if (HandleDebugInput(keyEvent)) return;
-                if (HandlePhaseInput(keyEvent)) return;
-                if (HandleHoverInfoModeInput(keyEvent)) return;
-                if (HandleZoomInput(keyEvent)) return;
-                HandleScrollInput(keyEvent);
-            }
+            _mainInputController?.HandleUnhandledInput(
+                @event,
+                HandleDebugInput,
+                HandlePhaseInput,
+                HandleHoverInfoModeInput,
+                HandleZoomInput,
+                HandleScrollInput);
         }
 
         private bool HandleDebugInput(InputEventKey keyEvent)

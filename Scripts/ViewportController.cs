@@ -3,7 +3,20 @@ using System;
 
 namespace Archistrateia
 {
-    public class ViewportController
+    public interface IViewportInputController
+    {
+        float EdgeScrollThreshold { get; }
+        bool HandleMouseInput(InputEventMouseButton mouseEvent, Vector2 gameAreaSize);
+        void HandlePanGesture(InputEventPanGesture panGesture, Vector2 gameAreaSize, Func<Vector2, bool> isMouseOverUIControls, Func<Vector2, bool> isMouseOverGameArea = null);
+        void Update(double delta);
+        bool IsScrollingNeeded(Vector2 gameAreaSize);
+        void HandleEdgeScrolling(Vector2 mousePosition, Rect2 gameGridRect, Vector2 gameAreaSize, bool isOverUIControls, double delta);
+        bool HandleKeyboardInput(InputEventKey keyEvent, Vector2 gameAreaSize);
+        void ApplyScrollDelta(Vector2 scrollDelta, Vector2 gameAreaSize);
+        void SetZoom(float zoomFactor);
+    }
+
+    public class ViewportController : IViewportInputController
     {
         private Vector2 _scrollOffset = Vector2.Zero;
         private readonly HexGridViewState _viewState;
