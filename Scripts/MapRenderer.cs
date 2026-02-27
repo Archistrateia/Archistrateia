@@ -15,8 +15,7 @@ namespace Archistrateia
         public GameManager GameManager { get; private set; }
         private List<VisualUnit> _visualUnits = new List<VisualUnit>();
         private Dictionary<Vector2I, VisualHexTile> _visualTiles = new Dictionary<Vector2I, VisualHexTile>();
-        private PlayerInteractionLogic _interactionLogic = new PlayerInteractionLogic();
-        private MovementCoordinator _movementCoordinator = new MovementCoordinator();
+        private IMapInteractionController _interactionController = new MapInteractionController();
         private Player _currentPlayer;
         private GamePhase _currentPhase;
         private InformationPanel _informationPanel;
@@ -43,7 +42,9 @@ namespace Archistrateia
             GameManager = gameManager;
             _tileUnitCoordinator = tileUnitCoordinator ?? new TileUnitCoordinator();
             _mapContainer = mapContainer;
-            _movementCoordinator = new MovementCoordinator(GameManager?.MovementSystem);
+            _interactionController = new MapInteractionController(
+                new PlayerInteractionLogic(),
+                new MovementCoordinator(GameManager?.MovementSystem));
             ZIndex = 5; // Ensure MapRenderer is above tiles but below units
             CreateInformationPanel();
         }
@@ -107,8 +108,7 @@ namespace Archistrateia
             _visualUnits.Clear();
             
             // Clear any unit-related selections
-            _interactionLogic.DeselectUnit();
-            _movementCoordinator.ClearSelection();
+            _interactionController.ClearSelection();
         }
 
         public Player GetCurrentPlayer()
@@ -168,20 +168,12 @@ namespace Archistrateia
             GD.Print($"   Current Phase: {_currentPhase}");
             GD.Print($"   Unit Owner: {GetUnitOwner(clickedUnit.LogicalUnit)?.Name ?? "UNKNOWN"}");
             
-            if (_currentPlayer == null)
-            {
-                GD.Print("❌ No current player set - ignoring click");
-                return;
-            }
-
-            // Try to select the unit
-            var wasSelected = _interactionLogic.SelectUnit(_currentPlayer, clickedUnit.LogicalUnit, _currentPhase);
-            
-            if (wasSelected)
+            var selectionResult = _interactionController.HandleUnitClicked(_currentPlayer, _currentPhase, clickedUnit.LogicalUnit);
+            if (selectionResult.WasSelected)
             {
                 GD.Print($"✅ Successfully selected {clickedUnit.LogicalUnit.Name}");
                 UpdateVisualSelection();
-                ShowValidMovementDestinations(clickedUnit.LogicalUnit);
+                ShowValidMovementDestinations(selectionResult.SelectedUnit);
             }
             else
             {
@@ -206,7 +198,7 @@ namespace Archistrateia
 
         private void UpdateVisualSelection()
         {
-            var selectedUnit = _interactionLogic.GetSelectedUnit();
+            var selectedUnit = _interactionController.GetSelectedUnit();
             
             // Update visual state for all units
             foreach (var visualUnit in _visualUnits)
@@ -243,13 +235,12 @@ namespace Archistrateia
 
         public Unit GetSelectedUnit()
         {
-            return _interactionLogic.GetSelectedUnit();
+            return _interactionController.GetSelectedUnit();
         }
 
         public void DeselectAll()
         {
-            _interactionLogic.DeselectUnit();
-            _movementCoordinator.ClearSelection();
+            _interactionController.ClearSelection();
             UpdateVisualSelection();
             ClearAllHighlights();
             ClearAllUnitMovementDisplays();
@@ -267,86 +258,49 @@ namespace Archistrateia
         {
             GD.Print($"🖱️ CLICK Debug: Tile clicked at Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y}) World({clickedTile.Position.X:F1},{clickedTile.Position.Y:F1})");
 
-            if (_currentPhase == GamePhase.Purchase)
+            var result = _interactionController.HandleTileClicked(
+                _currentPhase,
+                clickedTile.GridPosition,
+                GameManager?.GameMap,
+                FindUnitPosition);
+
+            if (result.Kind == TileInteractionKind.PurchaseTileSelected)
             {
                 EmitSignal(SignalName.PurchaseTileClicked, clickedTile.GridPosition);
                 return;
             }
 
-            if (_currentPhase != GamePhase.Move)
+            if (result.Kind == TileInteractionKind.Ignored)
             {
-                GD.Print($"   ❌ Not in Move phase (current: {_currentPhase})");
+                GD.Print($"   ❌ Tile click ignored during {_currentPhase}");
                 return;
             }
 
-            var selectedUnit = _interactionLogic.GetSelectedUnit();
-            if (selectedUnit == null)
+            if (result.Kind == TileInteractionKind.DeselectRequired)
             {
-                GD.Print($"   ❌ No unit selected");
-                return;
-            }
-
-            if (selectedUnit.CurrentMovementPoints <= 0)
-            {
+                GD.Print($"❌ Move failed: {result.ErrorMessage} - Deselecting unit");
                 DeselectAll();
                 return;
             }
 
-            var unitPosition = FindUnitPosition(selectedUnit);
-            if (unitPosition == null)
+            GD.Print($"✅ MOVEMENT SUCCESS: Unit moved to Grid({result.NewPosition.X},{result.NewPosition.Y})");
+
+            var visualUnit = FindVisualUnit(result.SelectedUnit);
+            if (visualUnit != null && _visualTiles.TryGetValue(result.NewPosition, out var targetTile))
             {
-                return;
+                var newWorldPosition = targetTile.Position;
+                visualUnit.UpdatePosition(newWorldPosition);
+                visualUnit.RefreshMovementDisplay();
             }
 
-            var selectedUnitId = selectedUnit?.GetInstanceId() ?? 0;
-            var selectedUnitOwner = GetUnitOwner(selectedUnit)?.Name ?? "UNKNOWN";
-            GD.Print($"🚀 MOVEMENT Debug: Attempting move from Grid({unitPosition.Value.X},{unitPosition.Value.Y}) to Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y})");
-            GD.Print($"🚀 MOVING UNIT: Unit({selectedUnit?.Name ?? "NULL"}) ID({selectedUnitId}) Owner({selectedUnitOwner})");
-            var moveResult = _movementCoordinator.TryMoveToDestination(unitPosition.Value, clickedTile.GridPosition, GameManager.GameMap);
-            
-            if (moveResult.Success)
+            UpdateTileOccupationStatus();
+
+            if (result.SelectedUnit.CurrentMovementPoints > 0)
             {
-                GD.Print($"✅ MOVEMENT SUCCESS: Unit moved to Grid({moveResult.NewPosition.X},{moveResult.NewPosition.Y})");
-                
-                // Verify the logical position after movement
-                var verifyLogicalPosition = FindUnitPosition(selectedUnit);
-                GD.Print($"🔍 VERIFY LOGICAL: Unit({selectedUnit.Name}) is logically at Grid({verifyLogicalPosition?.X ?? -1},{verifyLogicalPosition?.Y ?? -1})");
-                
-                var visualUnit = FindVisualUnit(selectedUnit);
-                if (visualUnit != null)
-                {
-                    // Use the actual final position from the move result, not the clicked tile
-                    var actualFinalPosition = moveResult.NewPosition;
-                    var newWorldPosition = _visualTiles[actualFinalPosition].Position;
-                    GD.Print($"🎯 VISUAL UPDATE: Moving unit visual from World({visualUnit.Position.X:F1},{visualUnit.Position.Y:F1}) to World({newWorldPosition.X:F1},{newWorldPosition.Y:F1})");
-                    GD.Print($"🎯 POSITION FIX: Using actual final position Grid({actualFinalPosition.X},{actualFinalPosition.Y}) instead of clicked Grid({clickedTile.GridPosition.X},{clickedTile.GridPosition.Y})");
-                    
-                    // Double-check which tile we're using for the world position
-                    var targetTile = _visualTiles[actualFinalPosition];
-                    GD.Print($"🎯 TARGET TILE: Grid({actualFinalPosition.X},{actualFinalPosition.Y}) -> World({targetTile.Position.X:F1},{targetTile.Position.Y:F1})");
-                    
-                    visualUnit.UpdatePosition(newWorldPosition);
-                    
-                    // Update the movement indicator after MP deduction
-                    visualUnit.RefreshMovementDisplay();
-                }
-                
-                // Update tile occupation status after movement
-                UpdateTileOccupationStatus();
-                
-                if (selectedUnit.CurrentMovementPoints > 0)
-                {
-                    ShowValidMovementDestinations(selectedUnit);
-                }
-                else
-                {
-                    DeselectAll();
-                }
+                ShowValidMovementDestinations(result.SelectedUnit);
             }
             else
             {
-                // Move failed - deselect the unit and clear highlights
-                GD.Print($"❌ Move failed: {moveResult.ErrorMessage} - Deselecting unit");
                 DeselectAll();
             }
         }
@@ -674,8 +628,10 @@ namespace Archistrateia
                 return;
             }
 
-            _movementCoordinator.SelectUnitForMovement(selectedUnit);
-            var validDestinations = _movementCoordinator.GetValidDestinations(unitPosition.Value, GameManager.GameMap);
+            var validDestinations = _interactionController.GetValidMovementDestinations(
+                selectedUnit,
+                unitPosition.Value,
+                GameManager.GameMap);
             
             // Only apply highlighting if there are valid destinations
             if (validDestinations.Count > 0)
