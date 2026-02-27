@@ -5,6 +5,7 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
 {
     public Vector2I GridPosition { get; private set; }
     public TerrainType TerrainType { get; private set; }
+    private HexGridViewState _viewState = new();
     
     [Signal]
     public delegate void TileClickedEventHandler(VisualHexTile tile);
@@ -27,10 +28,11 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
 
     private Color _baseTerrainColor;
 
-    public void Initialize(Vector2I gridPosition, TerrainType terrainType, Color color, Vector2 worldPosition)
+    public void Initialize(Vector2I gridPosition, TerrainType terrainType, Color color, Vector2 worldPosition, HexGridViewState viewState = null)
     {
         GridPosition = gridPosition;
         TerrainType = terrainType;
+        _viewState = viewState ?? new HexGridViewState();
         _baseTerrainColor = color; // Store the passed color
         Position = worldPosition;
         Name = $"VisualHexTile_{gridPosition.X}_{gridPosition.Y}";
@@ -45,14 +47,14 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
     {
         // Create hex shape using Godot's built-in Polygon2D
         _hexShape = new Polygon2D();
-        _hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
+        _hexShape.Polygon = HexGridCalculator.CreateHexagonVertices(_viewState);
         _hexShape.Color = color;
         _hexShape.Name = "HexShape";
         AddChild(_hexShape);
 
         // Create hex outline using Godot's built-in Line2D
         _hexOutline = new Line2D();
-        _hexOutline.Points = HexGridCalculator.CreateHexagonVertices();
+        _hexOutline.Points = HexGridCalculator.CreateHexagonVertices(_viewState);
         _hexOutline.DefaultColor = new Color(0.2f, 0.2f, 0.2f);
         _hexOutline.Width = 2.0f;
         _hexOutline.Name = "HexOutline";
@@ -63,7 +65,7 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
     {
         // Create collision shape for click detection
         var collisionShape = new CollisionShape2D();
-        var vertices = HexGridCalculator.CreateHexagonVertices();
+        var vertices = HexGridCalculator.CreateHexagonVertices(_viewState);
         
         // Create a ConvexPolygonShape2D from hex vertices
         var shape = new ConvexPolygonShape2D();
@@ -88,20 +90,20 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
         // Update hex shape vertices
         if (_hexShape != null)
         {
-            _hexShape.Polygon = HexGridCalculator.CreateHexagonVertices();
+            _hexShape.Polygon = HexGridCalculator.CreateHexagonVertices(_viewState);
         }
 
         // Update outline vertices
         if (_hexOutline != null)
         {
-            _hexOutline.Points = HexGridCalculator.CreateHexagonVertices();
+            _hexOutline.Points = HexGridCalculator.CreateHexagonVertices(_viewState);
         }
 
         // Update collision shape
         var collisionShape = GetNode<CollisionShape2D>("TileClickArea");
         if (collisionShape != null && collisionShape.Shape is ConvexPolygonShape2D polygonShape)
         {
-            polygonShape.Points = HexGridCalculator.CreateHexagonVertices();
+            polygonShape.Points = HexGridCalculator.CreateHexagonVertices(_viewState);
         }
 
         // Update visual appearance
@@ -249,10 +251,10 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
         }
     }
 
-    private static bool IsPointInHexagon(Vector2 point)
+    private bool IsPointInHexagon(Vector2 point)
     {
         // Get the exact hex vertices used for rendering
-        var vertices = HexGridCalculator.CreateHexagonVertices();
+        var vertices = HexGridCalculator.CreateHexagonVertices(_viewState);
         
         // Ray casting algorithm for point-in-polygon
         bool inside = false;
@@ -274,6 +276,11 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
     public bool ContainsGlobalPoint(Vector2 globalPosition)
     {
         return IsPointInHexagon(ToLocal(globalPosition));
+    }
+
+    public bool ContainsLocalPoint(Vector2 localPoint)
+    {
+        return IsPointInHexagon(localPoint);
     }
 
     public void SetHighlight(bool highlight, Color highlightColor = default)

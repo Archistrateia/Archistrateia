@@ -21,6 +21,7 @@ namespace Archistrateia
         private InformationPanel _informationPanel;
         private TileUnitCoordinator _tileUnitCoordinator;
         private Node2D _mapContainer;
+        private HexGridViewState _viewState;
         private const float HOVER_INFO_SHOW_DELAY = 0.0f;
         private const float HOVER_INFO_HIDE_GRACE = 0.08f;
         private HoverInfoKind _pendingHoverKind = HoverInfoKind.None;
@@ -37,11 +38,12 @@ namespace Archistrateia
         [Signal]
         public delegate void PurchaseTileClickedEventHandler(Vector2I tilePosition);
 
-        public void Initialize(GameManager gameManager, TileUnitCoordinator tileUnitCoordinator = null, Node2D mapContainer = null)
+        public void Initialize(GameManager gameManager, TileUnitCoordinator tileUnitCoordinator = null, Node2D mapContainer = null, HexGridViewState viewState = null)
         {
             GameManager = gameManager;
             _tileUnitCoordinator = tileUnitCoordinator ?? new TileUnitCoordinator();
             _mapContainer = mapContainer;
+            _viewState = viewState ?? new HexGridViewState();
             _interactionController = new MapInteractionController(
                 new PlayerInteractionLogic(),
                 new MovementCoordinator(GameManager?.MovementSystem));
@@ -138,7 +140,7 @@ namespace Archistrateia
                 GD.Print($"⚠️ CONTAINER: No map container found, adding to MapRenderer");
             }
             
-            visualUnit.Initialize(logicalUnit, position, color);
+            visualUnit.Initialize(logicalUnit, position, color, _viewState);
             visualUnit.SetMapRenderer(this); // Set the MapRenderer reference
             visualUnit.UnitClicked += OnUnitClicked;
             visualUnit.UnitHovered += OnUnitHovered;

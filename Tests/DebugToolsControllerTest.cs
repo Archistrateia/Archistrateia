@@ -99,6 +99,11 @@ public class DebugToolsControllerTest
             return globalPosition;
         }
 
+        public bool ContainsLocalPoint(Vector2 localPoint)
+        {
+            return true;
+        }
+
         public void SetHighlight(bool highlight, Color highlightColor = default)
         {
             Highlighted = highlight;

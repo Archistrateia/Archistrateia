@@ -8,33 +8,11 @@ namespace Archistrateia
         public const float HEX_WIDTH = HEX_SIZE * 2.0f;
         public const float HEX_HEIGHT = HEX_SIZE * 1.732f;
 
-        private static HexGridViewState _globalViewState = new HexGridViewState();
+        private static readonly HexGridViewState DefaultViewState = new();
 
         private static HexGridViewState ResolveViewState(HexGridViewState viewState)
         {
-            return viewState ?? _globalViewState;
-        }
-
-        public static void SetGlobalViewState(HexGridViewState viewState)
-        {
-            _globalViewState = viewState ?? new HexGridViewState();
-        }
-
-        public static HexGridViewState GetGlobalViewState()
-        {
-            return _globalViewState;
-        }
-
-        public static float ZoomFactor 
-        { 
-            get => _globalViewState.ZoomFactor;
-            set => _globalViewState.ZoomFactor = value;
-        }
-
-        public static Vector2 ScrollOffset
-        {
-            get => _globalViewState.ScrollOffset;
-            set => _globalViewState.ScrollOffset = value;
+            return viewState ?? DefaultViewState;
         }
 
         public static Vector2 CalculateHexPosition(int x, int y, HexGridViewState viewState = null)

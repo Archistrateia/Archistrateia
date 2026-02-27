@@ -19,23 +19,25 @@ namespace Archistrateia.Tests
         }
 
         [Test]
-        public void IsPointInHexagon_Should_Be_Static_On_DebugToolsController()
+        public void ContainsLocalPoint_Should_Exist_On_VisualHexTile()
         {
-            var method = typeof(DebugToolsController).GetMethod("IsPointInHexagon", BindingFlags.NonPublic | BindingFlags.Static);
+            var method = typeof(VisualHexTile).GetMethod("ContainsLocalPoint", BindingFlags.Public | BindingFlags.Instance);
 
-            Assert.IsNotNull(method, "IsPointInHexagon should exist as a static helper on DebugToolsController.");
+            Assert.IsNotNull(method, "ContainsLocalPoint should exist as an instance helper on VisualHexTile.");
             Assert.AreEqual(typeof(bool), method.ReturnType);
             Assert.AreEqual(1, method.GetParameters().Length, "Method should only accept the point to test.");
             Assert.AreEqual(typeof(Vector2), method.GetParameters()[0].ParameterType);
         }
 
         [Test]
-        public void IsPointInHexagon_Should_Execute_Without_Controller_Instance()
+        public void ContainsLocalPoint_Should_Execute_With_Tile_Instance()
         {
-            var method = typeof(DebugToolsController).GetMethod("IsPointInHexagon", BindingFlags.NonPublic | BindingFlags.Static);
+            var method = typeof(VisualHexTile).GetMethod("ContainsLocalPoint", BindingFlags.Public | BindingFlags.Instance);
 
-            bool centerInside = (bool)method.Invoke(null, new object[] { Vector2.Zero });
-            bool farOutside = (bool)method.Invoke(null, new object[] { new Vector2(5000, 5000) });
+            var tile = new VisualHexTile();
+            tile.Initialize(new Vector2I(0, 0), TerrainType.Desert, Colors.Beige, Vector2.Zero, new HexGridViewState());
+            bool centerInside = (bool)method.Invoke(tile, new object[] { Vector2.Zero });
+            bool farOutside = (bool)method.Invoke(tile, new object[] { new Vector2(5000, 5000) });
 
             Assert.IsTrue(centerInside, "Hex center should be inside.");
             Assert.IsFalse(farOutside, "Far point should be outside.");

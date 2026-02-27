@@ -34,6 +34,7 @@ namespace Archistrateia
             TurnManager turnManager,
             Node2D mapContainer,
             int currentPlayerIndex,
+            HexGridViewState viewState,
             Action<Vector2I> onPurchaseTileClicked,
             Action updateTitleLabel,
             Action refreshPurchaseUI)
@@ -41,7 +42,7 @@ namespace Archistrateia
             var mapRenderer = new MapRenderer();
             mapRenderer.Name = "MapRenderer";
             _host.AddChild(mapRenderer);
-            mapRenderer.Initialize(gameManager, _tileUnitCoordinator, mapContainer);
+            mapRenderer.Initialize(gameManager, _tileUnitCoordinator, mapContainer, viewState);
             if (onPurchaseTileClicked != null)
             {
                 mapRenderer.PurchaseTileClicked += tilePosition => onPurchaseTileClicked(tilePosition);

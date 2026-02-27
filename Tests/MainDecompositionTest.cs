@@ -47,7 +47,7 @@ namespace Archistrateia.Tests
                 { TerrainType.Water, Colors.DarkBlue }
             };
 
-            var controller = new MapPreviewController(host, null, positionManager, viewportController, terrainColors);
+            var controller = new MapPreviewController(host, null, positionManager, viewportController, terrainColors, viewState);
 
             var mapContainer = controller.GeneratePreviewMap(null, MapType.Continental);
 

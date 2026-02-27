@@ -7,6 +7,7 @@ namespace Archistrateia.Tests
     [TestFixture]
     public class HexGridTest
     {
+        private readonly HexGridViewState _viewState = new();
         private const float HEX_SIZE = 35.0f;
         private const float HEX_WIDTH = HEX_SIZE * 2.0f;
         private const float HEX_HEIGHT = HEX_SIZE * 1.732f;
@@ -14,7 +15,7 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Have_Correct_Constants()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
             Assert.AreEqual(35.0f, HexGridCalculator.HEX_SIZE, 0.001f, "HEX_SIZE should be 35.0f");
             Assert.AreEqual(70.0f, HexGridCalculator.HEX_WIDTH, 0.001f, "HEX_WIDTH should be 70.0f");
@@ -27,7 +28,7 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Calculate_Flat_Top_Spacing_Constants()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
             float horizontalSpacing = HEX_WIDTH * 0.75f;
             float verticalSpacing = HEX_HEIGHT;
@@ -41,21 +42,21 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Position_Even_Columns_Correctly()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
-            var position = HexGridCalculator.CalculateHexPosition(0, 0);
+            var position = HexGridCalculator.CalculateHexPosition(0, 0, _viewState);
             Assert.AreEqual(0, position.X, 0.001f, "X position for (0,0) should be 0");
             Assert.AreEqual(0, position.Y, 0.001f, "Y position for (0,0) should be 0");
 
-            position = HexGridCalculator.CalculateHexPosition(0, 1);
+            position = HexGridCalculator.CalculateHexPosition(0, 1, _viewState);
             Assert.AreEqual(0, position.X, 0.001f, "X position for (0,1) should be 0");
             Assert.AreEqual(HEX_HEIGHT, position.Y, 0.001f, "Y position for (0,1) should be HEX_HEIGHT");
 
-            position = HexGridCalculator.CalculateHexPosition(0, 2);
+            position = HexGridCalculator.CalculateHexPosition(0, 2, _viewState);
             Assert.AreEqual(0, position.X, 0.001f, "X position for (0,2) should be 0");
             Assert.AreEqual(HEX_HEIGHT * 2, position.Y, 0.001f, "Y position for (0,2) should be 2 * HEX_HEIGHT");
             
-            position = HexGridCalculator.CalculateHexPosition(2, 0);
+            position = HexGridCalculator.CalculateHexPosition(2, 0, _viewState);
             Assert.AreEqual(HEX_WIDTH * 1.5f, position.X, 0.001f, "X position for (2,0) should be HEX_WIDTH * 1.5 (even column)");
             Assert.AreEqual(0, position.Y, 0.001f, "Y position for (2,0) should be 0");
         }
@@ -63,21 +64,21 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Position_Odd_Columns_Correctly()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
-            var position = HexGridCalculator.CalculateHexPosition(1, 0);
+            var position = HexGridCalculator.CalculateHexPosition(1, 0, _viewState);
             Assert.AreEqual(HEX_WIDTH * 0.75f, position.X, 0.001f, "X position for (1,0) should be HEX_WIDTH * 0.75");
             Assert.AreEqual(HEX_HEIGHT * 0.5f, position.Y, 0.001f, "Y position for (1,0) should be HEX_HEIGHT * 0.5");
 
-            position = HexGridCalculator.CalculateHexPosition(1, 1);
+            position = HexGridCalculator.CalculateHexPosition(1, 1, _viewState);
             Assert.AreEqual(HEX_WIDTH * 0.75f, position.X, 0.001f, "X position for (1,1) should be HEX_WIDTH * 0.75");
             Assert.AreEqual(HEX_HEIGHT * 1.5f, position.Y, 0.001f, "Y position for (1,1) should be HEX_HEIGHT * 1.5");
 
-            position = HexGridCalculator.CalculateHexPosition(1, 2);
+            position = HexGridCalculator.CalculateHexPosition(1, 2, _viewState);
             Assert.AreEqual(HEX_WIDTH * 0.75f, position.X, 0.001f, "X position for (1,2) should be HEX_WIDTH * 0.75");
             Assert.AreEqual(HEX_HEIGHT * 2.5f, position.Y, 0.001f, "Y position for (1,2) should be HEX_HEIGHT * 2.5");
             
-            position = HexGridCalculator.CalculateHexPosition(3, 1);
+            position = HexGridCalculator.CalculateHexPosition(3, 1, _viewState);
             Assert.AreEqual(HEX_WIDTH * 2.25f, position.X, 0.001f, "X position for (3,1) should be HEX_WIDTH * 2.25 (odd column)");
             Assert.AreEqual(HEX_HEIGHT * 1.5f, position.Y, 0.001f, "Y position for (3,1) should be HEX_HEIGHT * 1.5");
         }
@@ -85,13 +86,13 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Calculate_Centered_Positions_Correctly()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
             var viewportSize = new Vector2(800, 600);
             int mapWidth = 10;
             int mapHeight = 10;
 
-            var centeredPosition = HexGridCalculator.CalculateHexPositionCentered(0, 0, viewportSize, mapWidth, mapHeight);
+            var centeredPosition = HexGridCalculator.CalculateHexPositionCentered(0, 0, viewportSize, mapWidth, mapHeight, _viewState);
 
             float expectedCenterX = (viewportSize.X - (mapWidth * HexGridCalculator.HEX_WIDTH * 0.75f + HexGridCalculator.HEX_WIDTH * 0.25f)) / 2;
             float expectedCenterY = (viewportSize.Y - (mapHeight * HexGridCalculator.HEX_HEIGHT + HexGridCalculator.HEX_HEIGHT * 0.5f)) / 2;
@@ -103,9 +104,9 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Create_Proper_Hexagon_Vertices()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
-            var vertices = HexGridCalculator.CreateHexagonVertices();
+            var vertices = HexGridCalculator.CreateHexagonVertices(_viewState);
 
             Assert.AreEqual(6, vertices.Length, "Should have 6 vertices");
 
@@ -124,12 +125,12 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Tessellate_Flat_Top_Hexagons_Correctly()
         {
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
             
-            var pos00 = HexGridCalculator.CalculateHexPosition(0, 0);
-            var pos10 = HexGridCalculator.CalculateHexPosition(1, 0);
-            var pos01 = HexGridCalculator.CalculateHexPosition(0, 1);
-            var pos11 = HexGridCalculator.CalculateHexPosition(1, 1);
+            var pos00 = HexGridCalculator.CalculateHexPosition(0, 0, _viewState);
+            var pos10 = HexGridCalculator.CalculateHexPosition(1, 0, _viewState);
+            var pos01 = HexGridCalculator.CalculateHexPosition(0, 1, _viewState);
+            var pos11 = HexGridCalculator.CalculateHexPosition(1, 1, _viewState);
             
             float horizontalSpacing = pos10.X - pos00.X;
             float verticalSpacing = pos01.Y - pos00.Y;
@@ -148,9 +149,9 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Handle_Zoom_Correctly()
         {
-            HexGridCalculator.SetZoom(2.0f);
+            HexGridCalculator.SetZoom(2.0f, _viewState);
             
-            var position = HexGridCalculator.CalculateHexPosition(1, 1);
+            var position = HexGridCalculator.CalculateHexPosition(1, 1, _viewState);
             
             var expectedX = HEX_WIDTH * 0.75f * 2.0f;
             var expectedY = HEX_HEIGHT * 1.5f * 2.0f;
@@ -158,22 +159,22 @@ namespace Archistrateia.Tests
             Assert.AreEqual(expectedX, position.X, 0.001f, "X position should be scaled by zoom factor");
             Assert.AreEqual(expectedY, position.Y, 0.001f, "Y position should be scaled by zoom factor");
             
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
         }
 
         [Test]
         public void Should_Maintain_Zoom_Factor_Constraints()
         {
-            HexGridCalculator.SetZoom(0.05f);
-            Assert.AreEqual(0.1f, HexGridCalculator.ZoomFactor, 0.001f, "Zoom should be clamped to minimum 0.1");
+            HexGridCalculator.SetZoom(0.05f, _viewState);
+            Assert.AreEqual(0.1f, _viewState.ZoomFactor, 0.001f, "Zoom should be clamped to minimum 0.1");
             
-            HexGridCalculator.SetZoom(5.0f);
-            Assert.AreEqual(3.0f, HexGridCalculator.ZoomFactor, 0.001f, "Zoom should be clamped to maximum 3.0");
+            HexGridCalculator.SetZoom(5.0f, _viewState);
+            Assert.AreEqual(3.0f, _viewState.ZoomFactor, 0.001f, "Zoom should be clamped to maximum 3.0");
             
-            HexGridCalculator.SetZoom(1.5f);
-            Assert.AreEqual(1.5f, HexGridCalculator.ZoomFactor, 0.001f, "Valid zoom should be preserved");
+            HexGridCalculator.SetZoom(1.5f, _viewState);
+            Assert.AreEqual(1.5f, _viewState.ZoomFactor, 0.001f, "Valid zoom should be preserved");
             
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
         }
 
 
@@ -181,9 +182,9 @@ namespace Archistrateia.Tests
         [Test]
         public void Should_Scale_Vertices_With_Zoom()
         {
-            HexGridCalculator.SetZoom(2.0f);
+            HexGridCalculator.SetZoom(2.0f, _viewState);
             
-            var vertices = HexGridCalculator.CreateHexagonVertices();
+            var vertices = HexGridCalculator.CreateHexagonVertices(_viewState);
             
             for (int i = 0; i < 6; i++)
             {
@@ -196,25 +197,25 @@ namespace Archistrateia.Tests
                 Assert.AreEqual(expectedY, vertex.Y, 0.001f, $"Zoomed vertex {i} Y should be scaled");
             }
             
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
         }
 
         [Test]
         public void Should_Maintain_Zoom_Consistency()
         {
-            HexGridCalculator.SetZoom(1.5f);
+            HexGridCalculator.SetZoom(1.5f, _viewState);
             
-            var pos1 = HexGridCalculator.CalculateHexPosition(2, 3);
-            var centeredPos1 = HexGridCalculator.CalculateHexPositionCentered(2, 3, new Vector2(800, 600), 10, 10);
+            var pos1 = HexGridCalculator.CalculateHexPosition(2, 3, _viewState);
+            var centeredPos1 = HexGridCalculator.CalculateHexPositionCentered(2, 3, new Vector2(800, 600), 10, 10, _viewState);
             
-            HexGridCalculator.SetZoom(1.0f);
-            var pos2 = HexGridCalculator.CalculateHexPosition(2, 3);
-            var centeredPos2 = HexGridCalculator.CalculateHexPositionCentered(2, 3, new Vector2(800, 600), 10, 10);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
+            var pos2 = HexGridCalculator.CalculateHexPosition(2, 3, _viewState);
+            var centeredPos2 = HexGridCalculator.CalculateHexPositionCentered(2, 3, new Vector2(800, 600), 10, 10, _viewState);
             
             Assert.AreEqual(pos1.X / 1.5f, pos2.X, 0.001f, "Position scaling should be consistent");
             Assert.AreEqual(pos1.Y / 1.5f, pos2.Y, 0.001f, "Position scaling should be consistent");
             
-            HexGridCalculator.SetZoom(1.0f);
+            HexGridCalculator.SetZoom(1.0f, _viewState);
         }
     }
 } 

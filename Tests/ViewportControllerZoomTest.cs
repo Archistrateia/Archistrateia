@@ -7,12 +7,13 @@ namespace Archistrateia.Tests
     [TestFixture]
     public class ViewportControllerZoomTest
     {
+        private readonly HexGridViewState _viewState = new();
         [SetUp]
         public void SetUp()
         {
             // Initialize HexGridCalculator to a known state
-            HexGridCalculator.SetZoom(1.0f);
-            HexGridCalculator.SetScrollOffset(new Vector2(0, 0));
+            HexGridCalculator.SetZoom(1.0f, _viewState);
+            HexGridCalculator.SetScrollOffset(new Vector2(0, 0), _viewState);
         }
 
         [Test]
@@ -20,8 +21,8 @@ namespace Archistrateia.Tests
         {
             // Test the core zoom out centering logic
             // Set a non-zero scroll offset
-            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f));
-            Assert.AreNotEqual(new Vector2(0, 0), HexGridCalculator.ScrollOffset, "Should have non-zero scroll offset initially");
+            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f), _viewState);
+            Assert.AreNotEqual(new Vector2(0, 0), _viewState.ScrollOffset, "Should have non-zero scroll offset initially");
             
             // Simulate zoom out centering logic (newZoom < oldZoom)
             var oldZoom = 2.0f;
@@ -29,11 +30,11 @@ namespace Archistrateia.Tests
             
             if (newZoom < oldZoom)
             {
-                HexGridCalculator.SetScrollOffset(new Vector2(0, 0));
+                HexGridCalculator.SetScrollOffset(new Vector2(0, 0), _viewState);
             }
             
             // Verify scroll offset is reset to zero (centered)
-            Assert.AreEqual(new Vector2(0, 0), HexGridCalculator.ScrollOffset, "Zoom out should center the map (reset scroll to zero)");
+            Assert.AreEqual(new Vector2(0, 0), _viewState.ScrollOffset, "Zoom out should center the map (reset scroll to zero)");
         }
 
         [Test]
@@ -41,8 +42,8 @@ namespace Archistrateia.Tests
         {
             // Test that zoom in does NOT center the scroll offset
             // Set a non-zero scroll offset
-            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f));
-            var originalScrollOffset = HexGridCalculator.ScrollOffset;
+            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f), _viewState);
+            var originalScrollOffset = _viewState.ScrollOffset;
             
             // Simulate zoom in logic (newZoom > oldZoom)
             var oldZoom = 1.0f;
@@ -50,11 +51,11 @@ namespace Archistrateia.Tests
             
             if (newZoom < oldZoom) // This condition should be false for zoom in
             {
-                HexGridCalculator.SetScrollOffset(new Vector2(0, 0));
+                HexGridCalculator.SetScrollOffset(new Vector2(0, 0), _viewState);
             }
             
             // Verify scroll offset is unchanged
-            Assert.AreEqual(originalScrollOffset, HexGridCalculator.ScrollOffset, "Zoom in should NOT center the map (keep scroll offset)");
+            Assert.AreEqual(originalScrollOffset, _viewState.ScrollOffset, "Zoom in should NOT center the map (keep scroll offset)");
         }
 
         [Test]
@@ -62,8 +63,8 @@ namespace Archistrateia.Tests
         {
             // Test SetZoom with lower value (zoom out) centers the scroll offset
             // Set a non-zero scroll offset
-            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f));
-            Assert.AreNotEqual(new Vector2(0, 0), HexGridCalculator.ScrollOffset, "Should have non-zero scroll offset initially");
+            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f), _viewState);
+            Assert.AreNotEqual(new Vector2(0, 0), _viewState.ScrollOffset, "Should have non-zero scroll offset initially");
             
             // Simulate SetZoom to lower value (zoom out)
             var oldZoom = 2.0f;
@@ -71,11 +72,11 @@ namespace Archistrateia.Tests
             
             if (newZoom < oldZoom)
             {
-                HexGridCalculator.SetScrollOffset(new Vector2(0, 0));
+                HexGridCalculator.SetScrollOffset(new Vector2(0, 0), _viewState);
             }
             
             // Verify scroll offset is reset to zero (centered)
-            Assert.AreEqual(new Vector2(0, 0), HexGridCalculator.ScrollOffset, "SetZoom to lower value should center the map");
+            Assert.AreEqual(new Vector2(0, 0), _viewState.ScrollOffset, "SetZoom to lower value should center the map");
         }
 
         [Test]
@@ -83,8 +84,8 @@ namespace Archistrateia.Tests
         {
             // Test SetZoom with higher value (zoom in) does NOT center the scroll offset
             // Set a non-zero scroll offset
-            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f));
-            var originalScrollOffset = HexGridCalculator.ScrollOffset;
+            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f), _viewState);
+            var originalScrollOffset = _viewState.ScrollOffset;
             
             // Simulate SetZoom to higher value (zoom in)
             var oldZoom = 1.0f;
@@ -92,11 +93,11 @@ namespace Archistrateia.Tests
             
             if (newZoom < oldZoom) // This condition should be false for zoom in
             {
-                HexGridCalculator.SetScrollOffset(new Vector2(0, 0));
+                HexGridCalculator.SetScrollOffset(new Vector2(0, 0), _viewState);
             }
             
             // Verify scroll offset is unchanged
-            Assert.AreEqual(originalScrollOffset, HexGridCalculator.ScrollOffset, "SetZoom to higher value should NOT center the map");
+            Assert.AreEqual(originalScrollOffset, _viewState.ScrollOffset, "SetZoom to higher value should NOT center the map");
         }
 
         [Test]
@@ -104,8 +105,8 @@ namespace Archistrateia.Tests
         {
             // Test that setting the same zoom value does NOT center the scroll offset
             // Set a non-zero scroll offset
-            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f));
-            var originalScrollOffset = HexGridCalculator.ScrollOffset;
+            HexGridCalculator.SetScrollOffset(new Vector2(100.0f, 50.0f), _viewState);
+            var originalScrollOffset = _viewState.ScrollOffset;
             
             // Simulate SetZoom to same value
             var oldZoom = 1.5f;
@@ -113,11 +114,11 @@ namespace Archistrateia.Tests
             
             if (newZoom < oldZoom) // This condition should be false for same zoom
             {
-                HexGridCalculator.SetScrollOffset(new Vector2(0, 0));
+                HexGridCalculator.SetScrollOffset(new Vector2(0, 0), _viewState);
             }
             
             // Verify scroll offset is unchanged
-            Assert.AreEqual(originalScrollOffset, HexGridCalculator.ScrollOffset, "SetZoom to same value should NOT center the map");
+            Assert.AreEqual(originalScrollOffset, _viewState.ScrollOffset, "SetZoom to same value should NOT center the map");
         }
     }
 }

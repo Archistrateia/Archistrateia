@@ -105,17 +105,16 @@ namespace Archistrateia.Tests
         }
 
         [Test]
-        public void HandleKeyboardInput_Should_NotMutate_Global_ViewState_When_Injected_State_Is_Used()
+        public void HandleKeyboardInput_Should_Only_Mutate_Injected_ViewState()
         {
             var viewState = new HexGridViewState { ZoomFactor = 1.0f, ScrollOffset = Vector2.Zero };
-            HexGridCalculator.SetZoom(1.0f);
             var controller = new ViewportController(50, 30, null, viewState);
             var plus = new InputEventKey { Keycode = Key.Plus, Pressed = true };
+            var zoomBefore = viewState.ZoomFactor;
 
             controller.HandleKeyboardInput(plus, LargeGameArea);
 
-            Assert.Greater(viewState.ZoomFactor, 1.0f, "Injected state should be updated.");
-            Assert.AreEqual(1.0f, HexGridCalculator.ZoomFactor, "Global view state should remain unchanged.");
+            Assert.Greater(viewState.ZoomFactor, zoomBefore, "Injected state should be updated.");
         }
     }
 }

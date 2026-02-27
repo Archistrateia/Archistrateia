@@ -16,7 +16,7 @@ namespace Archistrateia
             _gameAreaSize = gameAreaSize;
             _mapWidth = mapWidth;
             _mapHeight = mapHeight;
-            _viewState = viewState ?? HexGridCalculator.GetGlobalViewState();
+            _viewState = viewState ?? new HexGridViewState();
         }
 
         public void UpdateGameAreaSize(Vector2 gameAreaSize)

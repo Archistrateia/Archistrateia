@@ -9,6 +9,7 @@ namespace Archistrateia
     {
         Vector2I GridPosition { get; }
         Vector2 ToLocal(Vector2 globalPosition);
+        bool ContainsLocalPoint(Vector2 localPoint);
         void SetHighlight(bool highlight, Color highlightColor = default);
     }
 
@@ -182,26 +183,7 @@ namespace Archistrateia
 
         private static bool DefaultIsMouseOverTile(IDebugHexTile tile, Vector2 mousePosition)
         {
-            return IsPointInHexagon(tile.ToLocal(mousePosition));
-        }
-
-        private static bool IsPointInHexagon(Vector2 point)
-        {
-            var vertices = HexGridCalculator.CreateHexagonVertices();
-            bool inside = false;
-            int j = vertices.Length - 1;
-
-            for (int i = 0; i < vertices.Length; i++)
-            {
-                if (((vertices[i].Y > point.Y) != (vertices[j].Y > point.Y)) &&
-                    (point.X < (vertices[j].X - vertices[i].X) * (point.Y - vertices[i].Y) / (vertices[j].Y - vertices[i].Y) + vertices[i].X))
-                {
-                    inside = !inside;
-                }
-                j = i;
-            }
-
-            return inside;
+            return tile.ContainsLocalPoint(tile.ToLocal(mousePosition));
         }
     }
 }

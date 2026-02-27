@@ -8,6 +8,7 @@ public partial class VisualUnit : Area2D
     private AnimationPlayer _animationPlayer;
     private bool _isSelected = false;
     private MapRenderer _mapRenderer;
+    private HexGridViewState _viewState = new();
 
     [Signal]
     public delegate void UnitClickedEventHandler(VisualUnit visualUnit);
@@ -27,9 +28,10 @@ public partial class VisualUnit : Area2D
         AddChild(_animationPlayer);
     }
 
-    public void Initialize(Unit logicalUnit, Vector2 position, Color color)
+    public void Initialize(Unit logicalUnit, Vector2 position, Color color, HexGridViewState viewState = null)
     {
         LogicalUnit = logicalUnit;
+        _viewState = viewState ?? new HexGridViewState();
         Position = position;
         ZIndex = 10;
         CreateVisualComponents(color);
@@ -45,7 +47,7 @@ public partial class VisualUnit : Area2D
     {
         var collisionShape = new CollisionShape2D();
         var shape = new CircleShape2D();
-        shape.Radius = 20.0f * HexGridCalculator.ZoomFactor;
+        shape.Radius = 20.0f * _viewState.ZoomFactor;
         collisionShape.Shape = shape;
         collisionShape.Name = "ClickCollision";
         AddChild(collisionShape);
@@ -72,7 +74,7 @@ public partial class VisualUnit : Area2D
             }
             
             var localPos = ToLocal(mouseEvent.Position);
-            if (localPos.Length() <= 20.0f * HexGridCalculator.ZoomFactor)
+            if (localPos.Length() <= 20.0f * _viewState.ZoomFactor)
             {
                 EmitSignal(SignalName.UnitClicked, this);
                 GetViewport().SetInputAsHandled();
@@ -110,7 +112,7 @@ public partial class VisualUnit : Area2D
     public bool ContainsGlobalPoint(Vector2 globalPosition)
     {
         var localPos = ToLocal(globalPosition);
-        return localPos.Length() <= 20.0f * HexGridCalculator.ZoomFactor;
+        return localPos.Length() <= 20.0f * _viewState.ZoomFactor;
     }
 
     private void CreateVisualComponents(Color color)
@@ -127,16 +129,16 @@ public partial class VisualUnit : Area2D
         var outlinePoints = CreateUnitOutlinePoints();
         unitOutline.Points = outlinePoints;
         unitOutline.DefaultColor = new Color(0.0f, 0.0f, 0.0f);
-        unitOutline.Width = 2.0f * HexGridCalculator.ZoomFactor;
+        unitOutline.Width = 2.0f * _viewState.ZoomFactor;
         AddChild(unitOutline);
 
         var unitLabel = new Label();
         unitLabel.Name = "UnitLabel";
         unitLabel.Text = LogicalUnit.Name.Substring(0, 1);
         // Use Godot's built-in positioning with zoom scaling
-        unitLabel.Position = new Vector2(-5 * HexGridCalculator.ZoomFactor, -10 * HexGridCalculator.ZoomFactor);
+        unitLabel.Position = new Vector2(-5 * _viewState.ZoomFactor, -10 * _viewState.ZoomFactor);
         unitLabel.AddThemeColorOverride("font_color", new Color(1.0f, 1.0f, 1.0f));
-        unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * HexGridCalculator.ZoomFactor));
+        unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * _viewState.ZoomFactor));
         AddChild(unitLabel);
         
         // Movement status will be shown via border color changes
@@ -147,7 +149,7 @@ public partial class VisualUnit : Area2D
     {
         // Use Godot's built-in circle generation for unit shapes
         var vertices = new Vector2[8];
-        float scaledRadius = 15.0f * HexGridCalculator.ZoomFactor;
+        float scaledRadius = 15.0f * _viewState.ZoomFactor;
         
         // Generate octagon vertices using Godot's built-in math
         for (int i = 0; i < 8; i++)
@@ -165,7 +167,7 @@ public partial class VisualUnit : Area2D
     {
         // Use Godot's built-in circle generation for outline
         var outlinePoints = new Vector2[9];
-        float scaledRadius = 15.0f * HexGridCalculator.ZoomFactor;
+        float scaledRadius = 15.0f * _viewState.ZoomFactor;
         
         // Generate octagon outline using Godot's built-in math
         for (int i = 0; i < 8; i++)
@@ -192,33 +194,33 @@ public partial class VisualUnit : Area2D
         if (unitOutline != null)
         {
             unitOutline.Points = CreateUnitOutlinePoints();
-            unitOutline.Width = 2.0f * HexGridCalculator.ZoomFactor;
+            unitOutline.Width = 2.0f * _viewState.ZoomFactor;
         }
 
         var collisionShape = GetNode<CollisionShape2D>("ClickCollision");
         if (collisionShape != null && collisionShape.Shape is CircleShape2D circleShape)
         {
-            circleShape.Radius = 20.0f * HexGridCalculator.ZoomFactor;
+            circleShape.Radius = 20.0f * _viewState.ZoomFactor;
         }
 
         var unitLabel = GetNode<Label>("UnitLabel");
         if (unitLabel != null)
         {
-            unitLabel.Position = new Vector2(-5 * HexGridCalculator.ZoomFactor, -10 * HexGridCalculator.ZoomFactor);
-            unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * HexGridCalculator.ZoomFactor));
+            unitLabel.Position = new Vector2(-5 * _viewState.ZoomFactor, -10 * _viewState.ZoomFactor);
+            unitLabel.AddThemeFontSizeOverride("font_size", (int)(16 * _viewState.ZoomFactor));
         }
 
         var selectionRing = GetNodeOrNull<Line2D>("SelectionRing");
         if (selectionRing != null)
         {
-            selectionRing.Points = CreateRingVertices(25.0f * HexGridCalculator.ZoomFactor);
-            selectionRing.Width = 3.0f * HexGridCalculator.ZoomFactor;
+            selectionRing.Points = CreateRingVertices(25.0f * _viewState.ZoomFactor);
+            selectionRing.Width = 3.0f * _viewState.ZoomFactor;
         }
 
         var movementDisplay = GetNodeOrNull<Label>("MovementDisplay");
         if (movementDisplay != null)
         {
-            movementDisplay.Position = new Vector2(-15 * HexGridCalculator.ZoomFactor, -35 * HexGridCalculator.ZoomFactor);
+            movementDisplay.Position = new Vector2(-15 * _viewState.ZoomFactor, -35 * _viewState.ZoomFactor);
         }
         
         // Update movement indicator (border color)
@@ -323,9 +325,9 @@ public partial class VisualUnit : Area2D
             if (GetNodeOrNull("SelectionRing") == null)
             {
                 var ring = new Line2D();
-                ring.Points = CreateRingVertices(25.0f * HexGridCalculator.ZoomFactor);
+                ring.Points = CreateRingVertices(25.0f * _viewState.ZoomFactor);
                 ring.DefaultColor = new Color(1.0f, 1.0f, 0.0f, 0.9f);
-                ring.Width = 3.0f * HexGridCalculator.ZoomFactor;
+                ring.Width = 3.0f * _viewState.ZoomFactor;
                 ring.Name = "SelectionRing";
                 ring.ZIndex = -1;
                 AddChild(ring);
@@ -401,10 +403,10 @@ public partial class VisualUnit : Area2D
         movementDisplay.Name = "MovementDisplay";
         movementDisplay.Text = MovementDisplayLogic.GetMovementDisplayText(LogicalUnit);
         // Use Godot's built-in positioning with zoom scaling
-        movementDisplay.Position = new Vector2(-15 * HexGridCalculator.ZoomFactor, -35 * HexGridCalculator.ZoomFactor);
+        movementDisplay.Position = new Vector2(-15 * _viewState.ZoomFactor, -35 * _viewState.ZoomFactor);
         movementDisplay.AddThemeColorOverride("font_color", new Color(1.0f, 1.0f, 0.0f));
         movementDisplay.AddThemeColorOverride("font_shadow_color", new Color(0.0f, 0.0f, 0.0f));
-        movementDisplay.AddThemeFontSizeOverride("font_size", (int)(14 * HexGridCalculator.ZoomFactor));
+        movementDisplay.AddThemeFontSizeOverride("font_size", (int)(14 * _viewState.ZoomFactor));
         movementDisplay.ZIndex = 15;
         AddChild(movementDisplay);
         

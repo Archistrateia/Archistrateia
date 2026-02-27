@@ -233,8 +233,6 @@ namespace Archistrateia
         private void InitializeCentralizedServices()
         {
             GD.Print("🔧 Initializing centralized services...");
-            HexGridCalculator.SetGlobalViewState(_hexGridViewState);
-            
             // Initialize position manager with game area size
             var gameAreaSize = GetGameAreaSize();
             _positionManager = new VisualPositionManager(gameAreaSize, MAP_WIDTH, MAP_HEIGHT, _hexGridViewState);
@@ -245,7 +243,7 @@ namespace Archistrateia
             // Initialize tile-unit coordinator
             _tileUnitCoordinator = new TileUnitCoordinator();
             _gameRuntimeController = new GameRuntimeController(this, _tileUnitCoordinator, _positionManager);
-            _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors);
+            _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors, _hexGridViewState);
             _debugToolsController = new DebugToolsController(
                 () => _mapContainer?.GetChildren().OfType<IDebugHexTile>() ?? Enumerable.Empty<IDebugHexTile>());
             _mainInputController = new MainInputController(
@@ -270,7 +268,7 @@ namespace Archistrateia
             _viewChangedDebugCounter++;
             if (_viewChangedDebugCounter % 60 == 0) // Show every 60 calls (about once per second at 60fps)
             {
-                GD.Print($"🔍 VIEW CHANGED (Sample {_viewChangedDebugCounter}): Current zoom = {HexGridCalculator.ZoomFactor:F2}x, Slider = {_zoomSlider?.Value:F2}x");
+                GD.Print($"🔍 VIEW CHANGED (Sample {_viewChangedDebugCounter}): Current zoom = {_hexGridViewState.ZoomFactor:F2}x, Slider = {_zoomSlider?.Value:F2}x");
             }
             
             // Update game area size in position manager
@@ -296,7 +294,7 @@ namespace Archistrateia
             if (_zoomSlider != null)
             {
                 var currentSliderValue = (float)_zoomSlider.Value;
-                var currentZoom = HexGridCalculator.ZoomFactor;
+                var currentZoom = _hexGridViewState.ZoomFactor;
                 if (Mathf.Abs(currentSliderValue - currentZoom) > 0.001f)
                 {
                     // Sample slider changes
@@ -482,13 +480,13 @@ namespace Archistrateia
         {
             if (_zoomLabel != null)
             {
-                _zoomLabel.Text = $"Zoom: {HexGridCalculator.ZoomFactor:F1}x";
+                _zoomLabel.Text = $"Zoom: {_hexGridViewState.ZoomFactor:F1}x";
             }
         }
         
         private void UpdateUIPositions()
         {
-            GD.Print($"🔍 UPDATE UI POSITIONS: Called with zoom {HexGridCalculator.ZoomFactor:F2}x, slider {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 UPDATE UI POSITIONS: Called with zoom {_hexGridViewState.ZoomFactor:F2}x, slider {_zoomSlider?.Value:F2}x");
             var viewportSize = GetViewport().GetVisibleRect().Size;
             
             // Note: Next Phase button is now handled by modern UI (doesn't need positioning)
@@ -726,7 +724,7 @@ namespace Archistrateia
         public void OnStartButtonPressed()
         {
             GD.Print("🎮🎮🎮 START BUTTON PRESSED! 🎮🎮🎮");
-            GD.Print($"🔍 BUTTON PRESS: Initial zoom state - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 BUTTON PRESS: Initial zoom state - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             _gameStarted = true;
             
@@ -757,7 +755,7 @@ namespace Archistrateia
             // Update zoom slider to reflect the current zoom
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                _zoomSlider.Value = _hexGridViewState.ZoomFactor;
             }
             
             // Update zoom label to reflect the optimal zoom
@@ -767,16 +765,16 @@ namespace Archistrateia
             GD.Print("🎮 Starting game with current map - no regeneration needed");
             
             // Debug: Log zoom state before game start
-            GD.Print($"🔍 GAME START DEBUG: Before InitializeGameManager - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 GAME START DEBUG: Before InitializeGameManager - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             InitializeGameManager();
             
             // Debug: Log zoom state after game start
-            GD.Print($"🔍 GAME START DEBUG: After InitializeGameManager - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 GAME START DEBUG: After InitializeGameManager - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Preserve the current zoom level instead of forcing it to 1.0
             // The zoom level should remain as the user set it during preview
-            var currentZoom = HexGridCalculator.ZoomFactor;
+            var currentZoom = _hexGridViewState.ZoomFactor;
             GD.Print($"🔍 Preserving zoom level: {currentZoom:F2}x");
             
             // Update zoom slider to reflect the current zoom (should already be correct)
@@ -787,16 +785,16 @@ namespace Archistrateia
             UpdateZoomLabel();
             
             // Debug: Log zoom state before regeneration
-            GD.Print($"🔍 GAME START DEBUG: Before RegenerateMapWithCurrentZoom - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 GAME START DEBUG: Before RegenerateMapWithCurrentZoom - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Regenerate map visuals with correct zoom
             RegenerateMapWithCurrentZoom();
             
             // Debug: Log zoom state after regeneration
-            GD.Print($"🔍 GAME START DEBUG: After RegenerateMapWithCurrentZoom - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 GAME START DEBUG: After RegenerateMapWithCurrentZoom - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Final debug: Log final zoom state
-            GD.Print($"🔍 GAME START FINAL: Final zoom state - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 GAME START FINAL: Final zoom state - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Update UI positions after everything is initialized
             UpdateUIPositions();
@@ -816,7 +814,7 @@ namespace Archistrateia
 
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+                _zoomSlider.Value = _hexGridViewState.ZoomFactor;
             }
             UpdateZoomLabel();
         }
@@ -861,12 +859,12 @@ namespace Archistrateia
 
         private void RegenerateMapWithCurrentZoom()
         {
-            GD.Print($"🔍 REGENERATE DEBUG: Before UpdateAllPositions - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 REGENERATE DEBUG: Before UpdateAllPositions - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Delegate to centralized position manager
             _positionManager?.UpdateAllPositions(_mapContainer, _mapRenderer?.GetVisualUnits() ?? new List<VisualUnit>(), _gameManager?.GameMap, _tileUnitCoordinator);
             
-            GD.Print($"🔍 REGENERATE DEBUG: After UpdateAllPositions - Zoom: {HexGridCalculator.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            GD.Print($"🔍 REGENERATE DEBUG: After UpdateAllPositions - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
         }
 
 
@@ -898,6 +896,7 @@ namespace Archistrateia
                 TurnManager,
                 _mapContainer,
                 _currentPlayerIndex,
+                _hexGridViewState,
                 OnPurchaseTileClicked,
                 UpdateTitleLabel,
                 RefreshPurchaseUI);
@@ -1078,7 +1077,7 @@ namespace Archistrateia
 
         private void UpdateZoomUI()
         {
-            _zoomSlider.Value = HexGridCalculator.ZoomFactor;
+            _zoomSlider.Value = _hexGridViewState.ZoomFactor;
             RegenerateMapWithCurrentZoom();
             UpdateTitleLabel();
             UpdateZoomLabel();

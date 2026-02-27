@@ -10,29 +10,32 @@ namespace Archistrateia
         private readonly VisualPositionManager _positionManager;
         private readonly ViewportController _viewportController;
         private readonly IReadOnlyDictionary<TerrainType, Color> _terrainColors;
+        private readonly HexGridViewState _viewState;
 
         public MapPreviewController(
             Node host,
             ModernUIManager uiManager,
             VisualPositionManager positionManager,
             ViewportController viewportController,
-            IReadOnlyDictionary<TerrainType, Color> terrainColors)
+            IReadOnlyDictionary<TerrainType, Color> terrainColors,
+            HexGridViewState viewState)
         {
             _host = host;
             _uiManager = uiManager;
             _positionManager = positionManager;
             _viewportController = viewportController;
             _terrainColors = terrainColors;
+            _viewState = viewState ?? throw new System.ArgumentNullException(nameof(viewState));
         }
 
         public Node2D GeneratePreviewMap(Node2D existingMapContainer, MapType mapType)
         {
             existingMapContainer?.QueueFree();
 
-            var currentZoom = HexGridCalculator.ZoomFactor;
+            var currentZoom = _viewState.ZoomFactor;
             if (Mathf.Abs(currentZoom - 0.0f) < 0.001f)
             {
-                HexGridCalculator.SetZoom(1.0f);
+                HexGridCalculator.SetZoom(1.0f, _viewState);
             }
 
             _viewportController?.ResetScroll();
@@ -59,7 +62,7 @@ namespace Archistrateia
             {
                 var worldPosition = _positionManager.CalculateWorldPosition(kvp.Key);
                 var visualTile = new VisualHexTile();
-                visualTile.Initialize(kvp.Key, kvp.Value.TerrainType, _terrainColors[kvp.Value.TerrainType], worldPosition);
+                visualTile.Initialize(kvp.Key, kvp.Value.TerrainType, _terrainColors[kvp.Value.TerrainType], worldPosition, _viewState);
                 mapContainer.AddChild(visualTile);
             }
 
