@@ -1,9 +1,9 @@
 using Godot;
 using System.Collections.Generic;
 
-public partial class Player : Node
+public class Player
 {
-    public new string Name { get; set; }
+    public string Name { get; set; }
     public List<Unit> Units { get; set; } = new List<Unit>();
     public int Gold { get; set; }
     public List<City> Cities { get; set; } = new List<City>();
@@ -88,18 +88,5 @@ public partial class Player : Node
         {
             unit.ResetMovement();
         }
-    }
-
-    public List<Unit> GetUnitsAtLocation(Vector2I position)
-    {
-        var unitsAtLocation = new List<Unit>();
-        foreach (var unit in Units)
-        {
-            if (unit.GetParent() is HexTile tile && tile.Position == position)
-            {
-                unitsAtLocation.Add(unit);
-            }
-        }
-        return unitsAtLocation;
     }
 }

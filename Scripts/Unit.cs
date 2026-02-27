@@ -8,9 +8,9 @@ public enum UnitType
     Charioteer
 }
 
-public partial class Unit : Node
+public class Unit
 {
-    public new string Name { get; set; }
+    public string Name { get; set; }
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int MovementPoints { get; set; }
@@ -56,28 +56,28 @@ public partial class Unit : Node
     }
 }
 
-public partial class Nakhtu : Unit
+public class Nakhtu : Unit
 {
     public Nakhtu() : base("Nakhtu", 3, 2, 4, 24, UnitType.Nakhtu)
     {
     }
 }
 
-public partial class Medjay : Unit
+public class Medjay : Unit
 {
     public Medjay() : base("Medjay", 4, 3, 6, 36, UnitType.Medjay)
     {
     }
 }
 
-public partial class Archer : Unit
+public class Archer : Unit
 {
     public Archer() : base("Archer", 5, 1, 4, 30, UnitType.Archer)
     {
     }
 }
 
-public partial class Charioteer : Unit
+public class Charioteer : Unit
 {
     public Charioteer() : base("Charioteer", 6, 2, 8, 46, UnitType.Charioteer)
     {

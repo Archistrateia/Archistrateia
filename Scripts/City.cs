@@ -1,10 +1,10 @@
 using Godot;
 
-public partial class City : Node
+public class City
 {
-    public new string Name { get; set; }
+    public string Name { get; set; }
     public int ProductionValue { get; set; }
-    public new Player Owner { get; set; }
+    public Player Owner { get; set; }
     public bool IsCapital { get; set; }
     public int Population { get; set; }
 
