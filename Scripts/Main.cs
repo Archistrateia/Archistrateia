@@ -46,10 +46,7 @@ namespace Archistrateia
         private PhaseTransitionCoordinator _phaseTransitionCoordinator;
         private readonly SemicircleDeploymentService _deploymentService = new();
         
-        // Debug functionality
         private Button _debugAdjacentButton;
-        private bool _debugAdjacentMode = false;
-        private VisualHexTile _lastHoveredTile = null;
         
         // Game state
         private bool _gameStarted = false;
@@ -66,6 +63,7 @@ namespace Archistrateia
         private MapPreviewController _mapPreviewController;
         private GameRuntimeController _gameRuntimeController;
         private MainInputController _mainInputController;
+        private DebugToolsController _debugToolsController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
         private int _viewChangedDebugCounter = 0;
         private int _sliderDebugCounter = 0;
@@ -248,6 +246,8 @@ namespace Archistrateia
             _tileUnitCoordinator = new TileUnitCoordinator();
             _gameRuntimeController = new GameRuntimeController(this, _tileUnitCoordinator, _positionManager);
             _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors);
+            _debugToolsController = new DebugToolsController(
+                () => _mapContainer?.GetChildren().OfType<IDebugHexTile>() ?? Enumerable.Empty<IDebugHexTile>());
             _mainInputController = new MainInputController(
                 _viewportController,
                 _debugScrollOverlay,
@@ -256,9 +256,9 @@ namespace Archistrateia
                 GetGameGridRect,
                 IsMouseOverUIControls,
                 IsMouseOverGameArea,
-                DebugMousePosition,
-                () => _debugAdjacentMode,
-                HandleDebugAdjacentHover,
+                mousePosition => _debugToolsController?.DebugMousePosition(mousePosition, _nextPhaseButton, _zoomSlider),
+                () => _debugToolsController?.IsDebugAdjacentModeEnabled() ?? false,
+                mousePosition => _debugToolsController?.HandleDebugAdjacentHover(mousePosition),
                 () => GetViewport().SetInputAsHandled());
             
             GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
@@ -496,7 +496,7 @@ namespace Archistrateia
             // Update Debug Adjacent button position
             if (_debugAdjacentButton != null)
             {
-                _debugAdjacentButton.Position = new Vector2(10, viewportSize.Y - 50); // Move to left since Next Phase button is gone
+                _debugToolsController?.UpdateDebugButtonPosition(_debugAdjacentButton, viewportSize);
             }
             
             // Note: Zoom controls are now handled by modern UI (don't need manual positioning)
@@ -804,18 +804,10 @@ namespace Archistrateia
             // Note: Next Phase button is now handled by the modern UI (no need to create here)
             
             // Create Debug Adjacent Tiles button
-            _debugAdjacentButton = new Button();
-            _debugAdjacentButton.Text = "Debug Adjacent";
-            _debugAdjacentButton.Position = new Vector2(10, GetViewport().GetVisibleRect().Size.Y - 50);
-            _debugAdjacentButton.Size = new Vector2(120, 40); // Set explicit size
-            _debugAdjacentButton.AddThemeFontSizeOverride("font_size", 16);
-            _debugAdjacentButton.ZIndex = 1000; // Ensure UI is always on top
-            _debugAdjacentButton.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure button receives mouse events
-            _debugAdjacentButton.Pressed += OnDebugAdjacentButtonPressed;
-            AddChild(_debugAdjacentButton);
+            _debugAdjacentButton = _debugToolsController?.CreateDebugAdjacentButton(this, () => GetViewport().GetVisibleRect().Size);
             
             // Debug UI elements to help troubleshoot
-            DebugUIElements();
+            _debugToolsController?.DebugUIElements(_nextPhaseButton, _zoomSlider);
         }
 
         private void GenerateMap()
@@ -1035,13 +1027,7 @@ namespace Archistrateia
 
         private bool HandleDebugInput(InputEventKey keyEvent)
         {
-            // F3: Toggle debug scroll overlay to visualize scroll areas
-            if (keyEvent.Keycode == Key.F3)
-            {
-                _debugScrollOverlay?.ToggleVisibility();
-                return true;
-            }
-            return false;
+            return _debugToolsController?.HandleDebugInput(keyEvent, _debugScrollOverlay) ?? false;
         }
 
         private bool HandlePhaseInput(InputEventKey keyEvent)
@@ -1194,177 +1180,5 @@ namespace Archistrateia
             return withinBounds;
         }
         
-        // Enhanced debug method to help troubleshoot UI issues with mouse coordinates
-        private void DebugMousePosition(Vector2 mousePosition)
-        {
-            GD.Print($"=== DEBUGGING MOUSE POSITION: {mousePosition} ===");
-            
-            if (_nextPhaseButton != null)
-            {
-                var buttonRect = new Rect2(_nextPhaseButton.GlobalPosition, _nextPhaseButton.Size);
-                bool overButton = buttonRect.HasPoint(mousePosition);
-                GD.Print($"Next Phase Button: GlobalPos={_nextPhaseButton.GlobalPosition}, Size={_nextPhaseButton.Size}, Over={overButton}");
-            }
-            
-            if (_zoomSlider != null)
-            {
-                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
-                if (zoomPanel != null)
-                {
-                    var panelRect = new Rect2(zoomPanel.GlobalPosition, zoomPanel.Size);
-                    bool overZoom = panelRect.HasPoint(mousePosition);
-                    GD.Print($"Zoom Panel: GlobalPos={zoomPanel.GlobalPosition}, Size={zoomPanel.Size}, Over={overZoom}");
-                }
-            }
-            
-            // Game status panel is now handled by ModernUIManager
-        }
-        
-        // Debug method to help troubleshoot UI issues
-        private void DebugUIElements()
-        {
-            GD.Print("=== DEBUGGING UI ELEMENTS ===");
-            
-            if (_nextPhaseButton != null)
-            {
-                GD.Print($"Next Phase Button: Position={_nextPhaseButton.GlobalPosition}, Size={_nextPhaseButton.Size}, Visible={_nextPhaseButton.Visible}");
-            }
-            else
-            {
-                GD.Print("Next Phase Button: NULL");
-            }
-            
-            if (_zoomSlider != null)
-            {
-                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
-                if (zoomPanel != null)
-                {
-                    GD.Print($"Zoom Panel: Position={zoomPanel.GlobalPosition}, Size={zoomPanel.Size}, Visible={zoomPanel.Visible}");
-                }
-                GD.Print($"Zoom Slider: Position={_zoomSlider.GlobalPosition}, Size={_zoomSlider.Size}, Visible={_zoomSlider.Visible}");
-            }
-            else
-            {
-                GD.Print("Zoom Slider: NULL");
-            }
-            
-            // Game status panel is now handled by ModernUIManager
-        }
-        
-        private void OnDebugAdjacentButtonPressed()
-        {
-            _debugAdjacentMode = !_debugAdjacentMode;
-            _debugAdjacentButton.Text = _debugAdjacentMode ? "Debug Adjacent: ON" : "Debug Adjacent";
-            
-            if (!_debugAdjacentMode)
-            {
-                // Clear any existing debug highlights
-                ClearDebugHighlights();
-            }
-            
-            GD.Print($"Debug adjacent mode: {(_debugAdjacentMode ? "ENABLED" : "DISABLED")}");
-        }
-        
-        private void ClearDebugHighlights()
-        {
-            if (_mapContainer == null) return;
-            
-            foreach (Node child in _mapContainer.GetChildren())
-            {
-                if (child is VisualHexTile visualTile)
-                {
-                    visualTile.SetHighlight(false);
-                }
-            }
-            
-            _lastHoveredTile = null;
-        }
-        
-        private void HandleDebugAdjacentHover(Vector2 mousePosition)
-        {
-            if (!_debugAdjacentMode || _mapContainer == null) return;
-            
-            // Find the tile under the mouse
-            VisualHexTile hoveredTile = null;
-            foreach (Node child in _mapContainer.GetChildren())
-            {
-                if (child is VisualHexTile visualTile)
-                {
-                    var localPos = visualTile.ToLocal(mousePosition);
-                    if (IsPointInHexagon(localPos))
-                    {
-                        hoveredTile = visualTile;
-                        break;
-                    }
-                }
-            }
-            
-            // If we're hovering over a different tile, update highlights
-            if (hoveredTile != _lastHoveredTile)
-            {
-                // Clear previous highlights
-                ClearDebugHighlights();
-                
-                if (hoveredTile != null)
-                {
-                    // Highlight the hovered tile
-                    hoveredTile.SetHighlight(true, new Color(1.0f, 1.0f, 0.0f, 0.5f));
-                    
-                    // Get adjacent positions using the actual method
-                    var adjacentPositions = MovementValidationLogic.GetAdjacentPositions(hoveredTile.GridPosition);
-                    
-                    GD.Print($"Hovering over tile at {hoveredTile.GridPosition}, adjacent tiles: {string.Join(", ", adjacentPositions)}");
-                    
-                    // Highlight adjacent tiles
-                    foreach (var adjacentPos in adjacentPositions)
-                    {
-                        var adjacentTile = FindVisualTileAtPosition(adjacentPos);
-                        if (adjacentTile != null)
-                        {
-                            adjacentTile.SetHighlight(true, new Color(0.0f, 1.0f, 0.0f, 0.5f));
-                        }
-                    }
-                    
-                    _lastHoveredTile = hoveredTile;
-                }
-            }
-        }
-        
-        private static bool IsPointInHexagon(Vector2 point)
-        {
-            // Get the exact hex vertices used for rendering
-            var vertices = HexGridCalculator.CreateHexagonVertices();
-            
-            // Ray casting algorithm for point-in-polygon
-            bool inside = false;
-            int j = vertices.Length - 1;
-            
-            for (int i = 0; i < vertices.Length; i++)
-            {
-                if (((vertices[i].Y > point.Y) != (vertices[j].Y > point.Y)) &&
-                    (point.X < (vertices[j].X - vertices[i].X) * (point.Y - vertices[i].Y) / (vertices[j].Y - vertices[i].Y) + vertices[i].X))
-                {
-                    inside = !inside;
-                }
-                j = i;
-            }
-            
-            return inside;
-        }
-        
-        private VisualHexTile FindVisualTileAtPosition(Vector2I position)
-        {
-            if (_mapContainer == null) return null;
-            
-            foreach (Node child in _mapContainer.GetChildren())
-            {
-                if (child is VisualHexTile visualTile && visualTile.GridPosition == position)
-                {
-                    return visualTile;
-                }
-            }
-            
-            return null;
-        }
     }
 }

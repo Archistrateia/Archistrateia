@@ -23,6 +23,9 @@ namespace Archistrateia.Tests
             Assert.IsNotNull(
                 mainType.GetField("_mainInputController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose raw input routing through MainInputController.");
+            Assert.IsNotNull(
+                mainType.GetField("_debugToolsController", BindingFlags.NonPublic | BindingFlags.Instance),
+                "Main should compose debug tooling through DebugToolsController.");
         }
 
         [Test]

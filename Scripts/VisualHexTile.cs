@@ -1,7 +1,7 @@
 using Godot;
 using Archistrateia;
 
-public partial class VisualHexTile : Area2D
+public partial class VisualHexTile : Area2D, IDebugHexTile
 {
     public Vector2I GridPosition { get; private set; }
     public TerrainType TerrainType { get; private set; }
