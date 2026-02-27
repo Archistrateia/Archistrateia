@@ -16,8 +16,12 @@
    - Inspect-mode hover info toggle via `I` key (covered by `HoverInfoModeTest`)
 5. For major refactors, prefer these targeted verification suites in addition to phase runs:
    - Phase transitions and side-effects: `PhaseTransitionCoordinatorTest`
+   - Interaction/render boundary: `MapInteractionControllerTest`, `MapRendererInteractionBoundaryTest`
+   - Main/controller decomposition: `MainDecompositionTest`, `MainInputControllerTest`, `DebugToolsControllerTest`
    - Viewport input/state isolation: `ViewportControllerRefactoringTest`
+   - View-state guardrails: `HexGridViewStateGuardrailTest`
    - Movement state isolation: `MovementValidationLogicTest`, `MovementCoordinatorTest`
+   - Domain-model decoupling: `DomainModelDecouplingTest`
 
 ## Notes
 
@@ -26,5 +30,8 @@
 - In-game tooltip behavior is inspect-mode gated: press `I` to toggle hover info mode on/off.
 - Architecture guardrails:
   - Keep phase side-effects centralized through `PhaseTransitionCoordinator` (avoid duplicate phase handling paths).
+  - Keep gameplay click/selection decisions out of `MapRenderer`; use `MapInteractionController`.
   - Prefer injected state/services over static mutable state (`HexGridViewState`, movement system injection).
+  - Do not reintroduce a public global `HexGridCalculator` view-state bridge.
+  - Keep `Player`, `Unit`, and `City` as plain domain objects rather than Godot `Node` subclasses.
   - Keep shared UI geometry in `UILayoutMetrics`.

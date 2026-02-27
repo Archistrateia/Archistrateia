@@ -18,11 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Semicircle deployment coverage and overlap behavior
   - No-initial-units game start behavior
   - Purchase ownership validation across players
+  - Interaction/render boundary guardrails
+  - `Main` controller decomposition guardrails
+  - Hex-grid view-state bridge removal guardrails
+  - Domain-model decoupling guardrails
 
 ### 🔄 Changed
 - Game start now deploys **no initial units**; armies are created during Purchase phase.
 - Unit costs increased to raise economic pressure in early game.
 - Phase advancement flow unified so button and keyboard use the same side-effect path.
+- `Main` now delegates runtime bootstrap, preview generation, input routing, and debug tooling to focused controllers.
+- Gameplay click/selection orchestration moved out of `MapRenderer` into `MapInteractionController`.
+- View/zoom/scroll state is now injected explicitly across runtime rendering code; the public global `HexGridCalculator` bridge was removed.
+- `Player`, `Unit`, and `City` were converted to plain domain objects and no longer inherit from Godot `Node`.
 
 ### ✅ Confirmed
 - Global phase model remains in use (`Earn -> Purchase -> Move -> Combat` for each turn).

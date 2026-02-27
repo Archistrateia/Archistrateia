@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/yourusername/Archistrateia/releases/tag/v0.1.0)
 [![Godot](https://img.shields.io/badge/Godot-4.4+-green.svg)](https://godotengine.org/)
 [![C#](https://img.shields.io/badge/C%23-.NET%208.0-purple.svg)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/tests-230%20total%20(3%20phases)-brightgreen.svg)](https://github.com/yourusername/Archistrateia/actions)
+[![Tests](https://img.shields.io/badge/tests-3%20phase%20suite-brightgreen.svg)](https://github.com/yourusername/Archistrateia/actions)
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 A strategic war simulation game built with Godot Engine and C#.
@@ -25,7 +25,9 @@ Archistrateia is a turn-based strategic war simulation that focuses on tactical 
 - **Purchase deployment flow** with edge-anchored semicircle spawn zones per player
 - **Clean start state** with no units deployed at game start (armies are built in Purchase phase)
 - **Centralized phase side-effects** via `PhaseTransitionCoordinator` (single transition path)
+- **Explicit interaction orchestration** via `MapInteractionController`
 - **State-isolated movement & viewport systems** via injected movement/view state services
+- **Engine-agnostic domain model** for `Player`, `Unit`, and `City`
 
 ### Unit Types
 - **Nakhtu** (3 Attack, 2 Defense, 2 Movement) - Basic infantry
@@ -79,8 +81,12 @@ For detailed testing information, see [TESTING.md](TESTING.md).
 ### Architecture Notes
 
 - `TurnManager` emits phase changes, and `Main` applies phase side-effects through `PhaseTransitionCoordinator`.
+- `Main` now acts more as a composition root and delegates preview/bootstrap/input/debug responsibilities to focused controllers.
+- `MapRenderer` no longer owns core gameplay click decisions; interaction flow is routed through `MapInteractionController`.
 - Movement validation/pathing no longer uses hidden static engine state; callers provide an explicit movement system where needed.
-- View/zoom/scroll behavior is tracked through `HexGridViewState` and injected into viewport/position services.
+- View/zoom/scroll behavior is tracked through `HexGridViewState` and injected into viewport/position services and visual components.
+- `HexGridCalculator` no longer exposes a public global view-state bridge.
+- `Player`, `Unit`, and `City` are plain domain objects rather than Godot `Node` subclasses.
 - UI geometry constants are centralized in `UILayoutMetrics`.
 
 ### Input & Inspect Controls
@@ -98,8 +104,13 @@ Archistrateia/
 │   ├── GodotSceneTestScene.tscn # Godot scene test scene
 │   └── UITestScene.tscn # UI integration test scene
 ├── Scripts/         # C# scripts
-│   ├── Main.cs      # Main game controller
+│   ├── Main.cs      # Scene composition root
 │   ├── GameManager.cs # Core game orchestration
+│   ├── GameRuntimeController.cs # Game bootstrap/runtime wiring
+│   ├── MapPreviewController.cs # Preview map generation & controls
+│   ├── MainInputController.cs # Raw input routing and viewport handling
+│   ├── DebugToolsController.cs # Debug/inspection tooling
+│   ├── MapInteractionController.cs # Gameplay click/selection orchestration
 │   ├── TurnManager.cs # Turn and phase management
 │   ├── Unit.cs      # Unit base class and types
 │   ├── Player.cs    # Player management
@@ -189,9 +200,8 @@ For detailed information, see [CHANGELOG.md](CHANGELOG.md).
 - AI-optimized output format for automated systems
 - Advanced debugging features with `--show-failures-only` mode
 
-🚧 **Next Steps** - gameplay expansion and controller decomposition
+🚧 **Next Steps** - gameplay expansion and polish
 - Combat resolution system expansion
-- Further `Main` decomposition into narrower controllers/services
 - Campaign/scenario content and balancing
 - Multiplayer support
 
