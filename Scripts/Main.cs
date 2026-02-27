@@ -63,6 +63,8 @@ namespace Archistrateia
         private ViewportController _viewportController;
         private TileUnitCoordinator _tileUnitCoordinator;
         private readonly HexGridViewState _hexGridViewState = new();
+        private MapPreviewController _mapPreviewController;
+        private GameRuntimeController _gameRuntimeController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
         private int _viewChangedDebugCounter = 0;
         private int _sliderDebugCounter = 0;
@@ -243,6 +245,8 @@ namespace Archistrateia
             
             // Initialize tile-unit coordinator
             _tileUnitCoordinator = new TileUnitCoordinator();
+            _gameRuntimeController = new GameRuntimeController(this, _tileUnitCoordinator, _positionManager);
+            _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors);
             
             GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
         }
@@ -730,7 +734,7 @@ namespace Archistrateia
             }
 
             // Hide map generation controls when game starts
-            HideMapGenerationControls();
+            _mapPreviewController?.HideMapGenerationControls();
 
             // Game status is now handled by ModernUIManager in the top bar
 
@@ -801,69 +805,15 @@ namespace Archistrateia
             DebugUIElements();
         }
 
-        // Centralized map generation method - handles both preview and game map needs
         private void GenerateMap()
         {
-            if (_mapContainer != null)
-            {
-                _mapContainer.QueueFree();
-            }
+            _mapContainer = _mapPreviewController.GeneratePreviewMap(_mapContainer, _currentMapType);
 
-            // Preserve current zoom level instead of forcing it to 1.0
-            // Only set to 1.0 if this is the very first generation (no zoom has been set yet)
-            var currentZoom = HexGridCalculator.ZoomFactor;
-            if (Mathf.Abs(currentZoom - 0.0f) < 0.001f) // Default uninitialized value
-            {
-                HexGridCalculator.SetZoom(1.0f);
-                currentZoom = 1.0f;
-            }
-            
-            // Update zoom slider to match current zoom
             if (_zoomSlider != null)
             {
-                _zoomSlider.Value = currentZoom;
+                _zoomSlider.Value = HexGridCalculator.ZoomFactor;
             }
             UpdateZoomLabel();
-            
-            // Reset scroll offset when generating new map
-            _viewportController?.ResetScroll();
-
-            _mapContainer = new Node2D();
-            _mapContainer.Name = "MapContainer";
-            _mapContainer.ZIndex = 1; // Ensure map container is above background but below UI
-            _mapContainer.Position = Vector2.Zero; // Ensure map container starts at origin
-            
-            // Add to the game area if modern UI is available, otherwise to main
-            if (_uiManager != null && _uiManager.GetGameArea() != null)
-            {
-                _uiManager.GetGameArea().AddChild(_mapContainer);
-            }
-            else
-            {
-                AddChild(_mapContainer);
-            }
-
-            var gameMap = MapGenerator.GenerateMap(MAP_WIDTH, MAP_HEIGHT, _currentMapType);
-            int tilesCreated = 0;
-            
-            foreach (var kvp in gameMap)
-            {
-                var gridPosition = kvp.Key;
-                var tile = kvp.Value;
-                var terrainType = tile.TerrainType;
-                
-                // Use centralized position manager for consistent positioning
-                var worldPosition = _positionManager.CalculateWorldPosition(gridPosition);
-                GD.Print($"🗺️ MAP GEN: Grid({gridPosition.X},{gridPosition.Y}) -> World({worldPosition.X:F1},{worldPosition.Y:F1}) | Type({terrainType})");
-                
-                var visualTile = new VisualHexTile();
-                visualTile.Initialize(gridPosition, terrainType, _terrainColors[terrainType], worldPosition);
-                _mapContainer.AddChild(visualTile);
-                
-                tilesCreated++;
-            }
-
-            GD.Print($"🗺️ Generated map with {tilesCreated} tiles of type {_currentMapType}");
         }
 
 
@@ -888,58 +838,6 @@ namespace Archistrateia
             }
         }
         
-        private void HideMapGenerationControls()
-        {
-            // Hide map generation controls using the modern UI manager
-            if (_uiManager != null)
-            {
-                // Hide the regenerate map button specifically
-                var regenerateButton = _uiManager.GetRegenerateMapButton();
-                if (regenerateButton != null)
-                {
-                    regenerateButton.Visible = false;
-                    GD.Print("🙈 Hidden regenerate map button");
-                }
-                
-                // Hide the map type selector
-                var mapTypeSelector = _uiManager.GetMapTypeSelector();
-                if (mapTypeSelector != null)
-                {
-                    mapTypeSelector.Visible = false;
-                    GD.Print("🙈 Hidden map type selector");
-                }
-                
-                // Note: Zoom controls should remain visible during gameplay
-                GD.Print("✅ Zoom controls remain visible during gameplay");
-            }
-            else
-            {
-                // Fallback: Find and hide the map generation control panel
-                foreach (Node child in GetChildren())
-                {
-                    if (child is Panel panel && panel.GetChildCount() > 0)
-                    {
-                        // Check if this panel contains map generation controls
-                        var container = panel.GetChild(0);
-                        if (container is VBoxContainer vbox)
-                        {
-                            // Look for the map type selector
-                            foreach (Node vboxChild in vbox.GetChildren())
-                            {
-                                if (vboxChild is OptionButton)
-                                {
-                                    // This is the map generation panel
-                                    panel.Visible = false;
-                                    GD.Print("🙈 Hidden map generation controls (fallback)");
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         private void OnRegenerateMapPressed()
         {
             if (_gameStarted)
@@ -970,40 +868,11 @@ namespace Archistrateia
 
         private void InitializeGameManager()
         {
-            _gameManager = new GameManager();
-            AddChild(_gameManager);
-            
-            // Convert the visual map to a logical game map
-            var logicalGameMap = ConvertVisualMapToGameMap();
-            
-            // Set the game map before initialization
-            _gameManager.SetGameMap(logicalGameMap);
-            
-            // Now initialize the game with the logical map
-            _gameManager.InitializeGame();
+            var logicalGameMap = _mapPreviewController.ConvertVisualMapToGameMap(_mapContainer);
+            _gameManager = _gameRuntimeController.InitializeGameManager(logicalGameMap);
             
             // Use CallDeferred to connect TurnManager after GameManager's _Ready is called
             CallDeferred(MethodName.ConnectTurnManager);
-        }
-
-        private Dictionary<Vector2I, HexTile> ConvertVisualMapToGameMap()
-        {
-            var gameMap = new Dictionary<Vector2I, HexTile>();
-            
-            if (_mapContainer != null)
-            {
-                foreach (Node child in _mapContainer.GetChildren())
-                {
-                    if (child is VisualHexTile visualTile)
-                    {
-                        var logicalTile = new HexTile(visualTile.GridPosition, visualTile.TerrainType);
-                        gameMap[visualTile.GridPosition] = logicalTile;
-                    }
-                }
-            }
-            
-            GD.Print($"🔄 Converted visual map to logical game map with {gameMap.Count} tiles");
-            return gameMap;
         }
 
         private void ConnectTurnManager()
@@ -1019,35 +888,14 @@ namespace Archistrateia
 
         private void InitializeMapRenderer()
         {
-            _mapRenderer = new MapRenderer();
-            _mapRenderer.Name = "MapRenderer";
-            AddChild(_mapRenderer);
-            _mapRenderer.Initialize(_gameManager, _tileUnitCoordinator, _mapContainer);
-            _mapRenderer.PurchaseTileClicked += OnPurchaseTileClicked;
-            
-            // Set initial player and phase
-            if (_gameManager.Players.Count > 0)
-            {
-                _mapRenderer.SetCurrentPlayer(_gameManager.Players[_currentPlayerIndex]);
-            }
-            
-            // TurnManager is now guaranteed to be available
-            _mapRenderer.SetCurrentPhase(TurnManager.CurrentPhase);
-            
-            // Ensure all tiles know the current phase state
-            _mapRenderer.UpdateTileOccupationStatus();
-            
-            // Update the title label with the correct initial phase
-            UpdateTitleLabel();
-            
-            // Register all visual tiles with the MapRenderer
-            RegisterVisualTilesWithMapRenderer();
-            
-            CreateVisualUnitsForPlayers();
-            
-            // Update initial tile occupation status
-            _mapRenderer.UpdateTileOccupationStatus();
-            RefreshPurchaseUI();
+            _mapRenderer = _gameRuntimeController.InitializeMapRenderer(
+                _gameManager,
+                TurnManager,
+                _mapContainer,
+                _currentPlayerIndex,
+                OnPurchaseTileClicked,
+                UpdateTitleLabel,
+                RefreshPurchaseUI);
         }
 
         private void InitializePhaseTransitionCoordinator()
@@ -1063,32 +911,6 @@ namespace Archistrateia
                 SwitchToNextPlayer,
                 () => _mapRenderer?.DeselectAll());
         }
-
-        private void RegisterVisualTilesWithMapRenderer()
-        {
-            if (_mapContainer == null || _mapRenderer == null) return;
-            
-            foreach (Node child in _mapContainer.GetChildren())
-            {
-                if (child is VisualHexTile visualTile)
-                {
-                    _mapRenderer.AddVisualTile(visualTile);
-                }
-            }
-        }
-
-        private void CreateVisualUnitsForPlayers()
-        {
-            // Delegate to centralized tile-unit coordinator
-            _tileUnitCoordinator?.CreateVisualUnitsForPlayers(
-                _gameManager?.Players,
-                _gameManager?.GameMap,
-                _mapRenderer,
-                _positionManager,
-                _mapContainer
-            );
-        }
-
 
         private void OnNextPhaseButtonPressed()
         {
