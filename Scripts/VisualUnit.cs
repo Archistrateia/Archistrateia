@@ -82,7 +82,7 @@ public partial class VisualUnit : Area2D
         }
     }
 
-    private void OnInputEvent(Node viewport, InputEvent @event, long shapeIdx)
+    private void OnInputEvent(Node _, InputEvent @event, long __)
     {
         if (@event is InputEventMouseButton mouseEvent && 
             mouseEvent.Pressed && 

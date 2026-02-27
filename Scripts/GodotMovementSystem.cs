@@ -109,7 +109,7 @@ namespace Archistrateia
 
 
 
-        public List<Vector2I> FindPath(Vector2I from, Vector2I to, Dictionary<Vector2I, HexTile> gameMap)
+        public List<Vector2I> FindPath(Vector2I from, Vector2I to)
         {
             if (!_gridToWorldMap.ContainsKey(from) || !_gridToWorldMap.ContainsKey(to))
             {

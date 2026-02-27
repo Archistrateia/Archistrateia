@@ -54,7 +54,7 @@ public class PurchaseCoordinatorTest
         int startingUnits = player.Units.Count;
         var targetTile = selectResult.ValidPlacementTiles[0];
 
-        var placeResult = coordinator.TryPlacePendingUnit(player, 0, targetTile, map, playerCount: 2);
+        var placeResult = coordinator.TryPlacePendingUnit(player, 0, targetTile, map);
 
         Assert.IsTrue(placeResult.Success);
         Assert.AreEqual(startingUnits + 1, player.Units.Count, "Unit should be added to player");
@@ -76,7 +76,7 @@ public class PurchaseCoordinatorTest
         Assert.IsTrue(selectResult.Success);
 
         var otherPlayerTile = playerTwoTiles[0];
-        var placeResult = coordinator.TryPlacePendingUnit(player, 0, otherPlayerTile, map, playerCount: 2);
+        var placeResult = coordinator.TryPlacePendingUnit(player, 0, otherPlayerTile, map);
 
         Assert.IsFalse(placeResult.Success);
         StringAssert.Contains("deployment zone", placeResult.ErrorMessage);
@@ -94,7 +94,7 @@ public class PurchaseCoordinatorTest
         Assert.IsTrue(selectResult.Success);
 
         var targetTile = selectResult.ValidPlacementTiles[0];
-        var placeResult = coordinator.TryPlacePendingUnit(playerTwo, 1, targetTile, map, playerCount: 2);
+        var placeResult = coordinator.TryPlacePendingUnit(playerTwo, 1, targetTile, map);
 
         Assert.IsFalse(placeResult.Success);
         StringAssert.Contains("belongs to another player", placeResult.ErrorMessage);

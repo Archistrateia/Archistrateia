@@ -309,7 +309,7 @@ public static class MapGenerator
                     
                     if (!IsValidAdjacency(currentTerrain, adjacentTerrains))
                     {
-                        var newTerrain = FindBestAdjacentTerrain(currentTerrain, adjacentTerrains, elevationMap[x, y]);
+                        var newTerrain = FindBestAdjacentTerrain(adjacentTerrains, elevationMap[x, y]);
                         if (newTerrain != currentTerrain)
                         {
                             terrainMap[x, y] = newTerrain;
@@ -329,7 +329,7 @@ public static class MapGenerator
         return neighbors.Any(neighbor => validNeighbors.Contains(neighbor));
     }
     
-    private static TerrainType FindBestAdjacentTerrain(TerrainType currentTerrain, TerrainType[] neighbors, float elevation)
+    private static TerrainType FindBestAdjacentTerrain(TerrainType[] neighbors, float elevation)
     {
         var possibleTerrains = GetTerrainsForElevation(elevation);
         

@@ -100,8 +100,7 @@ namespace Archistrateia
             Player player,
             int playerIndex,
             Vector2I tilePosition,
-            Dictionary<Vector2I, HexTile> gameMap,
-            int playerCount)
+            Dictionary<Vector2I, HexTile> gameMap)
         {
             if (!HasPendingPurchase)
             {

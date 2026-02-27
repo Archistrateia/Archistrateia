@@ -319,7 +319,7 @@ namespace Archistrateia
 
         public float CalculateOptimalZoom(Vector2 viewportSize)
         {
-            return HexGridCalculator.CalculateOptimalZoom(viewportSize, _mapWidth, _mapHeight, _viewState);
+            return HexGridCalculator.CalculateOptimalZoom(viewportSize, _mapWidth, _mapHeight);
         }
 
         private Vector2 GetEdgeScrollDirection(Vector2 localMousePos, Vector2 gridSize)

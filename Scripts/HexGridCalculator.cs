@@ -117,7 +117,7 @@ namespace Archistrateia
             return new Vector2(maxScrollX, maxScrollY);
         }
 
-        public static float CalculateOptimalZoom(Vector2 viewportSize, int mapWidth, int mapHeight, HexGridViewState viewState = null)
+        public static float CalculateOptimalZoom(Vector2 viewportSize, int mapWidth, int mapHeight)
         {
             // Calculate the map dimensions at zoom level 1.0
             float mapTotalWidth = mapWidth * HEX_WIDTH * 0.75f + HEX_WIDTH * 0.25f;

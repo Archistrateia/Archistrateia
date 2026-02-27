@@ -700,8 +700,7 @@ namespace Archistrateia
                 currentPlayer,
                 _currentPlayerIndex,
                 tilePosition,
-                _gameManager.GameMap,
-                _gameManager.Players.Count
+                _gameManager.GameMap
             );
 
             if (!placeResult.Success)

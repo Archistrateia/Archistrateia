@@ -210,7 +210,7 @@ public partial class VisualHexTile : Area2D, IDebugHexTile
         };
     }
 
-    private void OnInputEvent(Node viewport, InputEvent @event, long shapeIdx)
+    private void OnInputEvent(Node _, InputEvent @event, long __)
     {
         if (@event is InputEventMouseButton mouseEvent && 
             mouseEvent.Pressed && 
