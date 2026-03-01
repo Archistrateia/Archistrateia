@@ -29,3 +29,35 @@ jobs:
       
     - name: Test
       run: dotnet test --no-build --verbosity normal
+
+  sonar:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install SonarScanner for .NET
+      run: dotnet tool update --global dotnet-sonarscanner
+
+    - name: Sonar Analyze
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: |
+        dotnet sonarscanner begin /k:"Archistrateia_Archistrateia" /o:"archistrateia" /d:sonar.token="${SONAR_TOKEN}"
+        dotnet build
+        dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
