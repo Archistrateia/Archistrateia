@@ -20,5 +20,19 @@ namespace Archistrateia.Tests
             Assert.AreEqual(host, result.UIManager.GetParent());
             Assert.AreEqual(host, result.DebugScrollOverlay.GetParent());
         }
+
+        [Test]
+        public void ResolveInitialReferences_Should_Return_Existing_References_When_Provided()
+        {
+            var host = new Control();
+            var start = new Button();
+            var title = new Label();
+            var controller = new MainUIBootstrapController();
+
+            var references = controller.ResolveInitialReferences(host, start, title);
+
+            Assert.AreSame(start, references.StartButton);
+            Assert.AreSame(title, references.TitleLabel);
+        }
     }
 }

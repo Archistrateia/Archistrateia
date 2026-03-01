@@ -5,6 +5,12 @@ namespace Archistrateia
 {
     public sealed class MainUIBootstrapController
     {
+        public sealed class MainInitialReferences
+        {
+            public Button StartButton { get; init; }
+            public Label TitleLabel { get; init; }
+        }
+
         public sealed class MainUIBootstrapResult
         {
             public ModernUIManager UIManager { get; init; }
@@ -21,6 +27,20 @@ namespace Archistrateia
             public Label PurchaseStatusLabel { get; init; }
             public Button PurchaseBuyButton { get; init; }
             public Button PurchaseCancelButton { get; init; }
+        }
+
+        public MainInitialReferences ResolveInitialReferences(Control host, Button startButton, Label titleLabel)
+        {
+            if (host == null)
+            {
+                throw new ArgumentNullException(nameof(host));
+            }
+
+            return new MainInitialReferences
+            {
+                StartButton = startButton ?? host.GetNodeOrNull<Button>("UI/StartButton"),
+                TitleLabel = titleLabel ?? host.GetNodeOrNull<Label>("UI/TitleLabel")
+            };
         }
 
         public MainUIBootstrapResult CreateAndAttachUI(Node host)

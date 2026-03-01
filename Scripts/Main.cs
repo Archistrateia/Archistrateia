@@ -69,6 +69,8 @@ namespace Archistrateia
         private MainUIBootstrapController _mainUIBootstrapController;
         private MainServiceCompositionController _mainServiceCompositionController;
         private MainHoverInfoController _mainHoverInfoController;
+        private MainInputPolicyController _mainInputPolicyController;
+        private MainViewRefreshController _mainViewRefreshController;
         private PurchaseUIController _purchaseUIController;
         private GameStartController _gameStartController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
@@ -100,20 +102,12 @@ namespace Archistrateia
 
         public override void _Ready()
         {
-            // Try to find UI elements if references are null
-            if (StartButton == null)
-            {
-                StartButton = GetNodeOrNull<Button>("UI/StartButton");
-            }
-
-            if (TitleLabel == null)
-            {
-                TitleLabel = GetNodeOrNull<Label>("UI/TitleLabel");
-            }
-
             _terrainColors = TerrainColorPalette.Default;
             _mainUIBootstrapController = new MainUIBootstrapController();
             _mainServiceCompositionController = new MainServiceCompositionController();
+            var initialReferences = _mainUIBootstrapController.ResolveInitialReferences(this, StartButton, TitleLabel);
+            StartButton = initialReferences.StartButton;
+            TitleLabel = initialReferences.TitleLabel;
             
             // Initialize UI immediately - it's safe to do so in _Ready
             // The viewport is guaranteed to be ready when _Ready is called
@@ -211,145 +205,14 @@ namespace Archistrateia
             _mainUIHitTestController = composed.MainUIHitTestController;
             _mainInputController = composed.MainInputController;
             _mainZoomController = composed.MainZoomController;
-            _mainHoverInfoController = new MainHoverInfoController(
-                () => _mapRenderer,
-                () => GetViewport().SetInputAsHandled(),
-                GD.Print);
-            _mainLifecycleController = new MainLifecycleController(
-                () => TurnManager,
-                () => _gameManager,
-                () => _currentPlayerIndex,
-                index => _currentPlayerIndex = index,
-                player => _mapRenderer?.SetCurrentPlayer(player),
-                (oldPhase, newPhase) => _phaseTransitionCoordinator?.ApplyTransition(oldPhase, newPhase),
-                RefreshPurchaseUI,
-                (playerName, phaseName, turn) => _uiManager?.UpdatePlayerInfo(playerName, phaseName, turn),
-                text =>
-                {
-                    if (TitleLabel != null)
-                    {
-                        TitleLabel.Text = text;
-                    }
-                });
-            _mainRuntimeBootstrapController = new MainRuntimeBootstrapController(
-                () => _mapContainer,
-                mapContainer => _mapPreviewController.ConvertVisualMapToGameMap(mapContainer),
-                logicalGameMap => _gameRuntimeController.InitializeGameManager(logicalGameMap),
-                gameManager => _gameManager = gameManager,
-                () => CallDeferred(MethodName.ConnectTurnManager),
-                () => _gameManager,
-                turnManager => TurnManager = turnManager,
-                OnTurnManagerPhaseChanged,
-                (gameManager, turnManager, mapContainer, currentPlayerIndex, viewState, onPurchaseTileClicked, updateTitleLabel, refreshPurchaseUI) =>
-                    _gameRuntimeController.InitializeMapRenderer(
-                        gameManager,
-                        turnManager,
-                        mapContainer,
-                        currentPlayerIndex,
-                        viewState,
-                        onPurchaseTileClicked,
-                        updateTitleLabel,
-                        refreshPurchaseUI),
-                () => TurnManager,
-                () => _currentPlayerIndex,
-                () => _hexGridViewState,
-                OnPurchaseTileClicked,
-                UpdateTitleLabel,
-                RefreshPurchaseUI,
-                mapRenderer => _mapRenderer = mapRenderer,
-                () => new PhaseTransitionCoordinator(
-                    _gameManager,
-                    _purchaseCoordinator,
-                    phase => _mapRenderer?.OnPhaseChanged(phase),
-                    SetPurchaseUIVisible,
-                    UpdateSelectedPurchaseUnitDetails,
-                    SetPurchaseStatus,
-                    RefreshPurchaseUI,
-                    SwitchToNextPlayer,
-                    () => _mapRenderer?.DeselectAll()),
-                coordinator => _phaseTransitionCoordinator = coordinator);
-            _mainMapSetupController = new MainMapSetupController(
-                () => _gameStartController?.IsGameStarted ?? false,
-                () => _currentMapType,
-                mapType => _currentMapType = mapType,
-                () => _mapContainer,
-                mapContainer => _mapContainer = mapContainer,
-                (mapContainer, mapType) => _mapPreviewController.GeneratePreviewMap(mapContainer, mapType),
-                () => _hexGridViewState.ZoomFactor,
-                zoom =>
-                {
-                    if (_zoomSlider != null)
-                    {
-                        _zoomSlider.Value = zoom;
-                    }
-                },
-                () => _mainViewController?.UpdateZoomLabel(),
-                description =>
-                {
-                    if (_mapTypeDescriptionLabel != null)
-                    {
-                        _mapTypeDescriptionLabel.Text = description;
-                    }
-                },
-                GD.Print);
-
-            _purchaseUIController = new PurchaseUIController(
-                _purchaseUnitSelector,
-                _purchaseUnitDetailsLabel,
-                _purchaseGoldLabel,
-                _purchaseStatusLabel,
-                _purchaseBuyButton,
-                _purchaseCancelButton,
-                _purchaseCoordinator,
-                _deploymentService,
-                () => _gameManager,
-                () => _currentPlayerIndex,
-                () => TurnManager,
-                visible => _uiManager?.SetPurchasePanelVisible(visible),
-                () => _mapRenderer?.ClearPurchasePlacementTiles(),
-                tiles => _mapRenderer?.ShowPurchasePlacementTiles(tiles),
-                player => _tileUnitCoordinator.GetPlayerColor(player.Name),
-                tilePosition => _positionManager.CalculateWorldPosition(tilePosition),
-                (unit, worldPosition, playerColor) => _mapRenderer?.CreateVisualUnit(unit, worldPosition, playerColor),
-                () => _mapRenderer?.UpdateTileOccupationStatus());
-
-            _gameStartController = new GameStartController(
-                hideStartButton: () =>
-                {
-                    if (_uiManager != null)
-                    {
-                        _uiManager.HideStartButton();
-                    }
-                    else if (StartButton != null)
-                    {
-                        StartButton.Visible = false;
-                    }
-                },
-                hideTitleLabel: () =>
-                {
-                    if (TitleLabel != null)
-                    {
-                        TitleLabel.Visible = false;
-                    }
-                },
-                hideMapGenerationControls: () => _mapPreviewController?.HideMapGenerationControls(),
-                getCurrentZoom: () => _hexGridViewState.ZoomFactor,
-                setZoomSliderValue: zoom =>
-                {
-                    if (_zoomSlider != null)
-                    {
-                        _zoomSlider.Value = zoom;
-                    }
-                },
-                updateZoomLabel: () => _mainViewController?.UpdateZoomLabel(),
-                initializeGameManager: InitializeGameManager,
-                regenerateMapWithCurrentZoom: RegenerateMapWithCurrentZoom,
-                updateUIPositions: () => _mainViewController?.UpdateUIPositions(),
-                initializeDebugTools: () =>
-                {
-                    _debugAdjacentButton = _debugToolsController?.CreateDebugAdjacentButton(this, () => GetViewport().GetVisibleRect().Size);
-                    _debugToolsController?.DebugUIElements(_nextPhaseButton, _zoomSlider);
-                });
+            ConfigureInputPolicyController();
+            ConfigureHoverInfoController();
+            ConfigureLifecycleController();
+            ConfigureRuntimeBootstrapController();
+            ConfigureMapSetupController();
+            ConfigurePurchaseController();
+            ConfigureViewRefreshController();
+            ConfigureGameStartController();
             
             var gameAreaSize = GetGameAreaSize();
             GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
@@ -440,12 +303,7 @@ namespace Archistrateia
 
         private void RegenerateMapWithCurrentZoom()
         {
-            GD.Print($"🔍 REGENERATE DEBUG: Before UpdateAllPositions - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            // Delegate to centralized position manager
-            _positionManager?.UpdateAllPositions(_mapContainer, _mapRenderer?.GetVisualUnits() ?? new List<VisualUnit>(), _gameManager?.GameMap, _tileUnitCoordinator);
-            
-            GD.Print($"🔍 REGENERATE DEBUG: After UpdateAllPositions - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
+            _mainViewRefreshController?.RegenerateMapWithCurrentZoom();
         }
 
 
@@ -519,12 +377,7 @@ namespace Archistrateia
 
         private bool HandlePhaseInput(InputEventKey keyEvent)
         {
-            if (keyEvent.Keycode == Key.Space)
-            {
-                AdvancePhaseWithSideEffects();
-                return true;
-            }
-            return false;
+            return _mainInputPolicyController?.HandlePhaseInput(keyEvent) ?? false;
         }
 
         private bool HandleHoverInfoModeInput(InputEventKey keyEvent)
@@ -534,14 +387,7 @@ namespace Archistrateia
 
         private bool HandleViewportInput(InputEventKey keyEvent)
         {
-            var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize()) ?? false;
-            
-            if (handled)
-            {
-                GetViewport().SetInputAsHandled();
-            }
-            
-            return handled;
+            return _mainInputPolicyController?.HandleViewportInput(keyEvent) ?? false;
         }
 
         private bool HandleZoomInput(InputEventKey keyEvent)
@@ -567,6 +413,196 @@ namespace Archistrateia
         public bool IsMouseWithinGameArea(Vector2 mousePosition)
         {
             return _mainUIHitTestController?.IsMouseWithinGameArea(mousePosition) ?? true;
+        }
+
+        private void ConfigureInputPolicyController()
+        {
+            _mainInputPolicyController = new MainInputPolicyController(
+                keyEvent =>
+                {
+                    var handled = _viewportController?.HandleKeyboardInput(keyEvent, GetGameAreaSize()) ?? false;
+                    if (handled)
+                    {
+                        GetViewport().SetInputAsHandled();
+                    }
+
+                    return handled;
+                },
+                AdvancePhaseWithSideEffects);
+        }
+
+        private void ConfigureHoverInfoController()
+        {
+            _mainHoverInfoController = new MainHoverInfoController(
+                () => _mapRenderer,
+                () => GetViewport().SetInputAsHandled(),
+                GD.Print);
+        }
+
+        private void ConfigureLifecycleController()
+        {
+            _mainLifecycleController = new MainLifecycleController(
+                () => TurnManager,
+                () => _gameManager,
+                () => _currentPlayerIndex,
+                index => _currentPlayerIndex = index,
+                player => _mapRenderer?.SetCurrentPlayer(player),
+                (oldPhase, newPhase) => _phaseTransitionCoordinator?.ApplyTransition(oldPhase, newPhase),
+                RefreshPurchaseUI,
+                (playerName, phaseName, turn) => _uiManager?.UpdatePlayerInfo(playerName, phaseName, turn),
+                text =>
+                {
+                    if (TitleLabel != null)
+                    {
+                        TitleLabel.Text = text;
+                    }
+                });
+        }
+
+        private void ConfigureRuntimeBootstrapController()
+        {
+            _mainRuntimeBootstrapController = new MainRuntimeBootstrapController(
+                () => _mapContainer,
+                mapContainer => _mapPreviewController.ConvertVisualMapToGameMap(mapContainer),
+                logicalGameMap => _gameRuntimeController.InitializeGameManager(logicalGameMap),
+                gameManager => _gameManager = gameManager,
+                () => CallDeferred(MethodName.ConnectTurnManager),
+                () => _gameManager,
+                turnManager => TurnManager = turnManager,
+                OnTurnManagerPhaseChanged,
+                (gameManager, turnManager, mapContainer, currentPlayerIndex, viewState, onPurchaseTileClicked, updateTitleLabel, refreshPurchaseUI) =>
+                    _gameRuntimeController.InitializeMapRenderer(
+                        gameManager,
+                        turnManager,
+                        mapContainer,
+                        currentPlayerIndex,
+                        viewState,
+                        onPurchaseTileClicked,
+                        updateTitleLabel,
+                        refreshPurchaseUI),
+                () => TurnManager,
+                () => _currentPlayerIndex,
+                () => _hexGridViewState,
+                OnPurchaseTileClicked,
+                UpdateTitleLabel,
+                RefreshPurchaseUI,
+                mapRenderer => _mapRenderer = mapRenderer,
+                () => new PhaseTransitionCoordinator(
+                    _gameManager,
+                    _purchaseCoordinator,
+                    phase => _mapRenderer?.OnPhaseChanged(phase),
+                    SetPurchaseUIVisible,
+                    UpdateSelectedPurchaseUnitDetails,
+                    SetPurchaseStatus,
+                    RefreshPurchaseUI,
+                    SwitchToNextPlayer,
+                    () => _mapRenderer?.DeselectAll()),
+                coordinator => _phaseTransitionCoordinator = coordinator);
+        }
+
+        private void ConfigureMapSetupController()
+        {
+            _mainMapSetupController = new MainMapSetupController(
+                () => _gameStartController?.IsGameStarted ?? false,
+                () => _currentMapType,
+                mapType => _currentMapType = mapType,
+                () => _mapContainer,
+                mapContainer => _mapContainer = mapContainer,
+                (mapContainer, mapType) => _mapPreviewController.GeneratePreviewMap(mapContainer, mapType),
+                () => _hexGridViewState.ZoomFactor,
+                zoom =>
+                {
+                    if (_zoomSlider != null)
+                    {
+                        _zoomSlider.Value = zoom;
+                    }
+                },
+                () => _mainViewController?.UpdateZoomLabel(),
+                description =>
+                {
+                    if (_mapTypeDescriptionLabel != null)
+                    {
+                        _mapTypeDescriptionLabel.Text = description;
+                    }
+                },
+                GD.Print);
+        }
+
+        private void ConfigurePurchaseController()
+        {
+            _purchaseUIController = new PurchaseUIController(
+                _purchaseUnitSelector,
+                _purchaseUnitDetailsLabel,
+                _purchaseGoldLabel,
+                _purchaseStatusLabel,
+                _purchaseBuyButton,
+                _purchaseCancelButton,
+                _purchaseCoordinator,
+                _deploymentService,
+                () => _gameManager,
+                () => _currentPlayerIndex,
+                () => TurnManager,
+                visible => _uiManager?.SetPurchasePanelVisible(visible),
+                () => _mapRenderer?.ClearPurchasePlacementTiles(),
+                tiles => _mapRenderer?.ShowPurchasePlacementTiles(tiles),
+                player => _tileUnitCoordinator.GetPlayerColor(player.Name),
+                tilePosition => _positionManager.CalculateWorldPosition(tilePosition),
+                (unit, worldPosition, playerColor) => _mapRenderer?.CreateVisualUnit(unit, worldPosition, playerColor),
+                () => _mapRenderer?.UpdateTileOccupationStatus());
+        }
+
+        private void ConfigureViewRefreshController()
+        {
+            _mainViewRefreshController = new MainViewRefreshController(
+                () => _hexGridViewState.ZoomFactor,
+                () => _zoomSlider?.Value,
+                () => _positionManager,
+                () => _mapContainer,
+                () => _mapRenderer,
+                () => _gameManager,
+                () => _tileUnitCoordinator,
+                GD.Print);
+        }
+
+        private void ConfigureGameStartController()
+        {
+            _gameStartController = new GameStartController(
+                hideStartButton: () =>
+                {
+                    if (_uiManager != null)
+                    {
+                        _uiManager.HideStartButton();
+                    }
+                    else if (StartButton != null)
+                    {
+                        StartButton.Visible = false;
+                    }
+                },
+                hideTitleLabel: () =>
+                {
+                    if (TitleLabel != null)
+                    {
+                        TitleLabel.Visible = false;
+                    }
+                },
+                hideMapGenerationControls: () => _mapPreviewController?.HideMapGenerationControls(),
+                getCurrentZoom: () => _hexGridViewState.ZoomFactor,
+                setZoomSliderValue: zoom =>
+                {
+                    if (_zoomSlider != null)
+                    {
+                        _zoomSlider.Value = zoom;
+                    }
+                },
+                updateZoomLabel: () => _mainViewController?.UpdateZoomLabel(),
+                initializeGameManager: InitializeGameManager,
+                regenerateMapWithCurrentZoom: RegenerateMapWithCurrentZoom,
+                updateUIPositions: () => _mainViewController?.UpdateUIPositions(),
+                initializeDebugTools: () =>
+                {
+                    _debugAdjacentButton = _debugToolsController?.CreateDebugAdjacentButton(this, () => GetViewport().GetVisibleRect().Size);
+                    _debugToolsController?.DebugUIElements(_nextPhaseButton, _zoomSlider);
+                });
         }
         
     }
