@@ -48,9 +48,6 @@ namespace Archistrateia
         
         private Button _debugAdjacentButton;
         
-        // Game state
-        private bool _gameStarted = false;
-        
         // Map dimensions come from centralized configuration
         private static int MAP_WIDTH => MapConfiguration.MAP_WIDTH;
         private static int MAP_HEIGHT => MapConfiguration.MAP_HEIGHT;
@@ -65,6 +62,8 @@ namespace Archistrateia
         private MainInputController _mainInputController;
         private MainViewController _mainViewController;
         private DebugToolsController _debugToolsController;
+        private PurchaseUIController _purchaseUIController;
+        private GameStartController _gameStartController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
         
         // Centralized viewport size calculation to ensure consistency between tiles and units
@@ -266,6 +265,64 @@ namespace Archistrateia
                 () => _debugToolsController?.IsDebugAdjacentModeEnabled() ?? false,
                 mousePosition => _debugToolsController?.HandleDebugAdjacentHover(mousePosition),
                 () => GetViewport().SetInputAsHandled());
+
+            _purchaseUIController = new PurchaseUIController(
+                _purchaseUnitSelector,
+                _purchaseUnitDetailsLabel,
+                _purchaseGoldLabel,
+                _purchaseStatusLabel,
+                _purchaseBuyButton,
+                _purchaseCancelButton,
+                _purchaseCoordinator,
+                _deploymentService,
+                () => _gameManager,
+                () => _currentPlayerIndex,
+                () => TurnManager,
+                visible => _uiManager?.SetPurchasePanelVisible(visible),
+                () => _mapRenderer?.ClearPurchasePlacementTiles(),
+                tiles => _mapRenderer?.ShowPurchasePlacementTiles(tiles),
+                player => _tileUnitCoordinator.GetPlayerColor(player.Name),
+                tilePosition => _positionManager.CalculateWorldPosition(tilePosition),
+                (unit, worldPosition, playerColor) => _mapRenderer?.CreateVisualUnit(unit, worldPosition, playerColor),
+                () => _mapRenderer?.UpdateTileOccupationStatus());
+
+            _gameStartController = new GameStartController(
+                hideStartButton: () =>
+                {
+                    if (_uiManager != null)
+                    {
+                        _uiManager.HideStartButton();
+                    }
+                    else if (StartButton != null)
+                    {
+                        StartButton.Visible = false;
+                    }
+                },
+                hideTitleLabel: () =>
+                {
+                    if (TitleLabel != null)
+                    {
+                        TitleLabel.Visible = false;
+                    }
+                },
+                hideMapGenerationControls: () => _mapPreviewController?.HideMapGenerationControls(),
+                getCurrentZoom: () => _hexGridViewState.ZoomFactor,
+                setZoomSliderValue: zoom =>
+                {
+                    if (_zoomSlider != null)
+                    {
+                        _zoomSlider.Value = zoom;
+                    }
+                },
+                updateZoomLabel: () => _mainViewController?.UpdateZoomLabel(),
+                initializeGameManager: InitializeGameManager,
+                regenerateMapWithCurrentZoom: RegenerateMapWithCurrentZoom,
+                updateUIPositions: () => _mainViewController?.UpdateUIPositions(),
+                initializeDebugTools: () =>
+                {
+                    _debugAdjacentButton = _debugToolsController?.CreateDebugAdjacentButton(this, () => GetViewport().GetVisibleRect().Size);
+                    _debugToolsController?.DebugUIElements(_nextPhaseButton, _zoomSlider);
+                });
             
             GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
         }
@@ -432,307 +489,52 @@ namespace Archistrateia
         }
         private void PopulatePurchaseUnitSelector()
         {
-            _purchaseUnitSelector?.Clear();
-            if (_purchaseUnitSelector == null)
-            {
-                return;
-            }
-
-            foreach (var blueprint in UnitCatalog.GetAll())
-            {
-                _purchaseUnitSelector.AddItem(blueprint.DisplayName);
-            }
-
-            _purchaseUnitSelector.Selected = 0;
-            UpdateSelectedPurchaseUnitDetails();
-        }
-
-        private Player GetCurrentPlayer()
-        {
-            if (_gameManager == null || _gameManager.Players.Count == 0)
-            {
-                return null;
-            }
-
-            if (_currentPlayerIndex < 0 || _currentPlayerIndex >= _gameManager.Players.Count)
-            {
-                return null;
-            }
-
-            return _gameManager.Players[_currentPlayerIndex];
-        }
-
-        private UnitBlueprint GetSelectedBlueprint()
-        {
-            if (_purchaseUnitSelector == null || _purchaseUnitSelector.Selected < 0)
-            {
-                return null;
-            }
-
-            var selectedIndex = (int)_purchaseUnitSelector.Selected;
-            var all = UnitCatalog.GetAll();
-            if (selectedIndex >= all.Count)
-            {
-                return null;
-            }
-
-            return all[selectedIndex];
+            _purchaseUIController?.PopulatePurchaseUnitSelector();
         }
 
         private void OnPurchaseUnitSelected(long index)
         {
-            UpdateSelectedPurchaseUnitDetails();
-            RefreshPurchaseUI();
+            _purchaseUIController?.OnPurchaseUnitSelected(index);
         }
 
         private void UpdateSelectedPurchaseUnitDetails()
         {
-            if (_purchaseUnitDetailsLabel == null)
-            {
-                return;
-            }
-
-            var blueprint = GetSelectedBlueprint();
-            if (blueprint == null)
-            {
-                _purchaseUnitDetailsLabel.Text = "Select a unit";
-                return;
-            }
-
-            int recommendedCost = UnitValuationPolicy.GetRecommendedCost(blueprint.Attack, blueprint.Defense, blueprint.MovementPoints);
-            _purchaseUnitDetailsLabel.Text =
-                $"ATK {blueprint.Attack} | DEF {blueprint.Defense} | MP {blueprint.MovementPoints}\n" +
-                $"Cost {blueprint.Cost} | Value {blueprint.ValueScore:F1} (rec {recommendedCost})";
+            _purchaseUIController?.UpdateSelectedPurchaseUnitDetails();
         }
 
         private void SetPurchaseStatus(string message)
         {
-            if (_purchaseStatusLabel != null)
-            {
-                _purchaseStatusLabel.Text = message;
-            }
+            _purchaseUIController?.SetPurchaseStatus(message);
         }
 
         private void RefreshPurchaseUI()
         {
-            var currentPlayer = GetCurrentPlayer();
-            if (_purchaseGoldLabel != null)
-            {
-                _purchaseGoldLabel.Text = $"Gold: {currentPlayer?.Gold ?? 0}";
-            }
-
-            var selectedBlueprint = GetSelectedBlueprint();
-            bool canAfford = currentPlayer != null && selectedBlueprint != null && currentPlayer.Gold >= selectedBlueprint.Cost;
-            bool isPurchasePhase = TurnManager != null && TurnManager.CurrentPhase == GamePhase.Purchase;
-            bool hasValidTiles = false;
-            if (_gameManager != null && isPurchasePhase && currentPlayer != null)
-            {
-                hasValidTiles = _deploymentService.GetDeployableTilesForPlayer(
-                    _gameManager.GameMap,
-                    _currentPlayerIndex,
-                    _gameManager.Players.Count
-                ).Count > 0;
-            }
-
-            if (_purchaseBuyButton != null)
-            {
-                _purchaseBuyButton.Disabled = !isPurchasePhase || !canAfford || !hasValidTiles;
-            }
-
-            if (_purchaseCancelButton != null)
-            {
-                _purchaseCancelButton.Disabled = !_purchaseCoordinator.HasPendingPurchase;
-            }
-
-            if (isPurchasePhase && !hasValidTiles && !_purchaseCoordinator.HasPendingPurchase)
-            {
-                SetPurchaseStatus("No valid deployment tiles available.");
-            }
+            _purchaseUIController?.RefreshPurchaseUI();
         }
 
         private void SetPurchaseUIVisible(bool visible)
         {
-            _uiManager?.SetPurchasePanelVisible(visible);
-            if (!visible)
-            {
-                _mapRenderer?.ClearPurchasePlacementTiles();
-            }
+            _purchaseUIController?.SetPurchaseUIVisible(visible);
         }
 
         private void OnPurchaseBuyPressed()
         {
-            if (TurnManager == null || _gameManager == null || TurnManager.CurrentPhase != GamePhase.Purchase)
-            {
-                SetPurchaseStatus("Purchase is only available during the Purchase phase.");
-                return;
-            }
-
-            var currentPlayer = GetCurrentPlayer();
-            var selectedBlueprint = GetSelectedBlueprint();
-            if (currentPlayer == null || selectedBlueprint == null)
-            {
-                SetPurchaseStatus("Unable to start purchase.");
-                return;
-            }
-
-            var selectionResult = _purchaseCoordinator.BeginSelection(
-                currentPlayer,
-                _currentPlayerIndex,
-                selectedBlueprint.UnitType,
-                _gameManager.GameMap,
-                _gameManager.Players.Count
-            );
-
-            if (!selectionResult.Success)
-            {
-                _mapRenderer?.ClearPurchasePlacementTiles();
-                SetPurchaseStatus(selectionResult.ErrorMessage);
-                RefreshPurchaseUI();
-                return;
-            }
-
-            _mapRenderer?.ShowPurchasePlacementTiles(selectionResult.ValidPlacementTiles);
-            SetPurchaseStatus("Select a highlighted deployment tile to place your unit.");
-            RefreshPurchaseUI();
+            _purchaseUIController?.OnPurchaseBuyPressed();
         }
 
         private void OnPurchaseCancelPressed()
         {
-            _purchaseCoordinator.CancelPendingPurchase();
-            _mapRenderer?.ClearPurchasePlacementTiles();
-            SetPurchaseStatus("Purchase cancelled.");
-            RefreshPurchaseUI();
+            _purchaseUIController?.OnPurchaseCancelPressed();
         }
 
         private void OnPurchaseTileClicked(Vector2I tilePosition)
         {
-            if (TurnManager == null || _gameManager == null || TurnManager.CurrentPhase != GamePhase.Purchase)
-            {
-                return;
-            }
-
-            if (!_purchaseCoordinator.HasPendingPurchase)
-            {
-                SetPurchaseStatus("Choose a unit and press Buy + Place first.");
-                return;
-            }
-
-            var currentPlayer = GetCurrentPlayer();
-            if (currentPlayer == null)
-            {
-                SetPurchaseStatus("No active player.");
-                return;
-            }
-
-            var placeResult = _purchaseCoordinator.TryPlacePendingUnit(
-                currentPlayer,
-                _currentPlayerIndex,
-                tilePosition,
-                _gameManager.GameMap
-            );
-
-            if (!placeResult.Success)
-            {
-                SetPurchaseStatus(placeResult.ErrorMessage);
-                RefreshPurchaseUI();
-                return;
-            }
-
-            var playerColor = _tileUnitCoordinator.GetPlayerColor(currentPlayer.Name);
-            var worldPosition = _positionManager.CalculateWorldPosition(tilePosition);
-            _mapRenderer?.CreateVisualUnit(placeResult.PurchasedUnit, worldPosition, playerColor);
-            _mapRenderer?.UpdateTileOccupationStatus();
-            _mapRenderer?.ClearPurchasePlacementTiles();
-
-            SetPurchaseStatus($"Placed {placeResult.PurchasedUnit.Name}.");
-            RefreshPurchaseUI();
+            _purchaseUIController?.OnPurchaseTileClicked(tilePosition);
         }
 
         public void OnStartButtonPressed()
         {
-            GD.Print("🎮🎮🎮 START BUTTON PRESSED! 🎮🎮🎮");
-            GD.Print($"🔍 BUTTON PRESS: Initial zoom state - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            _gameStarted = true;
-            
-            // Hide start button using modern UI manager
-            if (_uiManager != null)
-            {
-                _uiManager.HideStartButton();
-            }
-            else if (StartButton != null)
-            {
-                StartButton.Visible = false;
-            }
-
-            // Hide title label when game starts
-            if (TitleLabel != null)
-            {
-                TitleLabel.Visible = false;
-            }
-
-            // Hide map generation controls when game starts
-            _mapPreviewController?.HideMapGenerationControls();
-
-            // Game status is now handled by ModernUIManager in the top bar
-
-            // Keep the current zoom level (1.0 from preview) - don't change it
-            // The map is already at the right size from the preview
-            
-            // Update zoom slider to reflect the current zoom
-            if (_zoomSlider != null)
-            {
-                _zoomSlider.Value = _hexGridViewState.ZoomFactor;
-            }
-            
-            // Update zoom label to reflect the optimal zoom
-            _mainViewController?.UpdateZoomLabel();
-
-            // Use the existing map as the game map (no regeneration needed)
-            GD.Print("🎮 Starting game with current map - no regeneration needed");
-            
-            // Debug: Log zoom state before game start
-            GD.Print($"🔍 GAME START DEBUG: Before InitializeGameManager - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            InitializeGameManager();
-            
-            // Debug: Log zoom state after game start
-            GD.Print($"🔍 GAME START DEBUG: After InitializeGameManager - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            // Preserve the current zoom level instead of forcing it to 1.0
-            // The zoom level should remain as the user set it during preview
-            var currentZoom = _hexGridViewState.ZoomFactor;
-            GD.Print($"🔍 Preserving zoom level: {currentZoom:F2}x");
-            
-            // Update zoom slider to reflect the current zoom (should already be correct)
-            if (_zoomSlider != null)
-            {
-                _zoomSlider.Value = currentZoom;
-            }
-            _mainViewController?.UpdateZoomLabel();
-            
-            // Debug: Log zoom state before regeneration
-            GD.Print($"🔍 GAME START DEBUG: Before RegenerateMapWithCurrentZoom - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            // Regenerate map visuals with correct zoom
-            RegenerateMapWithCurrentZoom();
-            
-            // Debug: Log zoom state after regeneration
-            GD.Print($"🔍 GAME START DEBUG: After RegenerateMapWithCurrentZoom - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            // Final debug: Log final zoom state
-            GD.Print($"🔍 GAME START FINAL: Final zoom state - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
-            
-            // Update UI positions after everything is initialized
-            _mainViewController?.UpdateUIPositions();
-
-            // Note: Next Phase button is now handled by the modern UI (no need to create here)
-            
-            // Create Debug Adjacent Tiles button
-            _debugAdjacentButton = _debugToolsController?.CreateDebugAdjacentButton(this, () => GetViewport().GetVisibleRect().Size);
-            
-            // Debug UI elements to help troubleshoot
-            _debugToolsController?.DebugUIElements(_nextPhaseButton, _zoomSlider);
+            _gameStartController?.StartGame();
         }
 
         private void GenerateMap()
@@ -749,7 +551,7 @@ namespace Archistrateia
 
         private void OnMapTypeSelected(long index)
         {
-            if (_gameStarted)
+            if (_gameStartController?.IsGameStarted ?? false)
             {
                 // Game has started - map type selection is disabled
                 return;
@@ -770,7 +572,7 @@ namespace Archistrateia
         
         private void OnRegenerateMapPressed()
         {
-            if (_gameStarted)
+            if (_gameStartController?.IsGameStarted ?? false)
             {
                 // Game has started - regeneration is disabled
                 GD.Print("⚠️ Map regeneration disabled during gameplay");
