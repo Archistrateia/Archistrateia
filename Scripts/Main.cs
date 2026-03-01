@@ -63,10 +63,9 @@ namespace Archistrateia
         private MapPreviewController _mapPreviewController;
         private GameRuntimeController _gameRuntimeController;
         private MainInputController _mainInputController;
+        private MainViewController _mainViewController;
         private DebugToolsController _debugToolsController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
-        private int _viewChangedDebugCounter = 0;
-        private int _sliderDebugCounter = 0;
         
         // Centralized viewport size calculation to ensure consistency between tiles and units
         // Returns the actual game grid area (excluding top bar, bottom bar, and sidebar)
@@ -246,6 +245,15 @@ namespace Archistrateia
             _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors, _hexGridViewState);
             _debugToolsController = new DebugToolsController(
                 () => _mapContainer?.GetChildren().OfType<IDebugHexTile>() ?? Enumerable.Empty<IDebugHexTile>());
+            _mainViewController = new MainViewController(
+                _positionManager,
+                _tileUnitCoordinator,
+                _hexGridViewState,
+                _zoomSlider,
+                _zoomLabel,
+                GetGameAreaSize,
+                () => GetViewport().GetVisibleRect().Size,
+                viewportSize => _debugToolsController?.UpdateDebugButtonPosition(_debugAdjacentButton, viewportSize));
             _mainInputController = new MainInputController(
                 _viewportController,
                 _debugScrollOverlay,
@@ -264,58 +272,7 @@ namespace Archistrateia
 
         private void OnViewChanged()
         {
-            // Sample debug output to avoid spam
-            _viewChangedDebugCounter++;
-            if (_viewChangedDebugCounter % 60 == 0) // Show every 60 calls (about once per second at 60fps)
-            {
-                GD.Print($"🔍 VIEW CHANGED (Sample {_viewChangedDebugCounter}): Current zoom = {_hexGridViewState.ZoomFactor:F2}x, Slider = {_zoomSlider?.Value:F2}x");
-            }
-            
-            // Update game area size in position manager
-            _positionManager.UpdateGameAreaSize(GetGameAreaSize());
-            
-            // Update all visual positions
-            if (_mapContainer != null)
-            {
-                if (_mapRenderer != null)
-                {
-                    // Game phase: use MapRenderer for full functionality
-                    _positionManager.UpdateAllPositions(_mapContainer, _mapRenderer.GetVisualUnits(), _gameManager?.GameMap, _tileUnitCoordinator);
-                }
-                else
-                {
-                    // Preview phase: update map tiles directly without units
-                    _positionManager.UpdateAllPositions(_mapContainer, new List<VisualUnit>(), _gameManager?.GameMap, _tileUnitCoordinator);
-                }
-            }
-            
-            // Update zoom UI - but only if the slider value doesn't match the current zoom
-            // This prevents circular dependency when user changes zoom
-            if (_zoomSlider != null)
-            {
-                var currentSliderValue = (float)_zoomSlider.Value;
-                var currentZoom = _hexGridViewState.ZoomFactor;
-                if (Mathf.Abs(currentSliderValue - currentZoom) > 0.001f)
-                {
-                    // Sample slider changes
-                    _sliderDebugCounter++;
-                    if (_sliderDebugCounter % 60 == 0) // Show every 60 calls
-                    {
-                        GD.Print($"🔍 VIEW CHANGED: Setting slider from {currentSliderValue:F2}x to {currentZoom:F2}x (Sample {_sliderDebugCounter})");
-                    }
-                    _zoomSlider.Value = currentZoom;
-                }
-                else
-                {
-                    // Sample slider matches
-                    _sliderDebugCounter++;
-                    if (_sliderDebugCounter % 60 == 0) // Show every 60 calls
-                    {
-                        GD.Print($"🔍 VIEW CHANGED: Slider already matches zoom ({currentZoom:F2}x) (Sample {_sliderDebugCounter})");
-                    }
-                }
-                UpdateZoomLabel();
-            }
+            _mainViewController?.HandleViewChanged(_mapContainer, _mapRenderer, _gameManager?.GameMap);
         }
 
         private void CreateMapGenerationControls()
@@ -445,7 +402,7 @@ namespace Archistrateia
             GD.Print($"🔍 SLIDER CHANGED: {value:F2}x");
             _viewportController?.SetZoom((float)value);
             UpdateTitleLabel();
-            UpdateUIPositions(); // Update UI positions when zoom changes
+            _mainViewController?.UpdateUIPositions(); // Update UI positions when zoom changes
         }
         
         private void OnZoomSliderInput(InputEvent @event)
@@ -473,35 +430,6 @@ namespace Archistrateia
                 OnZoomSliderChanged(newValue);
             }
         }
-
-
-
-        private void UpdateZoomLabel()
-        {
-            if (_zoomLabel != null)
-            {
-                _zoomLabel.Text = $"Zoom: {_hexGridViewState.ZoomFactor:F1}x";
-            }
-        }
-        
-        private void UpdateUIPositions()
-        {
-            GD.Print($"🔍 UPDATE UI POSITIONS: Called with zoom {_hexGridViewState.ZoomFactor:F2}x, slider {_zoomSlider?.Value:F2}x");
-            var viewportSize = GetViewport().GetVisibleRect().Size;
-            
-            // Note: Next Phase button is now handled by modern UI (doesn't need positioning)
-            
-            // Update Debug Adjacent button position
-            if (_debugAdjacentButton != null)
-            {
-                _debugToolsController?.UpdateDebugButtonPosition(_debugAdjacentButton, viewportSize);
-            }
-            
-            // Note: Zoom controls are now handled by modern UI (don't need manual positioning)
-            
-            // Status panel is now handled by ModernUIManager
-        }
-
         private void PopulatePurchaseUnitSelector()
         {
             _purchaseUnitSelector?.Clear();
@@ -758,7 +686,7 @@ namespace Archistrateia
             }
             
             // Update zoom label to reflect the optimal zoom
-            UpdateZoomLabel();
+            _mainViewController?.UpdateZoomLabel();
 
             // Use the existing map as the game map (no regeneration needed)
             GD.Print("🎮 Starting game with current map - no regeneration needed");
@@ -781,7 +709,7 @@ namespace Archistrateia
             {
                 _zoomSlider.Value = currentZoom;
             }
-            UpdateZoomLabel();
+            _mainViewController?.UpdateZoomLabel();
             
             // Debug: Log zoom state before regeneration
             GD.Print($"🔍 GAME START DEBUG: Before RegenerateMapWithCurrentZoom - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
@@ -796,7 +724,7 @@ namespace Archistrateia
             GD.Print($"🔍 GAME START FINAL: Final zoom state - Zoom: {_hexGridViewState.ZoomFactor:F2}x, Slider: {_zoomSlider?.Value:F2}x");
             
             // Update UI positions after everything is initialized
-            UpdateUIPositions();
+            _mainViewController?.UpdateUIPositions();
 
             // Note: Next Phase button is now handled by the modern UI (no need to create here)
             
@@ -815,7 +743,7 @@ namespace Archistrateia
             {
                 _zoomSlider.Value = _hexGridViewState.ZoomFactor;
             }
-            UpdateZoomLabel();
+            _mainViewController?.UpdateZoomLabel();
         }
 
 
@@ -1079,7 +1007,7 @@ namespace Archistrateia
             _zoomSlider.Value = _hexGridViewState.ZoomFactor;
             RegenerateMapWithCurrentZoom();
             UpdateTitleLabel();
-            UpdateZoomLabel();
+            _mainViewController?.UpdateZoomLabel();
         }
 
         private void ApplyScrollDelta(Vector2 scrollDelta)

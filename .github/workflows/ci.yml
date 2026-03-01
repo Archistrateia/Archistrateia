@@ -20,6 +20,9 @@ jobs:
         
     - name: Restore dependencies
       run: dotnet restore
+
+    - name: Lint (Analyzers)
+      run: dotnet build --no-restore -warnaserror
       
     - name: Build
       run: dotnet build --no-restore

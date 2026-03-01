@@ -7,6 +7,7 @@
    - `ls /Applications/Godot_mono.app/Contents/MacOS/Godot`
 2. Build once:
    - `dotnet build`
+   - Optional strict lint gate: `dotnet build -warnaserror`
 3. Run tests with the project runner, not `dotnet test`:
    - Full suite: `./run_tests.sh all --show-failures-only`
    - Machine-readable: `./run_tests.sh all --ai-output`

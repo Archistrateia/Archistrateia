@@ -8,6 +8,17 @@ This document describes the comprehensive testing and diagnostic system implemen
 
 ### Running Tests
 
+#### Lint Check
+```bash
+# Analyzer-backed lint gate (warnings fail the build)
+dotnet build -warnaserror
+```
+
+CI runs lint explicitly before tests using:
+```bash
+dotnet build --no-restore -warnaserror
+```
+
 #### Quick Test Run (All Tests)
 ```bash
 ./run_tests.sh

@@ -78,6 +78,17 @@ The project includes a comprehensive three-phase testing suite:
 
 For detailed testing information, see [TESTING.md](TESTING.md).
 
+### Linting
+
+Linting is analyzer-backed and runs through `dotnet build`:
+
+```bash
+# Run lint + build checks locally
+dotnet build -warnaserror
+```
+
+CI runs an explicit lint step (`dotnet build --no-restore -warnaserror`) before build/test steps.
+
 ### Architecture Notes
 
 - `TurnManager` emits phase changes, and `Main` applies phase side-effects through `PhaseTransitionCoordinator`.
