@@ -82,6 +82,13 @@ dotnet tool install --global dotnet-coverage
 
 For detailed testing information, see [TESTING.md](TESTING.md).
 
+### SonarQube Settings
+
+SonarScanner for .NET settings are maintained in:
+- `.sonar/sonar-dotnet.properties`
+
+CI forwards each entry in this file as `/d:<key>=<value>` to `dotnet sonarscanner begin`.
+
 ### Linting
 
 Linting is analyzer-backed and runs through `dotnet build`:

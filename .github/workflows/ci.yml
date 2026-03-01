@@ -32,7 +32,7 @@ jobs:
 
   sonar:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: test
 
     steps:
@@ -51,6 +51,23 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Install Godot .NET
+      run: brew install --cask godot-mono
+
+    - name: Resolve Godot Binary
+      run: |
+        for path in \
+          "/Applications/Godot_mono.app/Contents/MacOS/Godot" \
+          "/Applications/Godot.app/Contents/MacOS/Godot"; do
+          if [ -x "$path" ]; then
+            echo "GODOT_BIN=$path" >> "$GITHUB_ENV"
+            echo "Using Godot binary: $path"
+            exit 0
+          fi
+        done
+        echo "Could not find Godot binary after installing godot-mono." >&2
+        exit 1
+
     - name: Install SonarScanner for .NET
       run: dotnet tool update --global dotnet-sonarscanner
 
@@ -59,16 +76,29 @@ jobs:
 
     - name: Generate Coverage (NUnit phase)
       run: |
-        if [ -x "/Applications/Godot_mono.app/Contents/MacOS/Godot" ] || command -v godot >/dev/null 2>&1; then
-          ./run_tests.sh nunit --show-failures-only --coverage --coverage-output TestResults/coverage/coverage.xml
-        else
-          echo "Godot executable not found on runner; skipping coverage generation."
+        ./run_tests.sh nunit --show-failures-only --coverage --coverage-output TestResults/coverage/coverage.xml
+        if [ ! -s "TestResults/coverage/coverage.xml" ]; then
+          echo "Coverage file missing or empty: TestResults/coverage/coverage.xml" >&2
+          exit 1
         fi
 
     - name: Sonar Analyze
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: |
-        dotnet sonarscanner begin /k:"Archistrateia_Archistrateia" /o:"archistrateia" /d:sonar.token="${SONAR_TOKEN}" /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/coverage/coverage.xml"
+        SONAR_EXTRA_ARGS=""
+        while IFS='=' read -r key value; do
+          if [ -z "$key" ]; then
+            continue
+          fi
+          case "$key" in
+            \#*)
+              continue
+              ;;
+          esac
+          SONAR_EXTRA_ARGS="$SONAR_EXTRA_ARGS /d:${key}=${value}"
+        done < .sonar/sonar-dotnet.properties
+
+        dotnet sonarscanner begin /k:"Archistrateia_Archistrateia" /o:"archistrateia" /d:sonar.token="${SONAR_TOKEN}" ${SONAR_EXTRA_ARGS}
         dotnet build
         dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
