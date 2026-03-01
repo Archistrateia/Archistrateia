@@ -63,6 +63,7 @@ namespace Archistrateia
         private MainViewController _mainViewController;
         private DebugToolsController _debugToolsController;
         private MainLifecycleController _mainLifecycleController;
+        private MainMapSetupController _mainMapSetupController;
         private PurchaseUIController _purchaseUIController;
         private GameStartController _gameStartController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
@@ -282,6 +283,30 @@ namespace Archistrateia
                         TitleLabel.Text = text;
                     }
                 });
+            _mainMapSetupController = new MainMapSetupController(
+                () => _gameStartController?.IsGameStarted ?? false,
+                () => _currentMapType,
+                mapType => _currentMapType = mapType,
+                () => _mapContainer,
+                mapContainer => _mapContainer = mapContainer,
+                (mapContainer, mapType) => _mapPreviewController.GeneratePreviewMap(mapContainer, mapType),
+                () => _hexGridViewState.ZoomFactor,
+                zoom =>
+                {
+                    if (_zoomSlider != null)
+                    {
+                        _zoomSlider.Value = zoom;
+                    }
+                },
+                () => _mainViewController?.UpdateZoomLabel(),
+                description =>
+                {
+                    if (_mapTypeDescriptionLabel != null)
+                    {
+                        _mapTypeDescriptionLabel.Text = description;
+                    }
+                },
+                GD.Print);
 
             _purchaseUIController = new PurchaseUIController(
                 _purchaseUnitSelector,
@@ -556,48 +581,18 @@ namespace Archistrateia
 
         private void GenerateMap()
         {
-            _mapContainer = _mapPreviewController.GeneratePreviewMap(_mapContainer, _currentMapType);
-
-            if (_zoomSlider != null)
-            {
-                _zoomSlider.Value = _hexGridViewState.ZoomFactor;
-            }
-            _mainViewController?.UpdateZoomLabel();
+            _mainMapSetupController?.GenerateMap();
         }
 
 
         private void OnMapTypeSelected(long index)
         {
-            if (_gameStartController?.IsGameStarted ?? false)
-            {
-                // Game has started - map type selection is disabled
-                return;
-            }
-            
-            var mapTypes = System.Enum.GetValues<MapType>();
-            if (index >= 0 && index < mapTypes.Length)
-            {
-                _currentMapType = mapTypes[index];
-                var config = MapTypeConfiguration.GetConfig(_currentMapType);
-                _mapTypeDescriptionLabel.Text = config.Description;
-                GD.Print($"🗺️ Selected map type: {config.Name}");
-                
-                // Regenerate map with new type
-                GenerateMap();
-            }
+            _mainMapSetupController?.OnMapTypeSelected(index);
         }
         
         private void OnRegenerateMapPressed()
         {
-            if (_gameStartController?.IsGameStarted ?? false)
-            {
-                // Game has started - regeneration is disabled
-                GD.Print("⚠️ Map regeneration disabled during gameplay");
-                return;
-            }
-            
-            GD.Print($"🔄 Regenerating map as {_currentMapType}");
-            GenerateMap();
+            _mainMapSetupController?.OnRegenerateMapPressed();
         }
 
 
