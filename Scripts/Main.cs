@@ -20,7 +20,7 @@ namespace Archistrateia
         private Button _nextPhaseButton;
         private Node2D _mapContainer;
         private MapRenderer _mapRenderer;
-        private Dictionary<TerrainType, Color> _terrainColors;
+        private IReadOnlyDictionary<TerrainType, Color> _terrainColors;
         private int _currentPlayerIndex = 0;
         
         // Modern UI Manager
@@ -66,6 +66,9 @@ namespace Archistrateia
         private MainRuntimeBootstrapController _mainRuntimeBootstrapController;
         private MainUIHitTestController _mainUIHitTestController;
         private MainZoomController _mainZoomController;
+        private MainUIBootstrapController _mainUIBootstrapController;
+        private MainServiceCompositionController _mainServiceCompositionController;
+        private MainHoverInfoController _mainHoverInfoController;
         private PurchaseUIController _purchaseUIController;
         private GameStartController _gameStartController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
@@ -108,7 +111,9 @@ namespace Archistrateia
                 TitleLabel = GetNodeOrNull<Label>("UI/TitleLabel");
             }
 
-            InitializeTerrainColors();
+            _terrainColors = TerrainColorPalette.Default;
+            _mainUIBootstrapController = new MainUIBootstrapController();
+            _mainServiceCompositionController = new MainServiceCompositionController();
             
             // Initialize UI immediately - it's safe to do so in _Ready
             // The viewport is guaranteed to be ready when _Ready is called
@@ -119,74 +124,36 @@ namespace Archistrateia
         {
             GD.Print("🚀 Starting modern UI initialization...");
             
-            // Create the modern UI manager
-            _uiManager = new ModernUIManager();
-            _uiManager.Name = "ModernUIManager";
-            AddChild(_uiManager);
-            
-            // Create debug scroll overlay
-            _debugScrollOverlay = new Archistrateia.Debug.DebugScrollOverlay();
-            _debugScrollOverlay.Name = "DebugScrollOverlay";
-            AddChild(_debugScrollOverlay);
-            
-            // Get references to UI elements from the modern UI
-            _nextPhaseButton = _uiManager.GetNextPhaseButton();
-            _mapTypeSelector = _uiManager.GetMapTypeSelector();
-            _regenerateMapButton = _uiManager.GetRegenerateMapButton();
-            StartButton = _uiManager.GetStartGameButton();
-            _zoomSlider = _uiManager.GetZoomSlider();
-            _zoomLabel = _uiManager.GetZoomLabel();
-            _purchaseUnitSelector = _uiManager.GetPurchaseUnitSelector();
-            _purchaseUnitDetailsLabel = _uiManager.GetPurchaseUnitDetailsLabel();
-            _purchaseGoldLabel = _uiManager.GetPurchaseGoldLabel();
-            _purchaseStatusLabel = _uiManager.GetPurchaseStatusLabel();
-            _purchaseBuyButton = _uiManager.GetPurchaseBuyButton();
-            _purchaseCancelButton = _uiManager.GetPurchaseCancelButton();
+            var uiBootstrapResult = _mainUIBootstrapController.CreateAndAttachUI(this);
+            _uiManager = uiBootstrapResult.UIManager;
+            _debugScrollOverlay = uiBootstrapResult.DebugScrollOverlay;
+            _nextPhaseButton = uiBootstrapResult.NextPhaseButton;
+            _mapTypeSelector = uiBootstrapResult.MapTypeSelector;
+            _regenerateMapButton = uiBootstrapResult.RegenerateMapButton;
+            StartButton = uiBootstrapResult.StartButton;
+            _zoomSlider = uiBootstrapResult.ZoomSlider;
+            _zoomLabel = uiBootstrapResult.ZoomLabel;
+            _purchaseUnitSelector = uiBootstrapResult.PurchaseUnitSelector;
+            _purchaseUnitDetailsLabel = uiBootstrapResult.PurchaseUnitDetailsLabel;
+            _purchaseGoldLabel = uiBootstrapResult.PurchaseGoldLabel;
+            _purchaseStatusLabel = uiBootstrapResult.PurchaseStatusLabel;
+            _purchaseBuyButton = uiBootstrapResult.PurchaseBuyButton;
+            _purchaseCancelButton = uiBootstrapResult.PurchaseCancelButton;
             
             // Initialize centralized services
             InitializeCentralizedServices();
             
-            // Connect signals for the new UI
-            if (_nextPhaseButton != null)
-            {
-                _nextPhaseButton.Pressed += OnNextPhaseButtonPressed;
-            }
-            
-            if (_mapTypeSelector != null)
-            {
-                _mapTypeSelector.ItemSelected += OnMapTypeSelected;
-            }
-            
-            if (_regenerateMapButton != null)
-            {
-                _regenerateMapButton.Pressed += OnRegenerateMapPressed;
-            }
-            
-            if (_zoomSlider != null)
-            {
-                _zoomSlider.ValueChanged += OnZoomSliderChanged;
-            }
-            
-            if (StartButton != null)
-            {
-                StartButton.Pressed += OnStartButtonPressed;
-            }
-
-            if (_purchaseUnitSelector != null)
-            {
-                PopulatePurchaseUnitSelector();
-                _purchaseUnitSelector.ItemSelected += OnPurchaseUnitSelected;
-            }
-
-            if (_purchaseBuyButton != null)
-            {
-                _purchaseBuyButton.Pressed += OnPurchaseBuyPressed;
-            }
-
-            if (_purchaseCancelButton != null)
-            {
-                _purchaseCancelButton.Pressed += OnPurchaseCancelPressed;
-            }
+            _mainUIBootstrapController.ConnectUISignals(
+                uiBootstrapResult,
+                OnNextPhaseButtonPressed,
+                OnMapTypeSelected,
+                OnRegenerateMapPressed,
+                OnZoomSliderChanged,
+                OnStartButtonPressed,
+                PopulatePurchaseUnitSelector,
+                OnPurchaseUnitSelected,
+                OnPurchaseBuyPressed,
+                OnPurchaseCancelPressed);
             
             // Generate initial map before game starts
             GenerateMap();
@@ -195,71 +162,58 @@ namespace Archistrateia
             GD.Print("✨ Modern UI initialization complete");
         }
 
-        private void InitializeTerrainColors()
-        {
-            _terrainColors = new Dictionary<TerrainType, Color>
-            {
-                { TerrainType.Desert, new Color(0.9f, 0.8f, 0.6f) },
-                { TerrainType.Hill, new Color(0.6f, 0.5f, 0.3f) },
-                { TerrainType.River, new Color(0.3f, 0.6f, 0.9f) },
-                { TerrainType.Shoreline, new Color(0.8f, 0.7f, 0.5f) },
-                { TerrainType.Lagoon, new Color(0.2f, 0.5f, 0.7f) },
-                { TerrainType.Grassland, new Color(0.4f, 0.8f, 0.3f) },
-                { TerrainType.Mountain, new Color(0.5f, 0.4f, 0.4f) },
-                { TerrainType.Water, new Color(0.1f, 0.4f, 0.8f) }
-            };
-        }
-
         private void InitializeCentralizedServices()
         {
             GD.Print("🔧 Initializing centralized services...");
-            // Initialize position manager with game area size
-            var gameAreaSize = GetGameAreaSize();
-            _positionManager = new VisualPositionManager(gameAreaSize, MAP_WIDTH, MAP_HEIGHT, _hexGridViewState);
-            
-            // Initialize viewport controller with callback to update positions when view changes
-            _viewportController = new ViewportController(MAP_WIDTH, MAP_HEIGHT, OnViewChanged, _hexGridViewState);
-            
-            // Initialize tile-unit coordinator
-            _tileUnitCoordinator = new TileUnitCoordinator();
-            _gameRuntimeController = new GameRuntimeController(this, _tileUnitCoordinator, _positionManager);
-            _mapPreviewController = new MapPreviewController(this, _uiManager, _positionManager, _viewportController, _terrainColors, _hexGridViewState);
-            _debugToolsController = new DebugToolsController(
-                () => _mapContainer?.GetChildren().OfType<IDebugHexTile>() ?? Enumerable.Empty<IDebugHexTile>());
-            _mainViewController = new MainViewController(
-                _positionManager,
-                _tileUnitCoordinator,
-                _hexGridViewState,
-                _zoomSlider,
-                _zoomLabel,
-                GetGameAreaSize,
-                () => GetViewport().GetVisibleRect().Size,
-                viewportSize => _debugToolsController?.UpdateDebugButtonPosition(_debugAdjacentButton, viewportSize));
-            _mainUIHitTestController = new MainUIHitTestController(
-                () => _zoomSlider,
-                () => _nextPhaseButton,
-                () => _debugAdjacentButton,
-                () => _purchaseUnitSelector,
-                () => _purchaseBuyButton,
-                () => _purchaseCancelButton,
-                () => _uiManager?.GetGameArea());
-            _mainInputController = new MainInputController(
-                _viewportController,
-                _debugScrollOverlay,
-                () => GetViewport().GetMousePosition(),
-                GetGameAreaSize,
-                GetGameGridRect,
-                IsMouseOverUIControls,
-                IsMouseOverGameArea,
-                mousePosition => _debugToolsController?.DebugMousePosition(mousePosition, _nextPhaseButton, _zoomSlider),
-                () => _debugToolsController?.IsDebugAdjacentModeEnabled() ?? false,
-                mousePosition => _debugToolsController?.HandleDebugAdjacentHover(mousePosition),
-                () => GetViewport().SetInputAsHandled());
-            _mainZoomController = new MainZoomController(
-                () => _zoomSlider,
-                zoom => _viewportController?.SetZoom(zoom),
-                UpdateTitleLabel,
-                () => _mainViewController?.UpdateUIPositions(),
+            var composed = _mainServiceCompositionController.Compose(new MainServiceCompositionController.ComposeRequest
+            {
+                Host = this,
+                UIManager = _uiManager,
+                DebugScrollOverlay = _debugScrollOverlay,
+                TerrainColors = _terrainColors,
+                ViewState = _hexGridViewState,
+                MapWidth = MAP_WIDTH,
+                MapHeight = MAP_HEIGHT,
+                ZoomSlider = _zoomSlider,
+                ZoomLabel = _zoomLabel,
+                GetGameAreaSize = GetGameAreaSize,
+                GetViewportSize = () => GetViewport().GetVisibleRect().Size,
+                GetGameGridRect = GetGameGridRect,
+                IsMouseOverUIControls = IsMouseOverUIControls,
+                IsMouseOverGameArea = IsMouseOverGameArea,
+                GetMousePosition = () => GetViewport().GetMousePosition(),
+                GetDebugTiles = () => _mapContainer?.GetChildren().OfType<IDebugHexTile>() ?? Enumerable.Empty<IDebugHexTile>(),
+                IsDebugAdjacentModeEnabled = () => _debugToolsController?.IsDebugAdjacentModeEnabled() ?? false,
+                HandleDebugAdjacentHover = mousePosition => _debugToolsController?.HandleDebugAdjacentHover(mousePosition),
+                DebugMousePosition = mousePosition => _debugToolsController?.DebugMousePosition(mousePosition, _nextPhaseButton, _zoomSlider),
+                MarkInputHandled = () => GetViewport().SetInputAsHandled(),
+                OnViewChanged = OnViewChanged,
+                GetMapContainer = () => _mapContainer,
+                GetMapRenderer = () => _mapRenderer,
+                GetGameMap = () => _gameManager?.GameMap,
+                GetNextPhaseButton = () => _nextPhaseButton,
+                GetDebugAdjacentButton = () => _debugAdjacentButton,
+                GetPurchaseUnitSelector = () => _purchaseUnitSelector,
+                GetPurchaseBuyButton = () => _purchaseBuyButton,
+                GetPurchaseCancelButton = () => _purchaseCancelButton,
+                GetGameArea = () => _uiManager?.GetGameArea(),
+                SetViewportZoom = zoom => _viewportController?.SetZoom(zoom),
+                UpdateTitleLabel = UpdateTitleLabel,
+                UpdateUIPositions = () => _mainViewController?.UpdateUIPositions()
+            });
+            _positionManager = composed.PositionManager;
+            _viewportController = composed.ViewportController;
+            _tileUnitCoordinator = composed.TileUnitCoordinator;
+            _gameRuntimeController = composed.GameRuntimeController;
+            _mapPreviewController = composed.MapPreviewController;
+            _debugToolsController = composed.DebugToolsController;
+            _mainViewController = composed.MainViewController;
+            _mainUIHitTestController = composed.MainUIHitTestController;
+            _mainInputController = composed.MainInputController;
+            _mainZoomController = composed.MainZoomController;
+            _mainHoverInfoController = new MainHoverInfoController(
+                () => _mapRenderer,
+                () => GetViewport().SetInputAsHandled(),
                 GD.Print);
             _mainLifecycleController = new MainLifecycleController(
                 () => TurnManager,
@@ -397,6 +351,7 @@ namespace Archistrateia
                     _debugToolsController?.DebugUIElements(_nextPhaseButton, _zoomSlider);
                 });
             
+            var gameAreaSize = GetGameAreaSize();
             GD.Print($"✅ Centralized services initialized | GameArea: {gameAreaSize.X}x{gameAreaSize.Y} | Map: {MAP_WIDTH}x{MAP_HEIGHT}");
         }
 
@@ -505,16 +460,6 @@ namespace Archistrateia
             _mainRuntimeBootstrapController?.ConnectTurnManager();
         }
 
-        private void InitializeMapRenderer()
-        {
-            _mainRuntimeBootstrapController?.InitializeMapRenderer();
-        }
-
-        private void InitializePhaseTransitionCoordinator()
-        {
-            _mainRuntimeBootstrapController?.InitializePhaseTransitionCoordinator();
-        }
-
         private void OnNextPhaseButtonPressed()
         {
             GD.Print("🔘 Next Phase button pressed");
@@ -584,16 +529,7 @@ namespace Archistrateia
 
         private bool HandleHoverInfoModeInput(InputEventKey keyEvent)
         {
-            if (keyEvent.Keycode == Key.I)
-            {
-                _mapRenderer?.ToggleHoverInfoMode();
-                bool enabled = _mapRenderer?.IsHoverInfoModeEnabled() ?? false;
-                GD.Print($"Hover info mode: {(enabled ? "ON" : "OFF")}");
-                GetViewport().SetInputAsHandled();
-                return true;
-            }
-
-            return false;
+            return _mainHoverInfoController?.HandleHoverInfoModeInput(keyEvent) ?? false;
         }
 
         private bool HandleViewportInput(InputEventKey keyEvent)

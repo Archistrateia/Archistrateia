@@ -39,11 +39,20 @@ namespace Archistrateia.Tests
                 mainType.GetField("_mainRuntimeBootstrapController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose runtime bootstrap sequencing through MainRuntimeBootstrapController.");
             Assert.IsNotNull(
+                mainType.GetField("_mainUIBootstrapController", BindingFlags.NonPublic | BindingFlags.Instance),
+                "Main should compose UI bootstrap through MainUIBootstrapController.");
+            Assert.IsNotNull(
+                mainType.GetField("_mainServiceCompositionController", BindingFlags.NonPublic | BindingFlags.Instance),
+                "Main should compose centralized controller wiring through MainServiceCompositionController.");
+            Assert.IsNotNull(
                 mainType.GetField("_mainUIHitTestController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose UI hit-testing policy through MainUIHitTestController.");
             Assert.IsNotNull(
                 mainType.GetField("_mainZoomController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose zoom-input behavior through MainZoomController.");
+            Assert.IsNotNull(
+                mainType.GetField("_mainHoverInfoController", BindingFlags.NonPublic | BindingFlags.Instance),
+                "Main should compose inspect-mode hover toggle behavior through MainHoverInfoController.");
             Assert.IsNotNull(
                 mainType.GetField("_purchaseUIController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose purchase UI and placement flow through PurchaseUIController.");
