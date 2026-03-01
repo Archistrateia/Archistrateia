@@ -9,13 +9,11 @@ namespace Archistrateia.Tests
     public class StaticMethodConversionTest
     {
         [Test]
-        public void CreateStartButton_Should_Be_Static_Utility_Method()
+        public void CreateStartButton_Should_Not_Exist_In_Main_After_UI_Refactor()
         {
             var method = typeof(Main).GetMethod("CreateStartButton", BindingFlags.NonPublic | BindingFlags.Static);
 
-            Assert.IsNotNull(method, "CreateStartButton should exist as a static method.");
-            Assert.AreEqual(typeof(void), method.ReturnType);
-            Assert.AreEqual(0, method.GetParameters().Length);
+            Assert.IsNull(method, "Legacy CreateStartButton helper should be removed from Main.");
         }
 
         [Test]

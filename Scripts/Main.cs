@@ -193,28 +193,6 @@ namespace Archistrateia
             GD.Print("✨ Modern UI initialization complete");
         }
 
-        private static void CreateStartButton()
-        {
-            // Don't create the start button here - it will be added to the map controls panel
-            GD.Print("✨ Start button will be created in map controls");
-        }
-
-        private void CreateTitleLabel()
-        {
-            var viewportSize = GetViewport().GetVisibleRect().Size;
-            GD.Print($"🖥️ Viewport size for title: {viewportSize}");
-            
-            TitleLabel = new Label();
-            TitleLabel.Text = "Archistrateia";
-            TitleLabel.Position = new Vector2(viewportSize.X / 2 - 150, 20);
-            TitleLabel.Size = new Vector2(300, 60);
-            TitleLabel.AddThemeFontSizeOverride("font_size", 48);
-            TitleLabel.HorizontalAlignment = HorizontalAlignment.Center;
-            TitleLabel.ZIndex = 1000;
-            AddChild(TitleLabel);
-            GD.Print($"✨ Created title label at position: {TitleLabel.Position}");
-        }
-
         private void InitializeTerrainColors()
         {
             _terrainColors = new Dictionary<TerrainType, Color>
@@ -372,128 +350,6 @@ namespace Archistrateia
         private void OnViewChanged()
         {
             _mainViewController?.HandleViewChanged(_mapContainer, _mapRenderer, _gameManager?.GameMap);
-        }
-
-        private void CreateMapGenerationControls()
-        {
-            var viewportSize = GetViewport().GetVisibleRect().Size;
-            GD.Print($"🖥️ Viewport size for controls: {viewportSize}");
-            
-            // Create a background panel for map generation controls
-            var mapControlPanel = new Panel();
-            mapControlPanel.Position = new Vector2(viewportSize.X - 180, 80);
-            mapControlPanel.Size = new Vector2(170, 180); // Increased height for start button
-            mapControlPanel.ZIndex = 1000;
-            mapControlPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
-            AddChild(mapControlPanel);
-            GD.Print($"📋 Created map control panel at position: {mapControlPanel.Position}");
-
-            var mapContainer = new VBoxContainer();
-            mapContainer.Position = new Vector2(5, 5);
-            mapContainer.Size = new Vector2(160, 170); // Increased height
-            mapContainer.AddThemeConstantOverride("separation", 3);
-            mapControlPanel.AddChild(mapContainer);
-
-            // Map type label
-            var mapTypeLabel = new Label();
-            mapTypeLabel.Text = "Map Type:";
-            mapTypeLabel.AddThemeFontSizeOverride("font_size", 12);
-            mapContainer.AddChild(mapTypeLabel);
-
-            // Map type selector
-            _mapTypeSelector = new OptionButton();
-            _mapTypeSelector.CustomMinimumSize = new Vector2(150, 25);
-            
-            foreach (MapType mapType in System.Enum.GetValues<MapType>())
-            {
-                var config = MapTypeConfiguration.GetConfig(mapType);
-                _mapTypeSelector.AddItem(config.Name);
-            }
-            
-            _mapTypeSelector.Selected = 0; // Continental
-            _mapTypeSelector.Connect("item_selected", new Callable(this, MethodName.OnMapTypeSelected));
-            mapContainer.AddChild(_mapTypeSelector);
-
-            // Map description
-            _mapTypeDescriptionLabel = new Label();
-            _mapTypeDescriptionLabel.Text = MapTypeConfiguration.GetConfig(_currentMapType).Description;
-            _mapTypeDescriptionLabel.AddThemeFontSizeOverride("font_size", 9);
-            _mapTypeDescriptionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            _mapTypeDescriptionLabel.CustomMinimumSize = new Vector2(150, 50);
-            _mapTypeDescriptionLabel.VerticalAlignment = VerticalAlignment.Top;
-            mapContainer.AddChild(_mapTypeDescriptionLabel);
-
-            // Regenerate button
-            _regenerateMapButton = new Button();
-            _regenerateMapButton.Text = "Regenerate";
-            _regenerateMapButton.CustomMinimumSize = new Vector2(150, 25);
-            _regenerateMapButton.Connect("pressed", new Callable(this, MethodName.OnRegenerateMapPressed));
-            mapContainer.AddChild(_regenerateMapButton);
-
-            // Start Game button (only visible before game starts)
-            if (StartButton == null)
-            {
-                StartButton = new Button();
-                StartButton.Text = "Start Game";
-                StartButton.CustomMinimumSize = new Vector2(150, 35);
-                StartButton.AddThemeFontSizeOverride("font_size", 16);
-                StartButton.Connect("pressed", new Callable(this, MethodName.OnStartButtonPressed));
-                mapContainer.AddChild(StartButton);
-                GD.Print("✨ Created and added new Start Game button to controls panel");
-            }
-            else
-            {
-                // Start button exists from scene - just add it to the controls panel
-                if (StartButton.GetParent() != null)
-                {
-                    StartButton.GetParent().RemoveChild(StartButton);
-                }
-                StartButton.Text = "Start Game";
-                StartButton.CustomMinimumSize = new Vector2(150, 35);
-                StartButton.AddThemeFontSizeOverride("font_size", 16);
-                mapContainer.AddChild(StartButton);
-                GD.Print("✨ Moved existing Start Game button to controls panel");
-            }
-        }
-
-        private void CreateZoomControls()
-        {
-            // Create a background panel for zoom controls
-            var backgroundPanel = new Panel();
-            backgroundPanel.Position = new Vector2(GetViewport().GetVisibleRect().Size.X - 150, 10);
-            backgroundPanel.Size = new Vector2(130, 60);
-            backgroundPanel.ZIndex = 1000; // Ensure zoom controls are always on top
-            backgroundPanel.MouseFilter = Control.MouseFilterEnum.Ignore; // Don't block mouse events
-            AddChild(backgroundPanel);
-
-            // Create a container for zoom controls
-            var zoomContainer = new VBoxContainer();
-            zoomContainer.Position = new Vector2(5, 5); // Small margin from panel edges
-            zoomContainer.Size = new Vector2(120, 50);
-            zoomContainer.CustomMinimumSize = new Vector2(120, 50); // Ensure minimum size
-            backgroundPanel.AddChild(zoomContainer);
-
-            // Zoom label
-            _zoomLabel = new Label();
-            _zoomLabel.Text = "Zoom: 1.0x";
-            _zoomLabel.HorizontalAlignment = HorizontalAlignment.Center;
-            _zoomLabel.AddThemeFontSizeOverride("font_size", 16);
-            _zoomLabel.CustomMinimumSize = new Vector2(120, 20); // Set minimum size
-            zoomContainer.AddChild(_zoomLabel);
-
-            // Zoom slider
-            _zoomSlider = new HSlider();
-            _zoomSlider.MinValue = 0.1f;
-            _zoomSlider.MaxValue = 3.0f;
-            _zoomSlider.Value = 1.0f;
-            _zoomSlider.Step = 0.1f;
-            _zoomSlider.CustomMinimumSize = new Vector2(120, 20); // Set minimum size
-            _zoomSlider.MouseFilter = Control.MouseFilterEnum.Stop; // Ensure slider receives mouse events
-            _zoomSlider.ValueChanged += OnZoomSliderChanged;
-            _zoomSlider.GuiInput += OnZoomSliderInput; // Add input event handler
-            _zoomSlider.AllowGreater = false; // Ensure value stays within bounds
-            _zoomSlider.AllowLesser = false; // Ensure value stays within bounds
-            zoomContainer.AddChild(_zoomSlider);
         }
 
         private void OnZoomSliderChanged(double value)
@@ -760,20 +616,6 @@ namespace Archistrateia
             return HandleViewportInput(keyEvent);
         }
 
-        private void UpdateZoomUI()
-        {
-            _zoomSlider.Value = _hexGridViewState.ZoomFactor;
-            RegenerateMapWithCurrentZoom();
-            UpdateTitleLabel();
-            _mainViewController?.UpdateZoomLabel();
-        }
-
-        private void ApplyScrollDelta(Vector2 scrollDelta)
-        {
-            _viewportController?.ApplyScrollDelta(scrollDelta, GetViewport().GetVisibleRect().Size);
-        }
-        
-        
         public bool IsMouseOverGameArea(Vector2 mousePosition)
         {
             // Instead of checking if mouse is over game area (which ignores mouse events),
