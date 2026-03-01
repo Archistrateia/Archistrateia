@@ -1,5 +1,4 @@
 using Godot;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Archistrateia;
@@ -64,6 +63,9 @@ namespace Archistrateia
         private DebugToolsController _debugToolsController;
         private MainLifecycleController _mainLifecycleController;
         private MainMapSetupController _mainMapSetupController;
+        private MainRuntimeBootstrapController _mainRuntimeBootstrapController;
+        private MainUIHitTestController _mainUIHitTestController;
+        private MainZoomController _mainZoomController;
         private PurchaseUIController _purchaseUIController;
         private GameStartController _gameStartController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
@@ -233,6 +235,14 @@ namespace Archistrateia
                 GetGameAreaSize,
                 () => GetViewport().GetVisibleRect().Size,
                 viewportSize => _debugToolsController?.UpdateDebugButtonPosition(_debugAdjacentButton, viewportSize));
+            _mainUIHitTestController = new MainUIHitTestController(
+                () => _zoomSlider,
+                () => _nextPhaseButton,
+                () => _debugAdjacentButton,
+                () => _purchaseUnitSelector,
+                () => _purchaseBuyButton,
+                () => _purchaseCancelButton,
+                () => _uiManager?.GetGameArea());
             _mainInputController = new MainInputController(
                 _viewportController,
                 _debugScrollOverlay,
@@ -245,6 +255,12 @@ namespace Archistrateia
                 () => _debugToolsController?.IsDebugAdjacentModeEnabled() ?? false,
                 mousePosition => _debugToolsController?.HandleDebugAdjacentHover(mousePosition),
                 () => GetViewport().SetInputAsHandled());
+            _mainZoomController = new MainZoomController(
+                () => _zoomSlider,
+                zoom => _viewportController?.SetZoom(zoom),
+                UpdateTitleLabel,
+                () => _mainViewController?.UpdateUIPositions(),
+                GD.Print);
             _mainLifecycleController = new MainLifecycleController(
                 () => TurnManager,
                 () => _gameManager,
@@ -261,6 +277,43 @@ namespace Archistrateia
                         TitleLabel.Text = text;
                     }
                 });
+            _mainRuntimeBootstrapController = new MainRuntimeBootstrapController(
+                () => _mapContainer,
+                mapContainer => _mapPreviewController.ConvertVisualMapToGameMap(mapContainer),
+                logicalGameMap => _gameRuntimeController.InitializeGameManager(logicalGameMap),
+                gameManager => _gameManager = gameManager,
+                () => CallDeferred(MethodName.ConnectTurnManager),
+                () => _gameManager,
+                turnManager => TurnManager = turnManager,
+                OnTurnManagerPhaseChanged,
+                (gameManager, turnManager, mapContainer, currentPlayerIndex, viewState, onPurchaseTileClicked, updateTitleLabel, refreshPurchaseUI) =>
+                    _gameRuntimeController.InitializeMapRenderer(
+                        gameManager,
+                        turnManager,
+                        mapContainer,
+                        currentPlayerIndex,
+                        viewState,
+                        onPurchaseTileClicked,
+                        updateTitleLabel,
+                        refreshPurchaseUI),
+                () => TurnManager,
+                () => _currentPlayerIndex,
+                () => _hexGridViewState,
+                OnPurchaseTileClicked,
+                UpdateTitleLabel,
+                RefreshPurchaseUI,
+                mapRenderer => _mapRenderer = mapRenderer,
+                () => new PhaseTransitionCoordinator(
+                    _gameManager,
+                    _purchaseCoordinator,
+                    phase => _mapRenderer?.OnPhaseChanged(phase),
+                    SetPurchaseUIVisible,
+                    UpdateSelectedPurchaseUnitDetails,
+                    SetPurchaseStatus,
+                    RefreshPurchaseUI,
+                    SwitchToNextPlayer,
+                    () => _mapRenderer?.DeselectAll()),
+                coordinator => _phaseTransitionCoordinator = coordinator);
             _mainMapSetupController = new MainMapSetupController(
                 () => _gameStartController?.IsGameStarted ?? false,
                 () => _currentMapType,
@@ -354,36 +407,12 @@ namespace Archistrateia
 
         private void OnZoomSliderChanged(double value)
         {
-            GD.Print($"🔍 SLIDER CHANGED: {value:F2}x");
-            _viewportController?.SetZoom((float)value);
-            UpdateTitleLabel();
-            _mainViewController?.UpdateUIPositions(); // Update UI positions when zoom changes
+            _mainZoomController?.OnZoomSliderChanged(value);
         }
         
         private void OnZoomSliderInput(InputEvent @event)
         {
-            GD.Print($"Zoom slider received input event: {@event.GetType().Name}");
-            
-            // Handle mouse button events manually if the slider isn't responding
-            if (@event is InputEventMouseButton mouseEvent && mouseEvent.Pressed)
-            {
-                GD.Print($"Zoom slider mouse button pressed: {mouseEvent.ButtonIndex}");
-                
-                // Use Godot's built-in slider value calculation
-                var localPos = _zoomSlider.GetLocalMousePosition();
-                var sliderWidth = _zoomSlider.Size.X;
-                var normalizedPos = localPos.X / sliderWidth;
-                
-                // Calculate new value using Godot's built-in math functions
-                var newValue = _zoomSlider.MinValue + (normalizedPos * (_zoomSlider.MaxValue - _zoomSlider.MinValue));
-                newValue = Mathf.Clamp(newValue, _zoomSlider.MinValue, _zoomSlider.MaxValue);
-                
-                GD.Print($"Calculated new zoom value: {newValue} from mouse position {localPos}");
-                
-                // Update the slider value and trigger change event
-                _zoomSlider.Value = newValue;
-                OnZoomSliderChanged(newValue);
-            }
+            _mainZoomController?.OnZoomSliderInput(@event, OnZoomSliderChanged);
         }
         private void PopulatePurchaseUnitSelector()
         {
@@ -468,49 +497,22 @@ namespace Archistrateia
 
         private void InitializeGameManager()
         {
-            var logicalGameMap = _mapPreviewController.ConvertVisualMapToGameMap(_mapContainer);
-            _gameManager = _gameRuntimeController.InitializeGameManager(logicalGameMap);
-            
-            // Use CallDeferred to connect TurnManager after GameManager's _Ready is called
-            CallDeferred(MethodName.ConnectTurnManager);
+            _mainRuntimeBootstrapController?.InitializeGameManager();
         }
 
         private void ConnectTurnManager()
         {
-            // Use the GameManager's TurnManager instead of the exported one
-            TurnManager = _gameManager.TurnManager;
-            TurnManager.PhaseChanged += OnTurnManagerPhaseChanged;
-            
-            // Now initialize MapRenderer with proper TurnManager
-            InitializeMapRenderer();
-            InitializePhaseTransitionCoordinator();
+            _mainRuntimeBootstrapController?.ConnectTurnManager();
         }
 
         private void InitializeMapRenderer()
         {
-            _mapRenderer = _gameRuntimeController.InitializeMapRenderer(
-                _gameManager,
-                TurnManager,
-                _mapContainer,
-                _currentPlayerIndex,
-                _hexGridViewState,
-                OnPurchaseTileClicked,
-                UpdateTitleLabel,
-                RefreshPurchaseUI);
+            _mainRuntimeBootstrapController?.InitializeMapRenderer();
         }
 
         private void InitializePhaseTransitionCoordinator()
         {
-            _phaseTransitionCoordinator = new PhaseTransitionCoordinator(
-                _gameManager,
-                _purchaseCoordinator,
-                phase => _mapRenderer?.OnPhaseChanged(phase),
-                SetPurchaseUIVisible,
-                UpdateSelectedPurchaseUnitDetails,
-                SetPurchaseStatus,
-                RefreshPurchaseUI,
-                SwitchToNextPlayer,
-                () => _mapRenderer?.DeselectAll());
+            _mainRuntimeBootstrapController?.InitializePhaseTransitionCoordinator();
         }
 
         private void OnNextPhaseButtonPressed()
@@ -618,92 +620,17 @@ namespace Archistrateia
 
         public bool IsMouseOverGameArea(Vector2 mousePosition)
         {
-            // Instead of checking if mouse is over game area (which ignores mouse events),
-            // check if mouse is NOT over UI controls - this allows panning everywhere except over UI
-            return !IsMouseOverUIControls(mousePosition);
+            return _mainUIHitTestController?.IsMouseOverGameArea(mousePosition) ?? true;
         }
 
         public bool IsMouseOverUIControls(Vector2 mousePosition)
         {
-            
-            // Check if mouse is over zoom controls (top-right panel)
-            if (_zoomSlider != null)
-            {
-                var zoomPanel = _zoomSlider.GetParent().GetParent() as Panel;
-                if (zoomPanel != null)
-                {
-                    var panelRect = new Rect2(zoomPanel.GlobalPosition, zoomPanel.Size);
-                    if (panelRect.HasPoint(mousePosition))
-                    {
-                        return true;
-                    }
-                }
-            }
-            
-            // Check if mouse is over Next Phase button
-            if (_nextPhaseButton != null)
-            {
-                var buttonRect = new Rect2(_nextPhaseButton.GlobalPosition, _nextPhaseButton.Size);
-                if (buttonRect.HasPoint(mousePosition))
-                {
-                    return true;
-                }
-            }
-            
-            // Check if mouse is over Debug Adjacent button
-            if (_debugAdjacentButton != null)
-            {
-                var buttonRect = new Rect2(_debugAdjacentButton.GlobalPosition, _debugAdjacentButton.Size);
-                if (buttonRect.HasPoint(mousePosition))
-                {
-                    return true;
-                }
-            }
-
-            if (_purchaseUnitSelector != null)
-            {
-                var selectorRect = new Rect2(_purchaseUnitSelector.GlobalPosition, _purchaseUnitSelector.Size);
-                if (selectorRect.HasPoint(mousePosition))
-                {
-                    return true;
-                }
-            }
-
-            if (_purchaseBuyButton != null)
-            {
-                var buyRect = new Rect2(_purchaseBuyButton.GlobalPosition, _purchaseBuyButton.Size);
-                if (buyRect.HasPoint(mousePosition))
-                {
-                    return true;
-                }
-            }
-
-            if (_purchaseCancelButton != null)
-            {
-                var cancelRect = new Rect2(_purchaseCancelButton.GlobalPosition, _purchaseCancelButton.Size);
-                if (cancelRect.HasPoint(mousePosition))
-                {
-                    return true;
-                }
-            }
-            
-            // Game status panel is now handled by ModernUIManager
-            
-            return false;
+            return _mainUIHitTestController?.IsMouseOverUIControls(mousePosition) ?? false;
         }
 
         public bool IsMouseWithinGameArea(Vector2 mousePosition)
         {
-            if (_uiManager?.GetGameArea() == null)
-            {
-                return true; // If no game area, allow all clicks (fallback)
-            }
-            
-            var gameArea = _uiManager.GetGameArea();
-            var gameAreaRect = new Rect2(gameArea.GlobalPosition, gameArea.Size);
-            bool withinBounds = gameAreaRect.HasPoint(mousePosition);
-            
-            return withinBounds;
+            return _mainUIHitTestController?.IsMouseWithinGameArea(mousePosition) ?? true;
         }
         
     }
