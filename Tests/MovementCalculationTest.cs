@@ -2,6 +2,7 @@ using NUnit.Framework;
 using Godot;
 using Archistrateia;
 using System.Collections.Generic;
+using System.Linq;
 
 [TestFixture] 
 public class MovementCalculationTest
@@ -109,7 +110,7 @@ public class MovementCalculationTest
             // Otherwise, it should be within the remaining MP
             if (destination == adjacent2)
             {
-                Assert.IsTrue(true, $"Current position {destination} should always be reachable");
+                Assert.AreEqual(adjacent2, destination, $"Current position {destination} should always be reachable");
             }
             else
             {
@@ -262,6 +263,10 @@ public class MovementCalculationTest
             // This should only be possible if there's a valid path through intermediate tiles
             // within the movement budget
         }
+
+        Assert.Contains(archerPos, validDestinations, "Start position should always remain a valid destination.");
+        Assert.IsTrue(validDestinations.All(dest => gameMap.ContainsKey(dest)),
+            "All reported valid destinations must exist in the game map.");
     }
 
     [Test]
@@ -318,6 +323,8 @@ public class MovementCalculationTest
         
         // This demonstrates that Dijkstra's can find optimal multi-step paths
         // The question is: should the UI show intermediate tiles as valid destinations too?
+        Assert.IsTrue(intermediateReachable, "Expected intermediate tile should be reachable in the multi-step scenario.");
+        Assert.IsTrue(canReachDistant, "Expected distant destination should be reachable via cheaper multi-step route.");
     }
 
     [Test]

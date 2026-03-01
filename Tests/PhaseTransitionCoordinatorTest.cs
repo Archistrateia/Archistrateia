@@ -105,7 +105,7 @@ public class PhaseTransitionCoordinatorTest
 
         coordinator.ApplyTransition(GamePhase.Earn, GamePhase.Purchase);
 
-        Assert.AreEqual(true, purchaseUiVisible, "Purchase phase should show purchase controls.");
+        Assert.That(purchaseUiVisible, Is.True, "Purchase phase should show purchase controls.");
         Assert.AreEqual(1, detailRefreshCalls, "Purchase phase should refresh selected unit details.");
         Assert.AreEqual("Choose a unit to buy.", statusMessage);
         Assert.AreEqual(1, purchaseRefreshCalls, "Transition should refresh purchase UI exactly once.");

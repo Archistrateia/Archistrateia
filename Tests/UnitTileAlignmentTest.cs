@@ -190,6 +190,7 @@ public class UnitTileAlignmentTest
         {
             var tileWorldPos = HexGridCalculator.CalculateHexPositionCentered(
                 gridPos.X, gridPos.Y, gameAreaSize, MAP_WIDTH, MAP_HEIGHT);
+            float samePositionDistance = float.MaxValue;
             
             // Test potential off-by-one scenarios
             var unitOffsetScenarios = new[]
@@ -214,6 +215,10 @@ public class UnitTileAlignmentTest
                 var distance = tileWorldPos.DistanceTo(unitWorldPos);
                 
                 GD.Print($"   {scenario.Name,-10}: Unit Grid({unitGridPos.X},{unitGridPos.Y}) -> World({unitWorldPos.X:F1},{unitWorldPos.Y:F1}) | Distance: {distance:F1}");
+                if (scenario.Name == "Same Position")
+                {
+                    samePositionDistance = distance;
+                }
                 
                 // Flag potential coordinate system mismatches
                 if (scenario.Name != "Same Position" && distance < 70) // Less than one hex width
@@ -221,6 +226,9 @@ public class UnitTileAlignmentTest
                     GD.Print($"   ⚠️  POTENTIAL OFFSET: {scenario.Name} shows close alignment (distance: {distance:F1})");
                 }
             }
+
+            Assert.Less(samePositionDistance, 0.01f,
+                $"Tile and unit world positions should match exactly for Grid({gridPos.X},{gridPos.Y}).");
         }
     }
 
@@ -298,7 +306,14 @@ public class UnitTileAlignmentTest
                 
                 // The key insight: if clicks are being interpreted as different grid positions
                 // than where the visual tiles are, this would cause the offset issue
+                Assert.AreEqual(offset.Length(), clickPos.DistanceTo(worldPos), 0.001f,
+                    $"Click offset distance should be preserved for Grid({originalGrid.X},{originalGrid.Y}).");
             }
+
+            Assert.IsTrue(worldPos.X >= 0 && worldPos.X <= gameAreaSize.X,
+                $"Base world X should be inside game area for Grid({originalGrid.X},{originalGrid.Y}).");
+            Assert.IsTrue(worldPos.Y >= 0 && worldPos.Y <= gameAreaSize.Y,
+                $"Base world Y should be inside game area for Grid({originalGrid.X},{originalGrid.Y}).");
             GD.Print("");
         }
     }

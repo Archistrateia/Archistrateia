@@ -365,5 +365,8 @@ public class PathfindingTest
         {
             GD.Print("\n❓ Hex adjacency appears correct - the bug might be elsewhere");
         }
+
+        Assert.IsFalse(hasFalseConnections,
+            "Problematic island positions should not be connected via false adjacency.");
     }
-} 
+}

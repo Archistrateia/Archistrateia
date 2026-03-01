@@ -622,6 +622,9 @@ namespace Archistrateia.Tests
             {
                 GD.Print("\n✅ All second ring neighbors correctly identified as non-adjacent");
             }
+
+            Assert.IsFalse(anyFalseAdjacencies,
+                "Second-ring neighbors should never be treated as adjacent in hex adjacency logic.");
         }
         
         [Test]
@@ -630,6 +633,7 @@ namespace Archistrateia.Tests
             // Systematic comparison of current vs proper hex adjacency
             
             GD.Print("=== SYSTEMATIC HEX ADJACENCY COMPARISON ===");
+            int differingPositions = 0;
             
             // Test a grid of positions to see differences
             for (int x = 0; x <= 3; x++)
@@ -646,6 +650,7 @@ namespace Archistrateia.Tests
                     
                     if (onlyInCurrent.Count > 0 || onlyInProper.Count > 0)
                     {
+                        differingPositions++;
                         GD.Print($"\n{pos} (column {(x % 2 == 0 ? "even" : "odd")}):");
                         GD.Print($"  Current: {string.Join(", ", currentAdjacents)}");
                         GD.Print($"  Proper:  {string.Join(", ", properAdjacents)}");
@@ -664,6 +669,8 @@ namespace Archistrateia.Tests
             }
             
             GD.Print("\n✅ Hex adjacency comparison completed");
+            Assert.AreEqual(0, differingPositions,
+                "Current and proper adjacency calculations should match for sampled positions.");
         }
     }
 } 
