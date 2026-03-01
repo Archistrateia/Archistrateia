@@ -62,6 +62,7 @@ namespace Archistrateia
         private MainInputController _mainInputController;
         private MainViewController _mainViewController;
         private DebugToolsController _debugToolsController;
+        private MainLifecycleController _mainLifecycleController;
         private PurchaseUIController _purchaseUIController;
         private GameStartController _gameStartController;
         private Archistrateia.Debug.DebugScrollOverlay _debugScrollOverlay;
@@ -265,6 +266,22 @@ namespace Archistrateia
                 () => _debugToolsController?.IsDebugAdjacentModeEnabled() ?? false,
                 mousePosition => _debugToolsController?.HandleDebugAdjacentHover(mousePosition),
                 () => GetViewport().SetInputAsHandled());
+            _mainLifecycleController = new MainLifecycleController(
+                () => TurnManager,
+                () => _gameManager,
+                () => _currentPlayerIndex,
+                index => _currentPlayerIndex = index,
+                player => _mapRenderer?.SetCurrentPlayer(player),
+                (oldPhase, newPhase) => _phaseTransitionCoordinator?.ApplyTransition(oldPhase, newPhase),
+                RefreshPurchaseUI,
+                (playerName, phaseName, turn) => _uiManager?.UpdatePlayerInfo(playerName, phaseName, turn),
+                text =>
+                {
+                    if (TitleLabel != null)
+                    {
+                        TitleLabel.Text = text;
+                    }
+                });
 
             _purchaseUIController = new PurchaseUIController(
                 _purchaseUnitSelector,
@@ -653,25 +670,7 @@ namespace Archistrateia
 
         private void AdvancePhaseWithSideEffects()
         {
-            if (TurnManager == null)
-            {
-                GD.PrintErr("❌ TurnManager is null! Cannot advance phase.");
-                return;
-            }
-
-            GD.Print($"📋 Current phase before advance: {TurnManager.CurrentPhase}");
-
-            try
-            {
-                TurnManager.AdvancePhase();
-                GD.Print($"📋 New phase after advance: {TurnManager.CurrentPhase}");
-                GD.Print("✅ Phase advance completed successfully");
-            }
-            catch (Exception ex)
-            {
-                GD.PrintErr($"❌ Error advancing phase: {ex.Message}");
-                GD.PrintErr($"Stack trace: {ex.StackTrace}");
-            }
+            _mainLifecycleController?.AdvancePhaseWithSideEffects();
         }
 
         private void OnTurnManagerPhaseChanged(int oldPhaseValue, int newPhaseValue)
@@ -681,55 +680,17 @@ namespace Archistrateia
                 return;
             }
 
-            var oldPhase = (GamePhase)oldPhaseValue;
-            var newPhase = (GamePhase)newPhaseValue;
-            GD.Print($"🔄 Main.OnTurnManagerPhaseChanged: {oldPhase} → {newPhase}");
-
-            _phaseTransitionCoordinator.ApplyTransition(oldPhase, newPhase);
-            UpdateTitleLabel();
+            _mainLifecycleController?.HandleTurnManagerPhaseChanged(oldPhaseValue, newPhaseValue);
         }
 
         private void SwitchToNextPlayer()
         {
-            if (_gameManager?.Players.Count > 0)
-            {
-                _currentPlayerIndex = (_currentPlayerIndex + 1) % _gameManager.Players.Count;
-                var currentPlayer = _gameManager.Players[_currentPlayerIndex];
-                
-                GD.Print($"Switched to player: {currentPlayer.Name}");
-                
-                // Update MapRenderer with new current player
-                if (_mapRenderer != null)
-                {
-                    _mapRenderer.SetCurrentPlayer(currentPlayer);
-                }
-
-                RefreshPurchaseUI();
-            }
+            _mainLifecycleController?.SwitchToNextPlayer();
         }
 
         private void UpdateTitleLabel()
         {
-            if (TurnManager == null) return;
-            
-            var currentPlayerName = "Unknown";
-            if (_gameManager?.Players.Count > 0 && _currentPlayerIndex < _gameManager.Players.Count)
-            {
-                currentPlayerName = _gameManager.Players[_currentPlayerIndex].Name;
-            }
-            
-            // Update modern UI if available
-            if (_uiManager != null)
-            {
-                _uiManager.UpdatePlayerInfo(currentPlayerName, TurnManager.CurrentPhase.ToString(), TurnManager.CurrentTurn);
-            }
-            
-            // On title screen, update the title label
-            if (TitleLabel != null)
-            {
-                var newText = $"Turn {TurnManager.CurrentTurn} - {TurnManager.CurrentPhase}";
-                TitleLabel.Text = newText;
-            }
+            _mainLifecycleController?.UpdateTitleLabel();
         }
 
         public override void _Input(InputEvent @event)

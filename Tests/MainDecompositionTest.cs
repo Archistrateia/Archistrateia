@@ -30,6 +30,9 @@ namespace Archistrateia.Tests
                 mainType.GetField("_debugToolsController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose debug tooling through DebugToolsController.");
             Assert.IsNotNull(
+                mainType.GetField("_mainLifecycleController", BindingFlags.NonPublic | BindingFlags.Instance),
+                "Main should compose phase/player/title lifecycle workflows through MainLifecycleController.");
+            Assert.IsNotNull(
                 mainType.GetField("_purchaseUIController", BindingFlags.NonPublic | BindingFlags.Instance),
                 "Main should compose purchase UI and placement flow through PurchaseUIController.");
             Assert.IsNotNull(
