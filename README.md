@@ -74,6 +74,10 @@ The project includes a comprehensive three-phase testing suite:
 
 # Show detailed output only for failing tests (perfect for debugging)
 ./run_tests.sh --show-failures-only
+
+# Generate Sonar-compatible coverage XML from the NUnit phase
+dotnet tool install --global dotnet-coverage
+./run_tests.sh nunit --coverage --coverage-output TestResults/coverage/coverage.xml
 ```
 
 For detailed testing information, see [TESTING.md](TESTING.md).

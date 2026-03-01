@@ -54,10 +54,21 @@ jobs:
     - name: Install SonarScanner for .NET
       run: dotnet tool update --global dotnet-sonarscanner
 
+    - name: Install dotnet-coverage
+      run: dotnet tool update --global dotnet-coverage
+
+    - name: Generate Coverage (NUnit phase)
+      run: |
+        if [ -x "/Applications/Godot_mono.app/Contents/MacOS/Godot" ] || command -v godot >/dev/null 2>&1; then
+          ./run_tests.sh nunit --show-failures-only --coverage --coverage-output TestResults/coverage/coverage.xml
+        else
+          echo "Godot executable not found on runner; skipping coverage generation."
+        fi
+
     - name: Sonar Analyze
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: |
-        dotnet sonarscanner begin /k:"Archistrateia_Archistrateia" /o:"archistrateia" /d:sonar.token="${SONAR_TOKEN}"
+        dotnet sonarscanner begin /k:"Archistrateia_Archistrateia" /o:"archistrateia" /d:sonar.token="${SONAR_TOKEN}" /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/coverage/coverage.xml"
         dotnet build
         dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"

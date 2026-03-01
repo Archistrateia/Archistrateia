@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archistrateia Test Suite
-# Usage: ./run_tests.sh [phase] [--ai-output] [--show-failures-only]
+# Usage: ./run_tests.sh [phase] [--ai-output] [--show-failures-only] [--coverage] [--coverage-output path]
 # 
 # Phases:
 #   all (default) - Run all test phases
@@ -16,7 +16,20 @@
 PHASE="all"
 AI_OUTPUT=false
 SHOW_FAILURES_ONLY=false
+COVERAGE=false
+COVERAGE_OUTPUT="TestResults/coverage/coverage.xml"
 OVERALL_EXIT=0
+
+DEFAULT_GODOT_BIN="/Applications/Godot_mono.app/Contents/MacOS/Godot"
+if [ -n "${GODOT_BIN:-}" ]; then
+    GODOT_BIN="$GODOT_BIN"
+elif [ -x "$DEFAULT_GODOT_BIN" ]; then
+    GODOT_BIN="$DEFAULT_GODOT_BIN"
+elif command -v godot >/dev/null 2>&1; then
+    GODOT_BIN="$(command -v godot)"
+else
+    GODOT_BIN="$DEFAULT_GODOT_BIN"
+fi
 
 NUNIT_PASSED=0
 NUNIT_FAILED=0
@@ -31,8 +44,9 @@ UI_FAILED=0
 UI_TOTAL=0
 
 usage() {
-    echo "Usage: ./run_tests.sh [phase] [--ai-output] [--show-failures-only]"
+    echo "Usage: ./run_tests.sh [phase] [--ai-output] [--show-failures-only] [--coverage] [--coverage-output path]"
     echo "Phases: all (default), nunit, scenes, ui"
+    echo "Coverage: --coverage (NUnit phase only), --coverage-output <path>"
 }
 
 extract_metric() {
@@ -46,24 +60,51 @@ is_integer() {
 }
 
 # Parse arguments
-for arg in "$@"; do
-    case $arg in
+while [ $# -gt 0 ]; do
+    case "$1" in
         --ai-output)
             AI_OUTPUT=true
             ;;
         --show-failures-only)
             SHOW_FAILURES_ONLY=true
             ;;
+        --coverage)
+            COVERAGE=true
+            ;;
+        --coverage-output)
+            if [ $# -lt 2 ]; then
+                echo "Missing value for --coverage-output" >&2
+                usage
+                exit 2
+            fi
+            COVERAGE_OUTPUT="$2"
+            shift
+            ;;
         nunit|scenes|ui|all)
-            PHASE=$arg
+            PHASE="$1"
             ;;
         *)
-            echo "Unknown argument: $arg" >&2
+            echo "Unknown argument: $1" >&2
             usage
             exit 2
             ;;
     esac
+    shift
 done
+
+ensure_godot_available() {
+    if [ ! -x "$GODOT_BIN" ]; then
+        if [ "$AI_OUTPUT" = true ]; then
+            echo "ERROR: Godot executable not found. Set GODOT_BIN or install Godot Mono."
+        else
+            echo "Godot executable not found at: $GODOT_BIN"
+            echo "Set GODOT_BIN to your Godot binary path."
+        fi
+        OVERALL_EXIT=1
+        return 1
+    fi
+    return 0
+}
 
 if [ "$AI_OUTPUT" = true ]; then
     echo "TEST_SUITE_START"
@@ -107,8 +148,41 @@ run_nunit_tests() {
         echo "Testing game logic, calculations, and class functionality..."
     fi
     
+    if ! ensure_godot_available; then
+        NUNIT_PASSED=0
+        NUNIT_FAILED=1
+        NUNIT_TOTAL=0
+        return
+    fi
+
     # Capture output and parse results
-    OUTPUT=$(/Applications/Godot_mono.app/Contents/MacOS/Godot --headless --quit-after 20 --main-scene res://Scenes/NUnitTestScene.tscn 2>&1)
+    if [ "$COVERAGE" = true ]; then
+        local coverage_dir
+        coverage_dir="$(dirname "$COVERAGE_OUTPUT")"
+        mkdir -p "$coverage_dir"
+
+        if ! command -v dotnet-coverage >/dev/null 2>&1; then
+            NUNIT_PASSED=0
+            NUNIT_FAILED=1
+            NUNIT_TOTAL=0
+            OVERALL_EXIT=1
+            if [ "$AI_OUTPUT" = true ]; then
+                echo "PHASE_1_RESULTS: PASSED=0 FAILED=1 TOTAL=0"
+                echo "PHASE_1_STATUS: ERROR"
+                echo "ERROR: dotnet-coverage is required for --coverage"
+                echo "PHASE_1_END"
+            else
+                echo "❌ Coverage requested but dotnet-coverage was not found."
+                echo "Install it with: dotnet tool install --global dotnet-coverage"
+                echo ""
+            fi
+            return
+        fi
+
+        OUTPUT=$(dotnet-coverage collect "$GODOT_BIN --headless --quit-after 20 --main-scene res://Scenes/NUnitTestScene.tscn" -f xml -o "$COVERAGE_OUTPUT" 2>&1)
+    else
+        OUTPUT=$("$GODOT_BIN" --headless --quit-after 20 --main-scene res://Scenes/NUnitTestScene.tscn 2>&1)
+    fi
     command_exit=$?
     NUNIT_PASSED=$(extract_metric "$OUTPUT" "Passed:")
     NUNIT_FAILED=$(extract_metric "$OUTPUT" "Failed:")
@@ -133,6 +207,9 @@ run_nunit_tests() {
     
     if [ "$AI_OUTPUT" = true ]; then
         echo "PHASE_1_RESULTS: PASSED=$NUNIT_PASSED FAILED=$NUNIT_FAILED TOTAL=$NUNIT_TOTAL"
+        if [ "$COVERAGE" = true ] && [ -f "$COVERAGE_OUTPUT" ]; then
+            echo "PHASE_1_COVERAGE_REPORT: $COVERAGE_OUTPUT"
+        fi
         if [ "$NUNIT_FAILED" -eq 0 ]; then
             echo "PHASE_1_STATUS: SUCCESS"
         else
@@ -150,9 +227,15 @@ run_nunit_tests() {
         echo ""
     elif [ "$SHOW_FAILURES_ONLY" = true ]; then
         echo "✅ All NUnit tests passed - no failures to show"
+        if [ "$COVERAGE" = true ] && [ -f "$COVERAGE_OUTPUT" ]; then
+            echo "Coverage report: $COVERAGE_OUTPUT"
+        fi
         echo ""
     else
         echo "$OUTPUT" | tail -10
+        if [ "$COVERAGE" = true ] && [ -f "$COVERAGE_OUTPUT" ]; then
+            echo "Coverage report: $COVERAGE_OUTPUT"
+        fi
         echo ""
     fi
 }
@@ -168,7 +251,14 @@ run_scene_tests() {
     fi
     
     # Capture output and parse results
-    OUTPUT=$(/Applications/Godot_mono.app/Contents/MacOS/Godot --headless --quit-after 25 --main-scene res://Scenes/GodotSceneTestScene.tscn 2>&1)
+    if ! ensure_godot_available; then
+        SCENE_PASSED=0
+        SCENE_FAILED=1
+        SCENE_TOTAL=0
+        return
+    fi
+
+    OUTPUT=$("$GODOT_BIN" --headless --quit-after 25 --main-scene res://Scenes/GodotSceneTestScene.tscn 2>&1)
     command_exit=$?
 
     SCENE_PASSED=$(extract_metric "$OUTPUT" "Passed:")
@@ -240,7 +330,14 @@ run_ui_tests() {
     fi
     
     # Capture output and parse results
-    OUTPUT=$(/Applications/Godot_mono.app/Contents/MacOS/Godot --headless --quit-after 20 --main-scene res://Scenes/UITestScene.tscn 2>&1)
+    if ! ensure_godot_available; then
+        UI_PASSED=0
+        UI_FAILED=1
+        UI_TOTAL=0
+        return
+    fi
+
+    OUTPUT=$("$GODOT_BIN" --headless --quit-after 20 --main-scene res://Scenes/UITestScene.tscn 2>&1)
     command_exit=$?
     UI_PASSED=$(extract_metric "$OUTPUT" "Passed:")
     UI_FAILED=$(extract_metric "$OUTPUT" "Failed:")
@@ -347,6 +444,7 @@ case $PHASE in
                         echo "  ./run_tests.sh nunit   - Run only NUnit tests"
                         echo "  ./run_tests.sh scenes  - Run only Godot scene tests"
                         echo "  ./run_tests.sh ui      - Run only UI integration tests"
+                        echo "  ./run_tests.sh nunit --coverage --coverage-output TestResults/coverage/coverage.xml"
                         echo "  ./run_tests.sh all --ai-output  - AI-optimized output format"
                         echo "  ./run_tests.sh --show-failures-only  - Show detailed output only for failing tests"
         fi
