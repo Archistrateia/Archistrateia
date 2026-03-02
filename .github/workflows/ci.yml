@@ -82,6 +82,24 @@ jobs:
           exit 1
         fi
 
+    - name: Inspect Coverage Report Mapping
+      run: |
+        echo "Coverage file size (bytes): $(wc -c < TestResults/coverage/coverage.xml)"
+        grep -oE 'path="[^"]+"' TestResults/coverage/coverage.xml | sed -E 's/^path="(.*)"$/\1/' > TestResults/coverage/paths.txt || true
+        echo "Path entries: $(wc -l < TestResults/coverage/paths.txt)"
+        echo "Script path entries: $(grep -cE '(^|/)Scripts/.*\.cs$' TestResults/coverage/paths.txt || true)"
+        echo "Test path entries: $(grep -cE '(^|/)Tests/.*\.cs$' TestResults/coverage/paths.txt || true)"
+        echo "First 30 paths:"
+        sed -n '1,30p' TestResults/coverage/paths.txt || true
+
+    - name: Upload Coverage Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sonar-coverage-xml
+        path: |
+          TestResults/coverage/coverage.xml
+          TestResults/coverage/paths.txt
+
     - name: Sonar Analyze
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
