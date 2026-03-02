@@ -71,21 +71,21 @@ jobs:
     - name: Install SonarScanner for .NET
       run: dotnet tool update --global dotnet-sonarscanner
 
-    - name: Install dotnet-coverage
-      run: dotnet tool update --global dotnet-coverage
+    - name: Install coverlet
+      run: dotnet tool update --global coverlet.console
 
     - name: Generate Coverage (NUnit phase)
       run: |
-        ./run_tests.sh nunit --show-failures-only --coverage --coverage-output TestResults/coverage/coverage.xml
-        if [ ! -s "TestResults/coverage/coverage.xml" ]; then
-          echo "Coverage file missing or empty: TestResults/coverage/coverage.xml" >&2
+        ./run_tests.sh nunit --show-failures-only --coverage --coverage-output TestResults/coverage/coverage.opencover.xml
+        if [ ! -s "TestResults/coverage/coverage.opencover.xml" ]; then
+          echo "Coverage file missing or empty: TestResults/coverage/coverage.opencover.xml" >&2
           exit 1
         fi
 
     - name: Inspect Coverage Report Mapping
       run: |
-        echo "Coverage file size (bytes): $(wc -c < TestResults/coverage/coverage.xml)"
-        grep -oE 'path="[^"]+"' TestResults/coverage/coverage.xml | sed -E 's/^path="(.*)"$/\1/' > TestResults/coverage/paths.txt || true
+        echo "Coverage file size (bytes): $(wc -c < TestResults/coverage/coverage.opencover.xml)"
+        grep -oE 'fullPath="[^"]+"' TestResults/coverage/coverage.opencover.xml | sed -E 's/^fullPath="(.*)"$/\1/' > TestResults/coverage/paths.txt || true
         echo "Path entries: $(wc -l < TestResults/coverage/paths.txt)"
         echo "Script path entries: $(grep -cE '(^|/)Scripts/.*\.cs$' TestResults/coverage/paths.txt || true)"
         echo "Test path entries: $(grep -cE '(^|/)Tests/.*\.cs$' TestResults/coverage/paths.txt || true)"
@@ -97,7 +97,7 @@ jobs:
       with:
         name: sonar-coverage-xml
         path: |
-          TestResults/coverage/coverage.xml
+          TestResults/coverage/coverage.opencover.xml
           TestResults/coverage/paths.txt
 
     - name: Sonar Analyze

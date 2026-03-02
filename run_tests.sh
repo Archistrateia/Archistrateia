@@ -17,7 +17,7 @@ PHASE="all"
 AI_OUTPUT=false
 SHOW_FAILURES_ONLY=false
 COVERAGE=false
-COVERAGE_OUTPUT="TestResults/coverage/coverage.xml"
+COVERAGE_OUTPUT="TestResults/coverage/coverage.opencover.xml"
 OVERALL_EXIT=0
 
 DEFAULT_GODOT_BIN="/Applications/Godot_mono.app/Contents/MacOS/Godot"
@@ -46,7 +46,7 @@ UI_TOTAL=0
 usage() {
     echo "Usage: ./run_tests.sh [phase] [--ai-output] [--show-failures-only] [--coverage] [--coverage-output path]"
     echo "Phases: all (default), nunit, scenes, ui"
-    echo "Coverage: --coverage (NUnit phase only), --coverage-output <path>"
+    echo "Coverage: --coverage (NUnit phase only, OpenCover), --coverage-output <path>"
 }
 
 extract_metric() {
@@ -161,7 +161,7 @@ run_nunit_tests() {
         coverage_dir="$(dirname "$COVERAGE_OUTPUT")"
         mkdir -p "$coverage_dir"
 
-        if ! command -v dotnet-coverage >/dev/null 2>&1; then
+        if ! command -v coverlet >/dev/null 2>&1; then
             NUNIT_PASSED=0
             NUNIT_FAILED=1
             NUNIT_TOTAL=0
@@ -169,17 +169,42 @@ run_nunit_tests() {
             if [ "$AI_OUTPUT" = true ]; then
                 echo "PHASE_1_RESULTS: PASSED=0 FAILED=1 TOTAL=0"
                 echo "PHASE_1_STATUS: ERROR"
-                echo "ERROR: dotnet-coverage is required for --coverage"
+                echo "ERROR: coverlet is required for --coverage"
                 echo "PHASE_1_END"
             else
-                echo "❌ Coverage requested but dotnet-coverage was not found."
-                echo "Install it with: dotnet tool install --global dotnet-coverage"
+                echo "❌ Coverage requested but coverlet was not found."
+                echo "Install it with: dotnet tool install --global coverlet.console"
                 echo ""
             fi
             return
         fi
 
-        OUTPUT=$(dotnet-coverage collect "$GODOT_BIN --headless --quit-after 20 --main-scene res://Scenes/NUnitTestScene.tscn" -f xml -o "$COVERAGE_OUTPUT" 2>&1)
+        local assembly_path=".godot/mono/temp/bin/Debug/Archistrateia.dll"
+        if [ ! -f "$assembly_path" ]; then
+            NUNIT_PASSED=0
+            NUNIT_FAILED=1
+            NUNIT_TOTAL=0
+            OVERALL_EXIT=1
+            if [ "$AI_OUTPUT" = true ]; then
+                echo "PHASE_1_RESULTS: PASSED=0 FAILED=1 TOTAL=0"
+                echo "PHASE_1_STATUS: ERROR"
+                echo "ERROR: Expected assembly not found at $assembly_path"
+                echo "PHASE_1_END"
+            else
+                echo "❌ Coverage requested but target assembly was not found at:"
+                echo "   $assembly_path"
+                echo ""
+            fi
+            return
+        fi
+
+        OUTPUT=$(coverlet "$assembly_path" \
+            --target "$GODOT_BIN" \
+            --targetargs "--headless --quit-after 20 --main-scene res://Scenes/NUnitTestScene.tscn" \
+            --format opencover \
+            --output "$COVERAGE_OUTPUT" \
+            --include "[Archistrateia]*" \
+            --exclude "[Archistrateia.Tests]*" 2>&1)
     else
         OUTPUT=$("$GODOT_BIN" --headless --quit-after 20 --main-scene res://Scenes/NUnitTestScene.tscn 2>&1)
     fi
@@ -444,7 +469,7 @@ case $PHASE in
                         echo "  ./run_tests.sh nunit   - Run only NUnit tests"
                         echo "  ./run_tests.sh scenes  - Run only Godot scene tests"
                         echo "  ./run_tests.sh ui      - Run only UI integration tests"
-                        echo "  ./run_tests.sh nunit --coverage --coverage-output TestResults/coverage/coverage.xml"
+                        echo "  ./run_tests.sh nunit --coverage --coverage-output TestResults/coverage/coverage.opencover.xml"
                         echo "  ./run_tests.sh all --ai-output  - AI-optimized output format"
                         echo "  ./run_tests.sh --show-failures-only  - Show detailed output only for failing tests"
         fi
